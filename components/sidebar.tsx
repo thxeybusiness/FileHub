@@ -13,7 +13,7 @@ import {
   ChevronRight,
 } from "lucide-react";
 import { cn, formatBytes } from "@/lib/utils";
-import { logoutAction } from "@/app/actions/auth";
+import { useRouter } from "next/navigation";
 
 type Me = { name: string | null; email: string; storageUsed: number; storageLimit: number };
 
@@ -26,7 +26,14 @@ const NAV = [
 
 export function Sidebar({ initial }: { initial: Me }) {
   const pathname = usePathname();
+  const router = useRouter();
   const [me, setMe] = useState<Me>(initial);
+
+  async function logout() {
+    await fetch("/api/auth/logout", { method: "POST" }).catch(() => {});
+    router.push("/login");
+    router.refresh();
+  }
 
   useEffect(() => {
     const refresh = () => {
@@ -109,15 +116,13 @@ export function Sidebar({ initial }: { initial: Me }) {
             <p className="text-sm font-medium truncate">{me.name || "Utilisateur"}</p>
             <p className="text-xs text-muted truncate">{me.email}</p>
           </div>
-          <form action={logoutAction}>
-            <button
-              type="submit"
-              title="Se déconnecter"
-              className="size-8 grid place-items-center rounded-lg text-muted hover:bg-canvas hover:text-red-600 transition"
-            >
-              <LogOut className="size-4" />
-            </button>
-          </form>
+          <button
+            onClick={logout}
+            title="Se déconnecter"
+            className="size-8 grid place-items-center rounded-lg text-muted hover:bg-canvas hover:text-red-600 transition"
+          >
+            <LogOut className="size-4" />
+          </button>
         </div>
       </div>
     </aside>
