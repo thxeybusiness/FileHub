@@ -3,6 +3,7 @@ import { z } from "zod";
 import { getUserId } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { getSpaceRole } from "@/lib/spaces";
+import { notify, notifyMany, displayName } from "@/lib/notifications";
 
 export const runtime = "nodejs";
 
@@ -47,9 +48,49 @@ export async function POST(
     return NextResponse.json({ error: "Cette personne est déjà membre." }, { status: 409 });
   }
 
+  // Membres existants (avant ajout) + infos pour les notifications.
+  const [space, actor, currentMembers] = await Promise.all([
+    prisma.space.findUnique({ where: { id }, select: { name: true } }),
+    prisma.user.findUnique({ where: { id: userId }, select: { name: true, username: true, email: true } }),
+    prisma.spaceMember.findMany({ where: { spaceId: id }, select: { userId: true } }),
+  ]);
+
   await prisma.spaceMember.create({
     data: { spaceId: id, userId: invited.id, role: "editor" },
   });
+
+  // ── Notifications ──
+  const spaceName = space?.name ?? "l'espace";
+  const actorName = actor ? displayName(actor) : "Quelqu'un";
+  const invitedName = displayName(invited);
+
+  // À l'invité : il a rejoint l'espace.
+  await notify(invited.id, {
+    type: "space_joined",
+    title: `Vous avez rejoint « ${spaceName} »`,
+    body: `Invité par ${actorName}`,
+    spaceId: id,
+    actorName,
+  });
+  // À l'invitant : confirmation « bien enregistré ».
+  await notify(userId, {
+    type: "member_joined",
+    title: `${invitedName} a rejoint « ${spaceName} »`,
+    body: "Invitation enregistrée",
+    spaceId: id,
+    actorName: invitedName,
+  });
+  // Aux autres membres existants.
+  await notifyMany(
+    currentMembers.map((e) => e.userId).filter((uid) => uid !== userId && uid !== invited.id),
+    {
+      type: "member_joined",
+      title: `${invitedName} a rejoint « ${spaceName} »`,
+      body: `Invité par ${actorName}`,
+      spaceId: id,
+      actorName: invitedName,
+    },
+  );
 
   return NextResponse.json({
     member: {

@@ -16,8 +16,9 @@ import {
 } from "lucide-react";
 import { cn, formatBytes } from "@/lib/utils";
 import { useRouter } from "next/navigation";
-import { api, type SpaceSummary } from "@/lib/api";
+import { api, notifyRefresh, type SpaceSummary } from "@/lib/api";
 import { NameDialog } from "./name-dialog";
+import { NotificationCenter } from "./notification-center";
 
 type Me = { name: string | null; email: string; storageUsed: number; storageLimit: number };
 
@@ -65,6 +66,7 @@ export function Sidebar({ initial }: { initial: Me }) {
     const { space } = await api.createSpace(name);
     setCreatingSpace(false);
     loadSpaces();
+    notifyRefresh();
     router.push(`/drive/space/${space.id}`);
   }
 
@@ -196,6 +198,7 @@ export function Sidebar({ initial }: { initial: Me }) {
             <p className="text-sm font-medium truncate">{me.name || "Utilisateur"}</p>
             <p className="text-xs text-muted truncate">{me.email}</p>
           </div>
+          <NotificationCenter />
           <button
             onClick={logout}
             title="Se déconnecter"

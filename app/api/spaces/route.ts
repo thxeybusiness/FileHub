@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { getUserId } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { notify } from "@/lib/notifications";
 
 export const runtime = "nodejs";
 
@@ -55,6 +56,13 @@ export async function POST(req: NextRequest) {
       members: { create: { userId, role: "owner" } },
     },
     select: { id: true, name: true },
+  });
+
+  await notify(userId, {
+    type: "space_created",
+    title: `Espace « ${space.name} » créé`,
+    body: "Invitez des membres depuis le bouton Membres.",
+    spaceId: space.id,
   });
 
   return NextResponse.json({ space: { id: space.id, name: space.name, role: "owner", isOwner: true, memberCount: 1 } });

@@ -32,6 +32,16 @@ export type SpaceMemberInfo = {
   isMe: boolean;
 };
 
+export type Notif = {
+  id: string;
+  type: string;
+  title: string;
+  body: string | null;
+  spaceId: string | null;
+  read: boolean;
+  createdAt: string;
+};
+
 export const api = {
   list(params: { view?: string; parent?: string | null; q?: string; space?: string | null }) {
     const sp = new URLSearchParams();
@@ -107,6 +117,14 @@ export const api = {
   },
   removeMember(id: string, memberUserId: string) {
     return req<{ ok: boolean }>(`/api/spaces/${id}/members`, jsonInit("DELETE", { userId: memberUserId }));
+  },
+
+  // ── Notifications ──
+  getNotifications() {
+    return req<{ unread: number; notifications: Notif[] }>("/api/notifications");
+  },
+  markNotificationsRead() {
+    return req<{ ok: boolean }>("/api/notifications", { method: "POST" });
   },
 
   saveChart(id: string, patch: { content?: unknown; name?: string }) {

@@ -20,6 +20,12 @@ export function MembersDialog({
   const [notice, setNotice] = useState<string | null>(null);
 
   useEffect(() => {
+    const onKey = (e: KeyboardEvent) => e.key === "Escape" && onClose();
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [onClose]);
+
+  useEffect(() => {
     api
       .getSpace(spaceId)
       .then((s) => {
