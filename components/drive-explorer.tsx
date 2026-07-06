@@ -27,6 +27,7 @@ import {
   BarChart3,
   ChevronDown,
   Users,
+  Brush,
 } from "lucide-react";
 import type { SerializedNode } from "@/lib/nodes";
 import { api, notifyRefresh } from "@/lib/api";
@@ -174,6 +175,7 @@ export function DriveExplorer({
     else if (n.type === "doc") router.push(`/drive/doc/${n.id}`);
     else if (n.type === "sheet") router.push(`/drive/sheet/${n.id}`);
     else if (n.type === "chart") router.push(`/drive/chart/${n.id}`);
+    else if (n.type === "draw") router.push(`/drive/draw/${n.id}`);
     else setPreview(n);
   };
 
@@ -191,6 +193,11 @@ export function DriveExplorer({
     const { node } = await api.createChart("Graphique sans titre", folderId, spaceId);
     await api.saveChart(node.id, { content: defaultChartDoc(type) });
     router.push(`/drive/chart/${node.id}`);
+  };
+
+  const createDraw = async () => {
+    const { node } = await api.createDraw("Dessin sans titre", folderId, spaceId);
+    router.push(`/drive/draw/${node.id}`);
   };
 
   const doRename = async (n: SerializedNode, name: string) => {
@@ -434,6 +441,12 @@ export function DriveExplorer({
                   </>
                 )}
               </div>
+              <button
+                onClick={createDraw}
+                className="h-10 px-4 rounded-xl border border-white/10 bg-white/5 text-sm font-medium flex items-center gap-2 hover:bg-white/10 transition"
+              >
+                <Brush className="size-4 text-pink-400" /> Dessin
+              </button>
               <button
                 onClick={() => setNewFolder(true)}
                 className="h-10 px-4 rounded-xl border border-white/10 bg-white/5 text-sm font-medium flex items-center gap-2 hover:bg-white/10 transition"

@@ -40,7 +40,7 @@ export async function GET(req: NextRequest) {
     where.trashed = true;
   } else if (view === "recent") {
     where.trashed = false;
-    where.type = { in: ["file", "doc", "sheet", "chart"] };
+    where.type = { in: ["file", "doc", "sheet", "chart", "draw"] };
   } else {
     where.trashed = false;
     where.parentId = parent && parent !== "root" ? parent : null;
@@ -65,7 +65,7 @@ const createSchema = z.object({
   name: z.string().trim().min(1).max(255),
   parentId: z.string().nullable().optional(),
   color: z.string().optional(),
-  type: z.enum(["folder", "doc", "sheet", "chart"]).optional(),
+  type: z.enum(["folder", "doc", "sheet", "chart", "draw"]).optional(),
   spaceId: z.string().nullable().optional(),
 });
 
@@ -107,6 +107,7 @@ export async function POST(req: NextRequest) {
       ...(type === "doc" ? { content: "", mimeType: "application/vnd.filehub.doc" } : {}),
       ...(type === "sheet" ? { content: "", mimeType: "application/vnd.filehub.sheet" } : {}),
       ...(type === "chart" ? { content: "", mimeType: "application/vnd.filehub.chart" } : {}),
+      ...(type === "draw" ? { content: "", mimeType: "application/vnd.filehub.draw" } : {}),
     },
     include: { _count: { select: { children: true } } },
   });

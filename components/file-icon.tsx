@@ -12,6 +12,7 @@ import {
   FileType,
   Presentation,
   BarChart3,
+  Pencil,
   File as FileIcon,
   type LucideIcon,
 } from "lucide-react";
@@ -40,7 +41,7 @@ export function NodeIcon({
   size = 20,
   className = "",
 }: {
-  type: "folder" | "file" | "doc" | "sheet" | "chart";
+  type: "folder" | "file" | "doc" | "sheet" | "chart" | "draw";
   mimeType?: string | null;
   name?: string;
   color?: string | null;
@@ -76,6 +77,18 @@ export function NodeIcon({
     return (
       <BarChart3
         style={{ color: "#f59e0b" }}
+        width={size}
+        height={size}
+        className={className}
+        strokeWidth={1.75}
+      />
+    );
+  }
+  // Un dessin a son icône rose.
+  if (type === "draw") {
+    return (
+      <Pencil
+        style={{ color: "#ec4899" }}
         width={size}
         height={size}
         className={className}

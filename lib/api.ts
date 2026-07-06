@@ -94,6 +94,17 @@ export const api = {
     );
   },
 
+  createDraw(name: string, parentId: string | null, spaceId?: string | null) {
+    return req<{ node: SerializedNode }>(
+      "/api/nodes",
+      jsonInit("POST", { name, parentId, type: "draw", spaceId: spaceId ?? null }),
+    );
+  },
+
+  saveDraw(id: string, patch: { content?: unknown; name?: string }) {
+    return req<{ ok: boolean; updatedAt: string }>(`/api/draws/${id}`, jsonInit("PUT", patch));
+  },
+
   // ── Espaces communs ──
   listSpaces() {
     return req<{ spaces: SpaceSummary[] }>("/api/spaces");
