@@ -255,7 +255,7 @@ export function DriveExplorer({
       onDrop={onDrop}
     >
       {/* Top bar */}
-      <header className="h-16 shrink-0 border-b border-line px-6 flex items-center gap-4 bg-surface">
+      <header className="h-16 shrink-0 border-b border-white/10 px-6 flex items-center gap-4 bg-white/[0.03] backdrop-blur-xl">
         <div className="min-w-0 flex-1">
           {view === "my" && breadcrumb.length > 0 ? (
             <nav className="flex items-center gap-1 text-sm">
@@ -323,9 +323,10 @@ export function DriveExplorer({
             <>
               <button
                 onClick={() => fileInput.current?.click()}
-                className="h-10 px-4 rounded-xl bg-brand-600 text-white text-sm font-semibold flex items-center gap-2 hover:bg-brand-700 shadow-sm transition"
+                className="group relative h-10 overflow-hidden rounded-xl bg-gradient-to-r from-[#3b6dff] to-[#7b3bff] px-4 text-sm font-semibold text-white shadow-lg shadow-blue-500/25 transition hover:shadow-blue-500/40 flex items-center gap-2"
               >
-                <Plus className="size-4" /> Importer
+                <span className="relative z-10 flex items-center gap-2"><Plus className="size-4" /> Importer</span>
+                <span className="absolute inset-0 z-0 -translate-x-full bg-gradient-to-r from-transparent via-white/25 to-transparent" style={{ animation: "shine 3.5s ease-in-out infinite" }} />
               </button>
               <button
                 onClick={() => setNewFolder(true)}
@@ -410,9 +411,9 @@ export function DriveExplorer({
 
       {/* Upload progress dock */}
       {uploads.length > 0 && (
-        <div className="fixed bottom-6 right-6 z-40 w-80 bg-surface rounded-2xl shadow-2xl border border-line overflow-hidden">
-          <div className="px-4 py-3 border-b border-line flex items-center gap-2 text-sm font-semibold">
-            <Upload className="size-4 text-brand-600" />
+        <div className="fixed bottom-6 right-6 z-40 w-80 bg-[#0f1017]/90 backdrop-blur-xl rounded-2xl shadow-2xl border border-white/10 overflow-hidden">
+          <div className="px-4 py-3 border-b border-white/10 flex items-center gap-2 text-sm font-semibold">
+            <Upload className="size-4 text-brand-300" />
             Import ({uploads.length})
           </div>
           <div className="max-h-64 overflow-auto divide-y divide-line">
@@ -439,7 +440,7 @@ export function DriveExplorer({
       {/* Context menu */}
       {menu && (
         <div
-          className="fixed z-50 w-56 bg-surface rounded-xl shadow-2xl border border-line py-1.5 animate-in"
+          className="fixed z-50 w-56 bg-[#0f1017]/90 backdrop-blur-xl rounded-xl shadow-2xl border border-white/10 py-1.5 animate-in"
           style={{
             left: Math.min(menu.x, (typeof window !== "undefined" ? window.innerWidth : 9999) - 240),
             top: Math.min(menu.y, (typeof window !== "undefined" ? window.innerHeight : 9999) - menuItems.length * 40 - 20),
@@ -455,7 +456,7 @@ export function DriveExplorer({
               }}
               className={cn(
                 "w-full flex items-center gap-3 px-4 h-10 text-sm text-left hover:bg-white/5 transition",
-                (item as { danger?: boolean }).danger && "text-red-600 hover:bg-red-500/10",
+                (item as { danger?: boolean }).danger && "text-red-400 hover:bg-red-500/10",
               )}
             >
               <item.icon className="size-4" />
@@ -524,12 +525,13 @@ function GridView({
 }) {
   return (
     <div className="grid gap-3 grid-cols-[repeat(auto-fill,minmax(180px,1fr))]">
-      {nodes.map((n) => {
+      {nodes.map((n, i) => {
         const cat = categoryOf(n.mimeType, n.name);
         const showThumb = cat === "image";
         return (
           <div
             key={n.id}
+            style={{ animation: "revealUp 0.45s both", animationDelay: `${Math.min(i * 35, 500)}ms` }}
             onClick={(e) => {
               e.stopPropagation();
               onSelect(n.id);
@@ -537,11 +539,15 @@ function GridView({
             onDoubleClick={() => onOpen(n)}
             onContextMenu={(e) => onMenu(e, n)}
             className={cn(
-              "group relative rounded-2xl border bg-surface p-3 cursor-pointer transition hover:border-white/20 hover:bg-white/[0.06]",
-              selected === n.id ? "border-brand-400 ring-2 ring-brand-500/30" : "border-line",
+              "group relative rounded-2xl border bg-white/[0.04] p-3 cursor-pointer transition duration-300 hover:-translate-y-1 hover:border-white/20 hover:bg-white/[0.07]",
+              selected === n.id ? "border-brand-400 ring-2 ring-brand-500/30" : "border-white/10",
             )}
           >
-            <div className="aspect-[4/3] rounded-xl bg-white/5 grid place-items-center overflow-hidden mb-2.5">
+            <div
+              className="pointer-events-none absolute -right-10 -top-10 size-28 rounded-full opacity-0 blur-2xl transition-opacity duration-500 group-hover:opacity-100"
+              style={{ background: "radial-gradient(circle, #3b6dff55, transparent 70%)" }}
+            />
+            <div className="relative aspect-[4/3] rounded-xl bg-white/5 grid place-items-center overflow-hidden mb-2.5">
               {showThumb ? (
                 // eslint-disable-next-line @next/next/no-img-element
                 <img src={`/api/nodes/${n.id}/raw`} alt={n.name} className="w-full h-full object-cover" loading="lazy" />
@@ -598,16 +604,17 @@ function ListView({
   onMenu: (e: React.MouseEvent, n: SerializedNode) => void;
 }) {
   return (
-    <div className="rounded-2xl border border-line bg-surface overflow-hidden">
-      <div className="grid grid-cols-[1fr_140px_120px_40px] gap-4 px-4 h-11 items-center text-xs font-medium text-muted border-b border-line">
+    <div className="rounded-2xl border border-white/10 bg-white/[0.03] backdrop-blur-xl overflow-hidden">
+      <div className="grid grid-cols-[1fr_140px_120px_40px] gap-4 px-4 h-11 items-center text-xs font-medium text-muted border-b border-white/10">
         <span>Nom</span>
         <span>Modifié</span>
         <span>Taille</span>
         <span></span>
       </div>
-      {nodes.map((n) => (
+      {nodes.map((n, i) => (
         <div
           key={n.id}
+          style={{ animation: "revealUp 0.4s both", animationDelay: `${Math.min(i * 25, 400)}ms` }}
           onClick={(e) => {
             e.stopPropagation();
             onSelect(n.id);
@@ -661,7 +668,7 @@ function EmptyState({
   return (
     <div className="h-[60vh] grid place-items-center">
       <div className="text-center max-w-sm">
-        <div className="size-20 rounded-3xl bg-canvas grid place-items-center mx-auto mb-5">
+        <div className="size-20 rounded-3xl bg-white/5 grid place-items-center mx-auto mb-5">
           <c.icon className="size-9 text-muted" />
         </div>
         <h3 className="text-lg font-semibold">{c.title}</h3>

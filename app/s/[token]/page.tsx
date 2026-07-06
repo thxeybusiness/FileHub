@@ -93,7 +93,7 @@ export default async function SharePage({
                     {c.type === "file" && (
                       <a
                         href={`${rawUrl}?child=${c.id}&download=1`}
-                        className="size-9 grid place-items-center rounded-lg hover:bg-canvas text-muted"
+                        className="size-9 grid place-items-center rounded-lg hover:bg-white/5 text-muted"
                         title="Télécharger"
                       >
                         <Download className="size-4" />

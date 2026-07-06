@@ -55,7 +55,7 @@ export function ShareDialog({
         </div>
       ) : (
         <>
-          <div className="flex items-center gap-2 rounded-xl border border-line bg-canvas px-3 h-12">
+          <div className="flex items-center gap-2 rounded-xl border border-white/10 bg-white/5 px-3 h-12">
             <Link2 className="size-4 text-muted shrink-0" />
             <input
               readOnly
@@ -104,7 +104,7 @@ function Overlay({
       onClick={onClose}
     >
       <div
-        className="w-full max-w-md bg-surface rounded-2xl shadow-2xl p-6 relative"
+        className="w-full max-w-md bg-[#0f1017]/95 backdrop-blur-xl border border-white/10 rounded-2xl shadow-2xl p-6 relative"
         onClick={(e) => e.stopPropagation()}
       >
         <button

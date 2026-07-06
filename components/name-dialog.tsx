@@ -35,7 +35,7 @@ export function NameDialog({
 
   return (
     <div className="fixed inset-0 z-50 bg-black/40 grid place-items-center p-4 animate-in" onClick={onCancel}>
-      <div className="w-full max-w-sm bg-surface rounded-2xl shadow-2xl p-6" onClick={(e) => e.stopPropagation()}>
+      <div className="w-full max-w-sm bg-[#0f1017]/95 backdrop-blur-xl border border-white/10 rounded-2xl shadow-2xl p-6" onClick={(e) => e.stopPropagation()}>
         <div className="flex items-center mb-4">
           <h3 className="text-lg font-semibold">{title}</h3>
           <button onClick={onCancel} className="ml-auto size-8 grid place-items-center rounded-lg hover:bg-white/5 text-muted">

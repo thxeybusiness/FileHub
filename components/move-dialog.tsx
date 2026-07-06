@@ -40,7 +40,7 @@ export function MoveDialog({
 
   return (
     <div className="fixed inset-0 z-50 bg-black/40 grid place-items-center p-4 animate-in" onClick={onClose}>
-      <div className="w-full max-w-lg bg-surface rounded-2xl shadow-2xl p-6" onClick={(e) => e.stopPropagation()}>
+      <div className="w-full max-w-lg bg-[#0f1017]/95 backdrop-blur-xl border border-white/10 rounded-2xl shadow-2xl p-6" onClick={(e) => e.stopPropagation()}>
         <div className="flex items-center gap-2 mb-4">
           <FolderInput className="size-5 text-brand-600" />
           <h3 className="text-lg font-semibold">Déplacer « {node.name} »</h3>

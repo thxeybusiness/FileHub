@@ -12,12 +12,13 @@
   --color-brand-800: #1a2fae;
   --color-brand-900: #1b2f89;
 
-  /* Dark theme — cohérent avec la landing / l'auth */
-  --color-surface: #0f1017;
-  --color-canvas: #08080c;
+  /* Dark theme "verre" — cohérent avec la landing / l'auth.
+     Les surfaces sont translucides pour laisser transparaître l'aurora. */
+  --color-surface: rgba(255, 255, 255, 0.04);
+  --color-canvas: #07070c;
   --color-ink: #eceef4;
   --color-muted: #9aa0ad;
-  --color-line: #23252f;
+  --color-line: rgba(255, 255, 255, 0.09);
 }
 
 :root {
