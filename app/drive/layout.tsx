@@ -2,6 +2,7 @@ import { redirect } from "next/navigation";
 import { getCurrentUser } from "@/lib/auth";
 import { Sidebar } from "@/components/sidebar";
 import { AuroraBackground } from "@/components/aurora-bg";
+import { CalculatorWidget } from "@/components/calculator-widget";
 
 export default async function DriveLayout({
   children,
@@ -23,6 +24,7 @@ export default async function DriveLayout({
         }}
       />
       <div className="relative z-10 flex-1 min-w-0 flex flex-col">{children}</div>
+      <CalculatorWidget />
     </div>
   );
 }
