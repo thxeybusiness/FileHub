@@ -210,7 +210,7 @@ export function DocEditor({
             suppressContentEditableWarning
             onInput={scheduleContentSave}
             spellCheck
-            className="doc-surface min-h-[60vh] px-8 py-10 sm:px-14 sm:py-14 outline-none text-[15px] leading-relaxed text-ink/90"
+            className="doc-surface min-h-[120vh] px-8 py-10 sm:px-14 sm:py-14 outline-none text-[15px] leading-relaxed text-ink/90"
             data-placeholder="Commencez à écrire…"
           />
         </div>
