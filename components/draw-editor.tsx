@@ -16,8 +16,10 @@ import {
   Home,
   Minus,
   Plus,
+  Wand2,
 } from "lucide-react";
 import { api } from "@/lib/api";
+import { beautifyStroke } from "@/lib/shape-recognizer";
 import { cn } from "@/lib/utils";
 
 type Crumb = { id: string; name: string };
@@ -75,6 +77,15 @@ export function DrawEditor({
   const [bg] = useState(initialDoc?.bg ?? "#ffffff");
   const [canUndo, setCanUndo] = useState((initialDoc?.strokes?.length ?? 0) > 0);
   const [canRedo, setCanRedo] = useState(false);
+  // Formes parfaites : redresse automatiquement lignes, cercles, rectangles…
+  const [magic, setMagic] = useState(true);
+
+  useEffect(() => {
+    if (localStorage.getItem("filehub:draw:magic") === "0") setMagic(false);
+  }, []);
+  useEffect(() => {
+    localStorage.setItem("filehub:draw:magic", magic ? "1" : "0");
+  }, [magic]);
 
   // ── Rendu de toute la scène ─────────────────────────────────────────────
   const render = useCallback(() => {
@@ -191,6 +202,13 @@ export function DrawEditor({
   const endStroke = () => {
     if (!drawing.current) return;
     if (drawing.current.points.length > 0) {
+      // Formes parfaites : remplace le trait par la forme reconnue.
+      if (magic && !drawing.current.eraser && drawing.current.points.length >= 6) {
+        const r = canvasRef.current?.getBoundingClientRect();
+        const aspect = r && r.height > 0 ? r.width / r.height : CANVAS_W / CANVAS_H;
+        const fixed = beautifyStroke(drawing.current.points, aspect);
+        if (fixed) drawing.current.points = fixed;
+      }
       strokesRef.current.push(drawing.current);
       redoRef.current = [];
       syncHistoryFlags();
@@ -325,6 +343,16 @@ export function DrawEditor({
           </ToolBtn>
           <ToolBtn active={tool === "eraser"} onClick={() => setTool("eraser")} title="Gomme">
             <Eraser className="size-5" />
+          </ToolBtn>
+
+          <span className="my-1 h-px w-8 bg-white/10" />
+
+          <ToolBtn
+            active={magic}
+            onClick={() => setMagic((v) => !v)}
+            title="Formes parfaites : lignes, cercles, rectangles, triangles… corrigés automatiquement (coins arrondis respectés)"
+          >
+            <Wand2 className="size-5" />
           </ToolBtn>
 
           <span className="my-1 h-px w-8 bg-white/10" />
