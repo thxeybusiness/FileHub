@@ -24,9 +24,17 @@ import {
   Loader2,
   FileText,
   Table2,
+  BarChart3,
+  ChevronDown,
 } from "lucide-react";
 import type { SerializedNode } from "@/lib/nodes";
 import { api, notifyRefresh } from "@/lib/api";
+import {
+  CHART_TYPES,
+  QUICK_CHART_TYPES,
+  defaultChartDoc,
+  type ChartType,
+} from "@/lib/chart-palette";
 import { cn, formatBytes, formatRelative } from "@/lib/utils";
 import { NodeIcon } from "./file-icon";
 import { categoryOf } from "@/lib/filetypes";
@@ -60,6 +68,7 @@ export function DriveExplorer({
   const [moveNode, setMoveNode] = useState<SerializedNode | null>(null);
   const [renameNode, setRenameNode] = useState<SerializedNode | null>(null);
   const [newFolder, setNewFolder] = useState(false);
+  const [chartMenu, setChartMenu] = useState(false);
   const [menu, setMenu] = useState<{ x: number; y: number; node: SerializedNode } | null>(null);
   const [uploads, setUploads] = useState<UploadTask[]>([]);
   const [dragging, setDragging] = useState(false);
@@ -154,6 +163,7 @@ export function DriveExplorer({
     if (n.type === "folder") router.push(`/drive/folder/${n.id}`);
     else if (n.type === "doc") router.push(`/drive/doc/${n.id}`);
     else if (n.type === "sheet") router.push(`/drive/sheet/${n.id}`);
+    else if (n.type === "chart") router.push(`/drive/chart/${n.id}`);
     else setPreview(n);
   };
 
@@ -165,6 +175,12 @@ export function DriveExplorer({
   const createSheet = async () => {
     const { node } = await api.createSheet("Feuille sans titre", folderId);
     router.push(`/drive/sheet/${node.id}`);
+  };
+
+  const createChart = async (type: ChartType = "bar") => {
+    const { node } = await api.createChart("Graphique sans titre", folderId);
+    await api.saveChart(node.id, { content: defaultChartDoc(type) });
+    router.push(`/drive/chart/${node.id}`);
   };
 
   const doRename = async (n: SerializedNode, name: string) => {
@@ -354,6 +370,47 @@ export function DriveExplorer({
               >
                 <Table2 className="size-4 text-emerald-400" /> Feuille de calcul
               </button>
+
+              {/* Bouton scindé Graphique + flèche (propose 3 types) */}
+              <div className="relative flex items-center">
+                <button
+                  onClick={() => createChart("bar")}
+                  className="h-10 pl-4 pr-3 rounded-l-xl border border-white/10 bg-white/5 text-sm font-medium flex items-center gap-2 hover:bg-white/10 transition"
+                >
+                  <BarChart3 className="size-4 text-amber-400" /> Graphique
+                </button>
+                <button
+                  onClick={() => setChartMenu((v) => !v)}
+                  className="h-10 px-2 rounded-r-xl border border-l-0 border-white/10 bg-white/5 hover:bg-white/10 transition"
+                  title="Choisir un type"
+                >
+                  <ChevronDown className={cn("size-4 text-muted transition", chartMenu && "rotate-180")} />
+                </button>
+                {chartMenu && (
+                  <>
+                    <div className="fixed inset-0 z-30" onClick={() => setChartMenu(false)} />
+                    <div className="absolute left-0 top-12 z-40 w-52 rounded-xl border border-white/10 bg-[#0f1017]/95 backdrop-blur-xl p-1.5 shadow-2xl animate-in">
+                      <p className="px-2.5 pt-1.5 pb-1 text-[10px] uppercase tracking-wider text-muted">Créer un graphique</p>
+                      {QUICK_CHART_TYPES.map((qt) => {
+                        const meta = CHART_TYPES.find((t) => t.id === qt)!;
+                        return (
+                          <button
+                            key={qt}
+                            onClick={() => {
+                              setChartMenu(false);
+                              createChart(qt);
+                            }}
+                            className="w-full flex items-center gap-2.5 rounded-lg px-2.5 h-9 text-sm text-left text-white/80 hover:bg-white/5 transition"
+                          >
+                            <BarChart3 className="size-4 text-amber-400" />
+                            {meta.label}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </>
+                )}
+              </div>
               <button
                 onClick={() => setNewFolder(true)}
                 className="h-10 px-4 rounded-xl border border-white/10 bg-white/5 text-sm font-medium flex items-center gap-2 hover:bg-white/10 transition"

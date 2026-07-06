@@ -11,6 +11,7 @@ import {
   FileSpreadsheet,
   FileType,
   Presentation,
+  BarChart3,
   File as FileIcon,
   type LucideIcon,
 } from "lucide-react";
@@ -39,7 +40,7 @@ export function NodeIcon({
   size = 20,
   className = "",
 }: {
-  type: "folder" | "file" | "doc" | "sheet";
+  type: "folder" | "file" | "doc" | "sheet" | "chart";
   mimeType?: string | null;
   name?: string;
   color?: string | null;
@@ -63,6 +64,18 @@ export function NodeIcon({
     return (
       <FileSpreadsheet
         style={{ color: "#10b981" }}
+        width={size}
+        height={size}
+        className={className}
+        strokeWidth={1.75}
+      />
+    );
+  }
+  // Un graphique a son icône ambre.
+  if (type === "chart") {
+    return (
+      <BarChart3
+        style={{ color: "#f59e0b" }}
         width={size}
         height={size}
         className={className}
