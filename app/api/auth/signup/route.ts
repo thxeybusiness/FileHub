@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { prisma } from "@/lib/prisma";
 import { hashPassword, setSession } from "@/lib/auth";
+import { generateUsername } from "@/lib/spaces";
 
 export const runtime = "nodejs";
 
@@ -30,8 +31,9 @@ export async function POST(req: NextRequest) {
     );
   }
 
+  const username = await generateUsername(name || email.split("@")[0]);
   const user = await prisma.user.create({
-    data: { email, name: name || null, passwordHash: await hashPassword(password) },
+    data: { email, username, name: name || null, passwordHash: await hashPassword(password) },
   });
   await setSession(user.id);
   return NextResponse.json({ ok: true });

@@ -3,7 +3,8 @@ import { z } from "zod";
 import { getUserId } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { storage } from "@/lib/storage";
-import { adjustStorage, isDescendantOrSelf, serializeNode } from "@/lib/nodes";
+import { adjustStorage, isDescendantOrSelf, serializeNode, type NodeScope } from "@/lib/nodes";
+import { getMemberSpaceIds, nodeAccessWhere } from "@/lib/spaces";
 
 export const runtime = "nodejs";
 
@@ -23,8 +24,11 @@ export async function PATCH(
   if (!userId) return NextResponse.json({ error: "Non autorisé" }, { status: 401 });
   const { id } = await params;
 
-  const node = await prisma.node.findFirst({ where: { id, userId } });
+  const memberIds = await getMemberSpaceIds(userId);
+  const node = await prisma.node.findFirst({ where: { id, ...nodeAccessWhere(userId, memberIds) } });
   if (!node) return NextResponse.json({ error: "Introuvable" }, { status: 404 });
+
+  const scope: NodeScope = node.spaceId ? { spaceId: node.spaceId } : { userId, spaceId: null };
 
   const body = await req.json().catch(() => null);
   const parsed = patchSchema.safeParse(body);
@@ -43,13 +47,14 @@ export async function PATCH(
 
   if (parentId !== undefined) {
     if (parentId) {
+      // Cible : même portée (même espace ou même drive personnel).
       const target = await prisma.node.findFirst({
-        where: { id: parentId, userId, type: "folder" },
+        where: { id: parentId, type: "folder", ...(node.spaceId ? { spaceId: node.spaceId } : { userId, spaceId: null }) },
         select: { id: true },
       });
       if (!target) return NextResponse.json({ error: "Cible introuvable" }, { status: 404 });
       // Prevent moving a folder into itself or its own descendants.
-      if (node.type === "folder" && (await isDescendantOrSelf(userId, parentId, node.id))) {
+      if (node.type === "folder" && (await isDescendantOrSelf(scope, parentId, node.id))) {
         return NextResponse.json(
           { error: "Impossible de déplacer un dossier dans lui-même" },
           { status: 400 },
@@ -76,8 +81,14 @@ export async function DELETE(
   if (!userId) return NextResponse.json({ error: "Non autorisé" }, { status: 401 });
   const { id } = await params;
 
-  const root = await prisma.node.findFirst({ where: { id, userId }, select: { id: true } });
+  const memberIds = await getMemberSpaceIds(userId);
+  const root = await prisma.node.findFirst({
+    where: { id, ...nodeAccessWhere(userId, memberIds) },
+    select: { id: true, spaceId: true },
+  });
   if (!root) return NextResponse.json({ error: "Introuvable" }, { status: 404 });
+
+  const childScope = root.spaceId ? { spaceId: root.spaceId } : { userId, spaceId: null };
 
   // Collect the entire subtree (BFS).
   const toDelete: string[] = [];
@@ -85,7 +96,7 @@ export async function DELETE(
   while (frontier.length) {
     toDelete.push(...frontier);
     const kids = await prisma.node.findMany({
-      where: { userId, parentId: { in: frontier } },
+      where: { ...childScope, parentId: { in: frontier } },
       select: { id: true },
     });
     frontier = kids.map((k) => k.id);
@@ -112,7 +123,8 @@ export async function DELETE(
   // Deleting the root cascades children in DB, but we delete the collected set
   // explicitly to be safe across providers.
   await prisma.node.deleteMany({ where: { id: { in: toDelete } } });
-  if (freed > 0n) await adjustStorage(userId, -freed);
+  // Les fichiers d'un espace commun ne comptent pas sur le quota personnel.
+  if (freed > 0n && !root.spaceId) await adjustStorage(userId, -freed);
 
   return NextResponse.json({ ok: true });
 }

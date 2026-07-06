@@ -1,7 +1,8 @@
 import { notFound, redirect } from "next/navigation";
 import { getUserId } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { getBreadcrumb } from "@/lib/nodes";
+import { getBreadcrumb, nodeBackHref, type NodeScope } from "@/lib/nodes";
+import { getMemberSpaceIds, nodeAccessWhere } from "@/lib/spaces";
 import { ExcelBoardLazy } from "@/components/excel-board-lazy";
 
 export default async function SheetPage({
@@ -13,9 +14,10 @@ export default async function SheetPage({
   if (!userId) redirect("/login");
   const { id } = await params;
 
+  const memberIds = await getMemberSpaceIds(userId);
   const sheet = await prisma.node.findFirst({
-    where: { id, userId, type: "sheet" },
-    select: { id: true, name: true, content: true, parentId: true },
+    where: { id, type: "sheet", ...nodeAccessWhere(userId, memberIds) },
+    select: { id: true, name: true, content: true, parentId: true, spaceId: true },
   });
   if (!sheet) notFound();
 
@@ -28,14 +30,15 @@ export default async function SheetPage({
     }
   }
 
-  const crumbs = await getBreadcrumb(userId, sheet.parentId);
+  const scope: NodeScope = sheet.spaceId ? { spaceId: sheet.spaceId } : { userId, spaceId: null };
+  const crumbs = await getBreadcrumb(scope, sheet.parentId);
 
   return (
     <ExcelBoardLazy
       sheetId={sheet.id}
       initialName={sheet.name}
       initialData={initialData}
-      backHref={sheet.parentId ? `/drive/folder/${sheet.parentId}` : "/drive"}
+      backHref={nodeBackHref(sheet.spaceId, sheet.parentId)}
       crumbs={crumbs}
     />
   );

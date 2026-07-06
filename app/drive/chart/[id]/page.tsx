@@ -1,7 +1,8 @@
 import { notFound, redirect } from "next/navigation";
 import { getUserId } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { getBreadcrumb } from "@/lib/nodes";
+import { getBreadcrumb, nodeBackHref, type NodeScope } from "@/lib/nodes";
+import { getMemberSpaceIds, nodeAccessWhere } from "@/lib/spaces";
 import { ChartEditor } from "@/components/chart-editor";
 import type { ChartDoc } from "@/lib/chart-palette";
 
@@ -14,9 +15,10 @@ export default async function ChartPage({
   if (!userId) redirect("/login");
   const { id } = await params;
 
+  const memberIds = await getMemberSpaceIds(userId);
   const chart = await prisma.node.findFirst({
-    where: { id, userId, type: "chart" },
-    select: { id: true, name: true, content: true, parentId: true },
+    where: { id, type: "chart", ...nodeAccessWhere(userId, memberIds) },
+    select: { id: true, name: true, content: true, parentId: true, spaceId: true },
   });
   if (!chart) notFound();
 
@@ -29,14 +31,15 @@ export default async function ChartPage({
     }
   }
 
-  const crumbs = await getBreadcrumb(userId, chart.parentId);
+  const scope: NodeScope = chart.spaceId ? { spaceId: chart.spaceId } : { userId, spaceId: null };
+  const crumbs = await getBreadcrumb(scope, chart.parentId);
 
   return (
     <ChartEditor
       id={chart.id}
       initialName={chart.name}
       initialDoc={initialDoc}
-      backHref={chart.parentId ? `/drive/folder/${chart.parentId}` : "/drive"}
+      backHref={nodeBackHref(chart.spaceId, chart.parentId)}
       crumbs={crumbs}
     />
   );

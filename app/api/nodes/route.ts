@@ -3,10 +3,11 @@ import { z } from "zod";
 import { getUserId } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { serializeNode } from "@/lib/nodes";
+import { getSpaceRole } from "@/lib/spaces";
 
 export const runtime = "nodejs";
 
-// GET /api/nodes?parent=<id|root>&view=my|starred|trash|recent&q=<search>
+// GET /api/nodes?parent=<id|root>&view=my|starred|trash|recent&q=<search>&space=<id>
 export async function GET(req: NextRequest) {
   const userId = await getUserId();
   if (!userId) return NextResponse.json({ error: "Non autorisé" }, { status: 401 });
@@ -15,8 +16,19 @@ export async function GET(req: NextRequest) {
   const view = searchParams.get("view") ?? "my";
   const q = searchParams.get("q")?.trim();
   const parent = searchParams.get("parent");
+  const space = searchParams.get("space");
 
-  const where: Record<string, unknown> = { userId };
+  // Portée : un espace commun (membre requis) ou le drive personnel.
+  const where: Record<string, unknown> = {};
+  if (space) {
+    if (!(await getSpaceRole(userId, space))) {
+      return NextResponse.json({ error: "Accès refusé" }, { status: 403 });
+    }
+    where.spaceId = space;
+  } else {
+    where.userId = userId;
+    where.spaceId = null;
+  }
 
   if (q) {
     where.trashed = false;
@@ -54,6 +66,7 @@ const createSchema = z.object({
   parentId: z.string().nullable().optional(),
   color: z.string().optional(),
   type: z.enum(["folder", "doc", "sheet", "chart"]).optional(),
+  spaceId: z.string().nullable().optional(),
 });
 
 // POST /api/nodes  — create a folder or a document ("doc")
@@ -66,11 +79,18 @@ export async function POST(req: NextRequest) {
   if (!parsed.success) {
     return NextResponse.json({ error: "Nom invalide" }, { status: 400 });
   }
-  const { name, parentId, color, type = "folder" } = parsed.data;
+  const { name, parentId, color, type = "folder", spaceId } = parsed.data;
+
+  // Espace commun : membre requis.
+  if (spaceId) {
+    if (!(await getSpaceRole(userId, spaceId))) {
+      return NextResponse.json({ error: "Accès refusé" }, { status: 403 });
+    }
+  }
 
   if (parentId) {
     const parent = await prisma.node.findFirst({
-      where: { id: parentId, userId, type: "folder" },
+      where: { id: parentId, type: "folder", ...(spaceId ? { spaceId } : { userId, spaceId: null }) },
       select: { id: true },
     });
     if (!parent) return NextResponse.json({ error: "Dossier introuvable" }, { status: 404 });
@@ -80,6 +100,7 @@ export async function POST(req: NextRequest) {
     data: {
       userId,
       parentId: parentId ?? null,
+      spaceId: spaceId ?? null,
       name,
       type,
       color: color ?? null,

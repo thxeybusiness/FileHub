@@ -11,9 +11,13 @@ import {
   Cloud,
   LogOut,
   ChevronRight,
+  Users,
+  Plus,
 } from "lucide-react";
 import { cn, formatBytes } from "@/lib/utils";
 import { useRouter } from "next/navigation";
+import { api, type SpaceSummary } from "@/lib/api";
+import { NameDialog } from "./name-dialog";
 
 type Me = { name: string | null; email: string; storageUsed: number; storageLimit: number };
 
@@ -28,6 +32,8 @@ export function Sidebar({ initial }: { initial: Me }) {
   const pathname = usePathname();
   const router = useRouter();
   const [me, setMe] = useState<Me>(initial);
+  const [spaces, setSpaces] = useState<SpaceSummary[]>([]);
+  const [creatingSpace, setCreatingSpace] = useState(false);
 
   async function logout() {
     await fetch("/api/auth/logout", { method: "POST" }).catch(() => {});
@@ -35,16 +41,32 @@ export function Sidebar({ initial }: { initial: Me }) {
     router.refresh();
   }
 
+  const loadSpaces = () => {
+    api
+      .listSpaces()
+      .then((r) => setSpaces(r.spaces))
+      .catch(() => {});
+  };
+
   useEffect(() => {
+    loadSpaces();
     const refresh = () => {
       fetch("/api/me")
         .then((r) => (r.ok ? r.json() : null))
         .then((d) => d && setMe(d))
         .catch(() => {});
+      loadSpaces();
     };
     window.addEventListener("filehub:refresh", refresh);
     return () => window.removeEventListener("filehub:refresh", refresh);
   }, []);
+
+  async function createSpace(name: string) {
+    const { space } = await api.createSpace(name);
+    setCreatingSpace(false);
+    loadSpaces();
+    router.push(`/drive/space/${space.id}`);
+  }
 
   const pct = me.storageLimit
     ? Math.min(100, (me.storageUsed / me.storageLimit) * 100)
@@ -85,7 +107,62 @@ export function Sidebar({ initial }: { initial: Me }) {
             </Link>
           );
         })}
+
+        {/* Espaces communs */}
+        <div className="pt-5">
+          <div className="flex items-center justify-between px-3 pb-1">
+            <span className="text-[11px] font-semibold uppercase tracking-wider text-muted">Espaces</span>
+            <button
+              onClick={() => setCreatingSpace(true)}
+              title="Créer un espace"
+              className="grid size-6 place-items-center rounded-md text-muted hover:bg-white/10 hover:text-white transition"
+            >
+              <Plus className="size-4" />
+            </button>
+          </div>
+          {spaces.length === 0 ? (
+            <button
+              onClick={() => setCreatingSpace(true)}
+              className="flex w-full items-center gap-2 px-3 h-9 rounded-xl text-sm text-muted hover:bg-white/5 hover:text-ink transition"
+            >
+              <Plus className="size-4" /> Nouvel espace
+            </button>
+          ) : (
+            spaces.map((s) => {
+              const href = `/drive/space/${s.id}`;
+              const active = pathname.startsWith(href);
+              return (
+                <Link
+                  key={s.id}
+                  href={href}
+                  className={cn(
+                    "relative flex items-center gap-3 px-3 h-10 rounded-xl text-sm font-medium transition overflow-hidden",
+                    active
+                      ? "bg-gradient-to-r from-brand-500/25 to-transparent text-white"
+                      : "text-ink/70 hover:bg-white/5 hover:text-ink",
+                  )}
+                >
+                  {active && <span className="absolute left-0 top-1/2 h-5 w-1 -translate-y-1/2 rounded-r-full bg-gradient-to-b from-[#5b8bff] to-[#22d3ee]" />}
+                  <Users className={cn("size-[18px] shrink-0", active && "text-brand-200")} />
+                  <span className="truncate">{s.name}</span>
+                  <span className="ml-auto text-xs text-muted">{s.memberCount}</span>
+                </Link>
+              );
+            })
+          )}
+        </div>
       </nav>
+
+      {creatingSpace && (
+        <NameDialog
+          title="Nouvel espace commun"
+          label="Nom de l'espace"
+          initial="Mon équipe"
+          confirmLabel="Créer"
+          onCancel={() => setCreatingSpace(false)}
+          onConfirm={createSpace}
+        />
+      )}
 
       {/* Storage meter */}
       <div className="px-4 pb-3">

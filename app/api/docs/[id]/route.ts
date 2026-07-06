@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { getUserId } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { getMemberSpaceIds, nodeAccessWhere } from "@/lib/spaces";
 
 export const runtime = "nodejs";
 
@@ -13,9 +14,10 @@ export async function GET(
   const userId = await getUserId();
   if (!userId) return NextResponse.json({ error: "Non autorisé" }, { status: 401 });
   const { id } = await params;
+  const memberIds = await getMemberSpaceIds(userId);
 
   const doc = await prisma.node.findFirst({
-    where: { id, userId, type: "doc" },
+    where: { id, type: "doc", ...nodeAccessWhere(userId, memberIds) },
     select: { id: true, name: true, content: true, updatedAt: true },
   });
   if (!doc) return NextResponse.json({ error: "Introuvable" }, { status: 404 });
@@ -41,9 +43,10 @@ export async function PUT(
   const userId = await getUserId();
   if (!userId) return NextResponse.json({ error: "Non autorisé" }, { status: 401 });
   const { id } = await params;
+  const memberIds = await getMemberSpaceIds(userId);
 
   const doc = await prisma.node.findFirst({
-    where: { id, userId, type: "doc" },
+    where: { id, type: "doc", ...nodeAccessWhere(userId, memberIds) },
     select: { id: true },
   });
   if (!doc) return NextResponse.json({ error: "Introuvable" }, { status: 404 });

@@ -47,17 +47,26 @@ export function serializeNode(n: NodeRow): SerializedNode {
   };
 }
 
+// Portée d'accès : drive personnel ({ userId }) ou espace commun ({ spaceId }).
+export type NodeScope = { userId: string; spaceId?: null } | { spaceId: string };
+
+function scopeWhere(scope: NodeScope): Record<string, unknown> {
+  return "spaceId" in scope && scope.spaceId
+    ? { spaceId: scope.spaceId }
+    : { userId: (scope as { userId: string }).userId, spaceId: null };
+}
+
 /** Ordered breadcrumb from root to the given folder (inclusive). */
 export async function getBreadcrumb(
-  userId: string,
+  scope: NodeScope,
   folderId: string | null,
 ): Promise<{ id: string; name: string }[]> {
+  const base = scopeWhere(scope);
   const crumbs: { id: string; name: string }[] = [];
   let current = folderId;
-  // Guard against cycles / runaway depth.
   for (let i = 0; i < 100 && current; i++) {
     const node = await prisma.node.findFirst({
-      where: { id: current, userId },
+      where: { id: current, ...base },
       select: { id: true, name: true, parentId: true },
     });
     if (!node) break;
@@ -70,20 +79,27 @@ export async function getBreadcrumb(
 /** True if `folderId` is `candidateAncestorId` or a descendant of it. Used to
  * prevent moving a folder into its own subtree. */
 export async function isDescendantOrSelf(
-  userId: string,
+  scope: NodeScope,
   folderId: string,
   candidateAncestorId: string,
 ): Promise<boolean> {
+  const base = scopeWhere(scope);
   let current: string | null = folderId;
   for (let i = 0; i < 100 && current; i++) {
     if (current === candidateAncestorId) return true;
     const node: { parentId: string | null } | null = await prisma.node.findFirst({
-      where: { id: current, userId },
+      where: { id: current, ...base },
       select: { parentId: true },
     });
     current = node?.parentId ?? null;
   }
   return false;
+}
+
+/** Lien de retour d'un éditeur vers son dossier (personnel ou espace). */
+export function nodeBackHref(spaceId: string | null, parentId: string | null): string {
+  if (spaceId) return parentId ? `/drive/space/${spaceId}/folder/${parentId}` : `/drive/space/${spaceId}`;
+  return parentId ? `/drive/folder/${parentId}` : "/drive";
 }
 
 /** Adjust a user's used-storage counter by a signed delta (bytes). */

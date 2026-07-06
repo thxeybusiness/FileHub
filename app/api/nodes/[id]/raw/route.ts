@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getUserId } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { storage } from "@/lib/storage";
+import { getMemberSpaceIds, nodeAccessWhere } from "@/lib/spaces";
 
 export const runtime = "nodejs";
 
@@ -14,8 +15,9 @@ export async function GET(
   if (!userId) return NextResponse.json({ error: "Non autorisé" }, { status: 401 });
   const { id } = await params;
 
+  const memberIds = await getMemberSpaceIds(userId);
   const node = await prisma.node.findFirst({
-    where: { id, userId, type: "file" },
+    where: { id, type: "file", ...nodeAccessWhere(userId, memberIds) },
     select: { name: true, mimeType: true, storageKey: true, size: true },
   });
   if (!node || !node.storageKey) {

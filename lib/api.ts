@@ -15,26 +15,44 @@ const jsonInit = (method: string, body: unknown): RequestInit => ({
   body: JSON.stringify(body),
 });
 
+export type SpaceSummary = {
+  id: string;
+  name: string;
+  role: string;
+  isOwner: boolean;
+  memberCount: number;
+};
+export type SpaceMemberInfo = {
+  id: string;
+  name: string | null;
+  username: string | null;
+  email: string;
+  role: string;
+  isOwner: boolean;
+  isMe: boolean;
+};
+
 export const api = {
-  list(params: { view?: string; parent?: string | null; q?: string }) {
+  list(params: { view?: string; parent?: string | null; q?: string; space?: string | null }) {
     const sp = new URLSearchParams();
     if (params.view) sp.set("view", params.view);
     if (params.parent) sp.set("parent", params.parent);
     if (params.q) sp.set("q", params.q);
+    if (params.space) sp.set("space", params.space);
     return req<{ nodes: SerializedNode[] }>(`/api/nodes?${sp.toString()}`);
   },
 
-  createFolder(name: string, parentId: string | null) {
+  createFolder(name: string, parentId: string | null, spaceId?: string | null) {
     return req<{ node: SerializedNode }>(
       "/api/nodes",
-      jsonInit("POST", { name, parentId }),
+      jsonInit("POST", { name, parentId, spaceId: spaceId ?? null }),
     );
   },
 
-  createDoc(name: string, parentId: string | null) {
+  createDoc(name: string, parentId: string | null, spaceId?: string | null) {
     return req<{ node: SerializedNode }>(
       "/api/nodes",
-      jsonInit("POST", { name, parentId, type: "doc" }),
+      jsonInit("POST", { name, parentId, type: "doc", spaceId: spaceId ?? null }),
     );
   },
 
@@ -48,10 +66,10 @@ export const api = {
     return req<{ ok: boolean; updatedAt: string }>(`/api/docs/${id}`, jsonInit("PUT", patch));
   },
 
-  createSheet(name: string, parentId: string | null) {
+  createSheet(name: string, parentId: string | null, spaceId?: string | null) {
     return req<{ node: SerializedNode }>(
       "/api/nodes",
-      jsonInit("POST", { name, parentId, type: "sheet" }),
+      jsonInit("POST", { name, parentId, type: "sheet", spaceId: spaceId ?? null }),
     );
   },
 
@@ -59,11 +77,36 @@ export const api = {
     return req<{ ok: boolean; updatedAt: string }>(`/api/sheets/${id}`, jsonInit("PUT", patch));
   },
 
-  createChart(name: string, parentId: string | null) {
+  createChart(name: string, parentId: string | null, spaceId?: string | null) {
     return req<{ node: SerializedNode }>(
       "/api/nodes",
-      jsonInit("POST", { name, parentId, type: "chart" }),
+      jsonInit("POST", { name, parentId, type: "chart", spaceId: spaceId ?? null }),
     );
+  },
+
+  // ── Espaces communs ──
+  listSpaces() {
+    return req<{ spaces: SpaceSummary[] }>("/api/spaces");
+  },
+  createSpace(name: string) {
+    return req<{ space: SpaceSummary }>("/api/spaces", jsonInit("POST", { name }));
+  },
+  getSpace(id: string) {
+    return req<{ id: string; name: string; myRole: string; isOwner: boolean; members: SpaceMemberInfo[] }>(
+      `/api/spaces/${id}`,
+    );
+  },
+  renameSpace(id: string, name: string) {
+    return req<{ ok: boolean }>(`/api/spaces/${id}`, jsonInit("PATCH", { name }));
+  },
+  deleteSpace(id: string) {
+    return req<{ ok: boolean }>(`/api/spaces/${id}`, { method: "DELETE" });
+  },
+  inviteMember(id: string, identifier: string) {
+    return req<{ member: SpaceMemberInfo }>(`/api/spaces/${id}/members`, jsonInit("POST", { identifier }));
+  },
+  removeMember(id: string, memberUserId: string) {
+    return req<{ ok: boolean }>(`/api/spaces/${id}/members`, jsonInit("DELETE", { userId: memberUserId }));
   },
 
   saveChart(id: string, patch: { content?: unknown; name?: string }) {

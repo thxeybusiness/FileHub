@@ -19,7 +19,7 @@ export default async function FolderPage({
   });
   if (!folder) notFound();
 
-  const breadcrumb = await getBreadcrumb(userId, id);
+  const breadcrumb = await getBreadcrumb({ userId }, id);
 
   return (
     <DriveExplorer view="my" folderId={id} breadcrumb={breadcrumb} title={folder.name} />

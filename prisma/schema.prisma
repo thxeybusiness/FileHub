@@ -16,17 +16,49 @@ datasource db {
 model User {
   id           String   @id @default(cuid())
   email        String   @unique
+  username     String?  @unique // identifiant public pour les invitations
   name         String?
   passwordHash String
   storageUsed  BigInt   @default(0)
   storageLimit BigInt   @default(16106127360) // 15 GB
   createdAt    DateTime @default(now())
 
-  nodes  Node[]
-  shares Share[]
+  nodes            Node[]
+  shares           Share[]
+  ownedSpaces      Space[]       @relation("SpaceOwner")
+  spaceMemberships SpaceMember[]
 
   @@index([email])
   @@map("filehub_user")
+}
+
+// Un espace commun : un "drive" partagé entre plusieurs membres.
+model Space {
+  id        String   @id @default(cuid())
+  name      String
+  ownerId   String
+  owner     User     @relation("SpaceOwner", fields: [ownerId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+
+  members SpaceMember[]
+  nodes   Node[]
+
+  @@index([ownerId])
+  @@map("filehub_space")
+}
+
+model SpaceMember {
+  id        String   @id @default(cuid())
+  spaceId   String
+  space     Space    @relation(fields: [spaceId], references: [id], onDelete: Cascade)
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  role      String   @default("editor") // owner | editor | viewer
+  createdAt DateTime @default(now())
+
+  @@unique([spaceId, userId])
+  @@index([userId])
+  @@map("filehub_space_member")
 }
 
 // A Node is either a folder or a file. Storing both in one table keeps the
@@ -55,6 +87,11 @@ model Node {
   trashed   Boolean   @default(false)
   trashedAt DateTime?
 
+  // Espace commun : si renseigné, le nœud vit dans un espace partagé (accessible
+  // à tous ses membres) au lieu du drive personnel du créateur.
+  spaceId String?
+  space   Space?  @relation(fields: [spaceId], references: [id], onDelete: Cascade)
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
@@ -64,6 +101,7 @@ model Node {
   @@index([userId, parentId])
   @@index([userId, trashed])
   @@index([userId, starred])
+  @@index([spaceId, parentId])
   @@map("filehub_node")
 }
 

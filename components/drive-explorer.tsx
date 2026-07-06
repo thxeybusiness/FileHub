@@ -26,6 +26,7 @@ import {
   Table2,
   BarChart3,
   ChevronDown,
+  Users,
 } from "lucide-react";
 import type { SerializedNode } from "@/lib/nodes";
 import { api, notifyRefresh } from "@/lib/api";
@@ -42,6 +43,7 @@ import { PreviewModal } from "./preview-modal";
 import { ShareDialog } from "./share-dialog";
 import { MoveDialog } from "./move-dialog";
 import { NameDialog } from "./name-dialog";
+import { MembersDialog } from "./members-dialog";
 
 type View = "my" | "starred" | "recent" | "trash";
 type UploadTask = { id: string; name: string; progress: number; error?: boolean };
@@ -51,11 +53,17 @@ export function DriveExplorer({
   folderId = null,
   breadcrumb = [],
   title,
+  spaceId = null,
+  basePath = "/drive",
+  spaceName,
 }: {
   view: View;
   folderId?: string | null;
   breadcrumb?: { id: string; name: string }[];
   title: string;
+  spaceId?: string | null;
+  basePath?: string;
+  spaceName?: string;
 }) {
   const router = useRouter();
   const [nodes, setNodes] = useState<SerializedNode[]>([]);
@@ -69,6 +77,7 @@ export function DriveExplorer({
   const [renameNode, setRenameNode] = useState<SerializedNode | null>(null);
   const [newFolder, setNewFolder] = useState(false);
   const [chartMenu, setChartMenu] = useState(false);
+  const [membersOpen, setMembersOpen] = useState(false);
   const [menu, setMenu] = useState<{ x: number; y: number; node: SerializedNode } | null>(null);
   const [uploads, setUploads] = useState<UploadTask[]>([]);
   const [dragging, setDragging] = useState(false);
@@ -88,12 +97,12 @@ export function DriveExplorer({
   const load = useCallback(
     (q?: string) => {
       setLoading(true);
-      const p = q ? api.list({ q }) : api.list({ view, parent: folderId });
+      const p = q ? api.list({ q, space: spaceId }) : api.list({ view, parent: folderId, space: spaceId });
       p.then((r) => setNodes(r.nodes))
         .catch(() => setNodes([]))
         .finally(() => setLoading(false));
     },
-    [view, folderId],
+    [view, folderId, spaceId],
   );
 
   useEffect(() => {
@@ -120,6 +129,7 @@ export function DriveExplorer({
         const form = new FormData();
         form.append("files", file);
         if (folderId) form.append("parentId", folderId);
+        if (spaceId) form.append("spaceId", spaceId);
 
         const xhr = new XMLHttpRequest();
         xhr.open("POST", "/api/upload");
@@ -146,7 +156,7 @@ export function DriveExplorer({
         xhr.send(form);
       });
     },
-    [folderId, load],
+    [folderId, spaceId, load],
   );
 
   // ---- Drag & drop ---------------------------------------------------------
@@ -160,7 +170,7 @@ export function DriveExplorer({
 
   // ---- Actions -------------------------------------------------------------
   const open = (n: SerializedNode) => {
-    if (n.type === "folder") router.push(`/drive/folder/${n.id}`);
+    if (n.type === "folder") router.push(`${basePath}/folder/${n.id}`);
     else if (n.type === "doc") router.push(`/drive/doc/${n.id}`);
     else if (n.type === "sheet") router.push(`/drive/sheet/${n.id}`);
     else if (n.type === "chart") router.push(`/drive/chart/${n.id}`);
@@ -168,17 +178,17 @@ export function DriveExplorer({
   };
 
   const createDoc = async () => {
-    const { node } = await api.createDoc("Document sans titre", folderId);
+    const { node } = await api.createDoc("Document sans titre", folderId, spaceId);
     router.push(`/drive/doc/${node.id}`);
   };
 
   const createSheet = async () => {
-    const { node } = await api.createSheet("Feuille sans titre", folderId);
+    const { node } = await api.createSheet("Feuille sans titre", folderId, spaceId);
     router.push(`/drive/sheet/${node.id}`);
   };
 
   const createChart = async (type: ChartType = "bar") => {
-    const { node } = await api.createChart("Graphique sans titre", folderId);
+    const { node } = await api.createChart("Graphique sans titre", folderId, spaceId);
     await api.saveChart(node.id, { content: defaultChartDoc(type) });
     router.push(`/drive/chart/${node.id}`);
   };
@@ -207,7 +217,7 @@ export function DriveExplorer({
     notifyRefresh();
   };
   const createFolder = async (name: string) => {
-    await api.createFolder(name, folderId);
+    await api.createFolder(name, folderId, spaceId);
     setNewFolder(false);
     load();
   };
@@ -289,14 +299,14 @@ export function DriveExplorer({
         <div className="min-w-0 flex-1">
           {view === "my" && breadcrumb.length > 0 ? (
             <nav className="flex items-center gap-1 text-sm">
-              <button onClick={() => router.push("/drive")} className="flex items-center gap-1 text-muted hover:text-ink px-1.5 py-1 rounded">
-                <Home className="size-4" /> Mon Drive
+              <button onClick={() => router.push(basePath)} className="flex items-center gap-1 text-muted hover:text-ink px-1.5 py-1 rounded">
+                {spaceId ? <Users className="size-4" /> : <Home className="size-4" />} {spaceName || "Mon Drive"}
               </button>
               {breadcrumb.map((c, i) => (
                 <span key={c.id} className="flex items-center gap-1 min-w-0">
                   <ChevronRight className="size-3.5 text-muted shrink-0" />
                   <button
-                    onClick={() => router.push(`/drive/folder/${c.id}`)}
+                    onClick={() => router.push(`${basePath}/folder/${c.id}`)}
                     className={cn(
                       "px-1.5 py-1 rounded truncate max-w-[200px]",
                       i === breadcrumb.length - 1 ? "font-semibold text-ink" : "text-muted hover:text-ink",
@@ -308,9 +318,22 @@ export function DriveExplorer({
               ))}
             </nav>
           ) : (
-            <h1 className="text-xl font-bold truncate">{title}</h1>
+            <div className="flex items-center gap-2 min-w-0">
+              {spaceId && <Users className="size-5 shrink-0 text-brand-300" />}
+              <h1 className="text-xl font-bold truncate">{title}</h1>
+            </div>
           )}
         </div>
+
+        {spaceId && (
+          <button
+            onClick={() => setMembersOpen(true)}
+            className="hidden sm:flex items-center gap-2 rounded-xl border border-white/10 bg-white/5 px-3 h-10 text-sm font-medium hover:bg-white/10 transition"
+            title="Gérer les membres"
+          >
+            <Users className="size-4 text-brand-300" /> Membres
+          </button>
+        )}
 
         {/* Search */}
         <div className="relative w-full max-w-xs">
@@ -585,6 +608,9 @@ export function DriveExplorer({
           onCancel={() => setNewFolder(false)}
           onConfirm={createFolder}
         />
+      )}
+      {membersOpen && spaceId && (
+        <MembersDialog spaceId={spaceId} onClose={() => setMembersOpen(false)} />
       )}
     </div>
   );
