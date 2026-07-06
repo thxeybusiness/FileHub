@@ -13,14 +13,12 @@ import {
   UploadCloud,
   Share2,
   FolderTree,
-  Search,
   Star,
-  Trash2,
+  Check,
   FileImage,
   FileText,
-  FileVideo,
   Folder,
-  Check,
+  FileVideo,
 } from "lucide-react";
 import { AuroraBackground } from "./aurora-bg";
 
@@ -61,7 +59,7 @@ export function AuthForm({ mode }: { mode: "login" | "signup" }) {
   }
 
   return (
-    <div className="relative min-h-screen overflow-x-hidden bg-[#07070c] text-white antialiased">
+    <div className="relative min-h-screen overflow-hidden bg-[#07070c] text-white antialiased">
       <AuroraBackground />
 
       {/* barre du haut */}
@@ -82,71 +80,55 @@ export function AuthForm({ mode }: { mode: "login" | "signup" }) {
         </Link>
       </header>
 
-      <div className="relative z-10 mx-auto grid min-h-[calc(100vh-4rem)] w-full max-w-7xl items-center gap-10 px-5 py-10 sm:px-8 lg:grid-cols-2 lg:gap-16">
-        {/* ── VITRINE (gauche) ─────────────────────────────── */}
-        <section className="hidden flex-col justify-center lg:flex" style={{ animation: "revealUp 0.8s both" }}>
-          <div className="inline-flex w-fit items-center gap-2 rounded-full border border-white/15 bg-white/5 px-4 py-1.5 text-xs text-white/70">
-            <span className="relative flex size-2">
-              <span className="absolute inline-flex size-full animate-ping rounded-full bg-emerald-400 opacity-70" />
-              <span className="relative inline-flex size-2 rounded-full bg-emerald-400" />
-            </span>
-            Votre Drive nouvelle génération
+      {/* Zone centrale : carte au milieu, éléments qui l'entourent */}
+      <main className="relative z-10 grid min-h-[calc(100vh-4rem)] place-items-center px-5 py-10">
+        <div className="relative w-full max-w-md">
+          {/* ── éléments flottants autour (masqués en petit écran) ── */}
+          <div className="pointer-events-none absolute inset-0 hidden xl:block">
+            {/* haut-gauche : fichier image */}
+            <FloatCard className="-left-64 -top-14" delay={0}>
+              <FileMini icon={FileImage} name="vue-montagne.jpg" meta="2,4 Mo" color="#ec4899" />
+            </FloatCard>
+            {/* haut-droite : pilule fonctionnalité */}
+            <FloatPill className="-right-56 -top-8" delay={1.2} icon={UploadCloud} text="Glisser-déposer" tint="#5b8bff" />
+            {/* milieu-gauche : stat */}
+            <FloatCard className="-left-72 top-1/2 -translate-y-1/2" delay={0.6}>
+              <StatMini value="15 Go" label="offerts, sans carte" />
+            </FloatCard>
+            {/* milieu-droite : lien de partage */}
+            <FloatPill className="-right-64 top-[46%]" delay={1.8} icon={Share2} text="Partage par lien" tint="#a78bff" />
+            {/* bas-gauche : pilule */}
+            <FloatPill className="-left-52 -bottom-10" delay={2.2} icon={FolderTree} text="Dossiers imbriqués" tint="#22d3ee" />
+            {/* bas-droite : fichier dossier */}
+            <FloatCard className="-right-60 -bottom-16" delay={0.9}>
+              <FileMini icon={Folder} name="Projets" meta="12 éléments" color="#f59e0b" />
+            </FloatCard>
+            {/* petites icônes satellites */}
+            <FloatCard className="left-1/4 -top-24" delay={1.5}>
+              <IconBubble icon={Eye} tint="#22d3ee" />
+            </FloatCard>
+            <FloatCard className="right-1/4 -bottom-24" delay={0.4}>
+              <IconBubble icon={Star} tint="#fbbf24" />
+            </FloatCard>
+            <FloatCard className="-left-24 -bottom-24" delay={1.1}>
+              <IconBubble icon={FileVideo} tint="#8b5cf6" />
+            </FloatCard>
+            <FloatCard className="-right-24 -top-24" delay={1.9}>
+              <IconBubble icon={FileText} tint="#ef4444" />
+            </FloatCard>
           </div>
 
-          <h1 className="mt-6 text-balance text-5xl font-bold leading-[1.05] tracking-tight">
-            Tout votre univers,
-            <br />
-            <span
-              className="bg-gradient-to-r from-[#5b8bff] via-[#a78bff] to-[#22d3ee] bg-clip-text italic text-transparent"
-              style={{ backgroundSize: "200% auto", animation: "gradientPan 5s linear infinite" }}
-            >
-              au même endroit.
-            </span>
-          </h1>
-          <p className="mt-5 max-w-md text-lg text-white/55">
-            Stockez, organisez, prévisualisez et partagez. Rejoignez FileHub et
-            reprenez le contrôle de vos fichiers.
-          </p>
+          {/* halo derrière la carte */}
+          <div
+            className="pointer-events-none absolute -inset-10 -z-0 rounded-full opacity-60 blur-3xl"
+            style={{ background: "radial-gradient(circle, #3b6dff44, transparent 65%)", animation: "pulseGlow 6s ease-in-out infinite" }}
+          />
 
-          {/* mock drive flottant */}
-          <div className="mt-10" style={{ animation: "floaty 8s ease-in-out infinite" }}>
-            <MiniDrive />
-          </div>
-
-          {/* features + stats */}
-          <ul className="mt-9 grid grid-cols-2 gap-x-8 gap-y-3">
-            {[
-              { i: UploadCloud, t: "Import glisser-déposer" },
-              { i: Eye, t: "Aperçu instantané" },
-              { i: FolderTree, t: "Dossiers imbriqués" },
-              { i: Share2, t: "Partage par lien" },
-            ].map((f) => (
-              <li key={f.t} className="flex items-center gap-2.5 text-sm text-white/70">
-                <span className="grid size-6 shrink-0 place-items-center rounded-lg bg-white/5">
-                  <f.i className="size-3.5 text-cyan-300" />
-                </span>
-                {f.t}
-              </li>
-            ))}
-          </ul>
-
-          <div className="mt-8 flex items-center gap-8 border-t border-white/10 pt-6">
-            {[
-              { n: "15 Go", l: "offerts" },
-              { n: "100+", l: "types de fichiers" },
-              { n: "99%", l: "de disponibilité" },
-            ].map((s) => (
-              <div key={s.l}>
-                <div className="bg-gradient-to-b from-white to-white/50 bg-clip-text text-2xl font-bold text-transparent">{s.n}</div>
-                <div className="text-xs text-white/45">{s.l}</div>
-              </div>
-            ))}
-          </div>
-        </section>
-
-        {/* ── FORMULAIRE (droite) ──────────────────────────── */}
-        <section className="mx-auto w-full max-w-md lg:mx-0 lg:ml-auto" style={{ animation: "revealUp 0.8s 0.1s both" }}>
-          <div className="rounded-[1.75rem] border border-white/10 bg-white/[0.04] p-8 shadow-2xl shadow-black/60 backdrop-blur-xl sm:p-10">
+          {/* ── LA CARTE D'INSCRIPTION ── */}
+          <div
+            className="relative z-10 rounded-[1.75rem] border border-white/10 bg-white/[0.05] p-8 shadow-2xl shadow-black/60 backdrop-blur-xl sm:p-10"
+            style={{ animation: "revealUp 0.7s both" }}
+          >
             <div className="mb-6 inline-flex items-center gap-2 rounded-full border border-white/15 bg-white/5 px-3.5 py-1.5 text-xs text-white/70">
               <Check className="size-3.5 text-emerald-300" />
               {mode === "login" ? "Content de vous revoir" : "15 Go offerts, sans carte"}
@@ -234,14 +216,14 @@ export function AuthForm({ mode }: { mode: "login" | "signup" }) {
             </p>
           </div>
 
-          {/* réassurance mobile (la vitrine est masquée en petit écran) */}
-          <div className="mt-6 flex items-center justify-center gap-5 text-xs text-white/40 lg:hidden">
+          {/* réassurance mobile (les satellites sont masqués en petit écran) */}
+          <div className="mt-6 flex items-center justify-center gap-5 text-xs text-white/40 xl:hidden">
             <span className="inline-flex items-center gap-1.5"><UploadCloud className="size-3.5" /> Glisser-déposer</span>
             <span className="inline-flex items-center gap-1.5"><Eye className="size-3.5" /> Aperçu</span>
             <span className="inline-flex items-center gap-1.5"><Share2 className="size-3.5" /> Partage</span>
           </div>
-        </section>
-      </div>
+        </div>
+      </main>
     </div>
   );
 }
@@ -258,38 +240,54 @@ function Field({ label, ...props }: { label: string } & React.InputHTMLAttribute
   );
 }
 
-/* mini aperçu du Drive pour la vitrine */
-function MiniDrive() {
-  const files = [
-    { icon: FileImage, name: "vue-montagne.jpg", color: "#ec4899" },
-    { icon: Folder, name: "Projets", color: "#f59e0b" },
-    { icon: FileText, name: "rapport.pdf", color: "#ef4444" },
-    { icon: FileVideo, name: "demo.mp4", color: "#8b5cf6" },
-    { icon: Folder, name: "Design", color: "#f59e0b" },
-    { icon: FileText, name: "notes.md", color: "#64748b" },
-  ];
+/* ── éléments flottants ── */
+
+function FloatCard({ children, className = "", delay = 0 }: { children: React.ReactNode; className?: string; delay?: number }) {
   return (
-    <div className="max-w-lg overflow-hidden rounded-2xl border border-white/10 bg-[#0c0c14]/90 shadow-2xl shadow-black/50 backdrop-blur">
-      <div className="flex items-center gap-2 border-b border-white/10 px-4 py-2.5">
-        <span className="size-2.5 rounded-full bg-[#ff5f57]" />
-        <span className="size-2.5 rounded-full bg-[#febc2e]" />
-        <span className="size-2.5 rounded-full bg-[#28c840]" />
-        <div className="ml-3 flex h-6 flex-1 items-center gap-2 rounded-md bg-white/5 px-2.5 text-[11px] text-white/40">
-          <Search className="size-3" /> Rechercher…
-        </div>
-        <Star className="size-3.5 text-white/30" />
-        <Trash2 className="size-3.5 text-white/30" />
+    <div className={`absolute ${className}`} style={{ animation: `floaty ${6 + delay}s ease-in-out ${delay}s infinite` }}>
+      {children}
+    </div>
+  );
+}
+
+function FloatPill({ className = "", delay = 0, icon: Icon, text, tint }: { className?: string; delay?: number; icon: typeof UploadCloud; text: string; tint: string }) {
+  return (
+    <div className={`absolute ${className}`} style={{ animation: `floaty ${6 + delay}s ease-in-out ${delay}s infinite` }}>
+      <div className="flex items-center gap-2 rounded-full border border-white/10 bg-[#0c0c14]/85 px-4 py-2.5 text-sm text-white/80 shadow-xl shadow-black/40 backdrop-blur">
+        <span className="grid size-6 place-items-center rounded-lg" style={{ background: `${tint}26` }}>
+          <Icon className="size-3.5" style={{ color: tint }} />
+        </span>
+        {text}
       </div>
-      <div className="grid grid-cols-3 gap-2.5 p-3.5">
-        {files.map((f, i) => (
-          <div key={i} className="rounded-lg border border-white/10 bg-white/[0.03] p-2.5">
-            <div className="mb-1.5 grid aspect-[4/3] place-items-center rounded-md" style={{ background: `${f.color}1a` }}>
-              <f.icon className="size-5" style={{ color: f.color }} />
-            </div>
-            <div className="truncate text-[11px] text-white/70">{f.name}</div>
-          </div>
-        ))}
+    </div>
+  );
+}
+
+function FileMini({ icon: Icon, name, meta, color }: { icon: typeof FileImage; name: string; meta: string; color: string }) {
+  return (
+    <div className="w-40 rounded-2xl border border-white/10 bg-[#0c0c14]/85 p-3 shadow-xl shadow-black/40 backdrop-blur">
+      <div className="mb-2 grid aspect-[4/3] place-items-center rounded-xl" style={{ background: `${color}1a` }}>
+        <Icon className="size-8" style={{ color }} />
       </div>
+      <div className="truncate text-xs font-medium text-white/80">{name}</div>
+      <div className="text-[10px] text-white/40">{meta}</div>
+    </div>
+  );
+}
+
+function StatMini({ value, label }: { value: string; label: string }) {
+  return (
+    <div className="rounded-2xl border border-white/10 bg-[#0c0c14]/85 px-5 py-4 text-center shadow-xl shadow-black/40 backdrop-blur">
+      <div className="bg-gradient-to-b from-white to-white/50 bg-clip-text text-2xl font-bold text-transparent">{value}</div>
+      <div className="mt-0.5 text-[11px] text-white/45">{label}</div>
+    </div>
+  );
+}
+
+function IconBubble({ icon: Icon, tint }: { icon: typeof Eye; tint: string }) {
+  return (
+    <div className="grid size-12 place-items-center rounded-2xl border border-white/10 bg-[#0c0c14]/80 shadow-lg shadow-black/40 backdrop-blur">
+      <Icon className="size-5" style={{ color: tint }} />
     </div>
   );
 }
