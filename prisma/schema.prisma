@@ -40,13 +40,16 @@ model Node {
   children Node[]  @relation("Tree")
 
   name  String
-  type  String // "folder" | "file"
+  type  String // "folder" | "file" | "doc"
   color String? // optional folder color accent
 
   // File-only metadata (null for folders)
   mimeType   String?
   size       BigInt  @default(0)
   storageKey String? // id of the FileBlob holding the bytes
+
+  // Document-only : contenu HTML du traitement de texte (type "doc")
+  content String?
 
   starred   Boolean   @default(false)
   trashed   Boolean   @default(false)

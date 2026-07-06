@@ -28,7 +28,7 @@ export async function GET(req: NextRequest) {
     where.trashed = true;
   } else if (view === "recent") {
     where.trashed = false;
-    where.type = "file";
+    where.type = { in: ["file", "doc"] };
   } else {
     where.trashed = false;
     where.parentId = parent && parent !== "root" ? parent : null;
@@ -53,9 +53,10 @@ const createSchema = z.object({
   name: z.string().trim().min(1).max(255),
   parentId: z.string().nullable().optional(),
   color: z.string().optional(),
+  type: z.enum(["folder", "doc"]).optional(),
 });
 
-// POST /api/nodes  — create a folder
+// POST /api/nodes  — create a folder or a document ("doc")
 export async function POST(req: NextRequest) {
   const userId = await getUserId();
   if (!userId) return NextResponse.json({ error: "Non autorisé" }, { status: 401 });
@@ -65,7 +66,7 @@ export async function POST(req: NextRequest) {
   if (!parsed.success) {
     return NextResponse.json({ error: "Nom invalide" }, { status: 400 });
   }
-  const { name, parentId, color } = parsed.data;
+  const { name, parentId, color, type = "folder" } = parsed.data;
 
   if (parentId) {
     const parent = await prisma.node.findFirst({
@@ -76,7 +77,14 @@ export async function POST(req: NextRequest) {
   }
 
   const node = await prisma.node.create({
-    data: { userId, parentId: parentId ?? null, name, type: "folder", color: color ?? null },
+    data: {
+      userId,
+      parentId: parentId ?? null,
+      name,
+      type,
+      color: color ?? null,
+      ...(type === "doc" ? { content: "", mimeType: "application/vnd.filehub.doc" } : {}),
+    },
     include: { _count: { select: { children: true } } },
   });
 

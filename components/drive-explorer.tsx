@@ -22,6 +22,7 @@ import {
   X,
   CloudUpload,
   Loader2,
+  FileText,
 } from "lucide-react";
 import type { SerializedNode } from "@/lib/nodes";
 import { api, notifyRefresh } from "@/lib/api";
@@ -150,7 +151,13 @@ export function DriveExplorer({
   // ---- Actions -------------------------------------------------------------
   const open = (n: SerializedNode) => {
     if (n.type === "folder") router.push(`/drive/folder/${n.id}`);
+    else if (n.type === "doc") router.push(`/drive/doc/${n.id}`);
     else setPreview(n);
+  };
+
+  const createDoc = async () => {
+    const { node } = await api.createDoc("Document sans titre", folderId);
+    router.push(`/drive/doc/${node.id}`);
   };
 
   const doRename = async (n: SerializedNode, name: string) => {
@@ -327,6 +334,12 @@ export function DriveExplorer({
               >
                 <span className="relative z-10 flex items-center gap-2"><Plus className="size-4" /> Importer</span>
                 <span className="absolute inset-0 z-0 -translate-x-full bg-gradient-to-r from-transparent via-white/25 to-transparent" style={{ animation: "shine 3.5s ease-in-out infinite" }} />
+              </button>
+              <button
+                onClick={createDoc}
+                className="h-10 px-4 rounded-xl border border-white/10 bg-white/5 text-sm font-medium flex items-center gap-2 hover:bg-white/10 transition"
+              >
+                <FileText className="size-4 text-brand-300" /> Document
               </button>
               <button
                 onClick={() => setNewFolder(true)}

@@ -39,13 +39,25 @@ export function NodeIcon({
   size = 20,
   className = "",
 }: {
-  type: "folder" | "file";
+  type: "folder" | "file" | "doc";
   mimeType?: string | null;
   name?: string;
   color?: string | null;
   size?: number;
   className?: string;
 }) {
+  // Un document du traitement de texte a sa propre icône bleue.
+  if (type === "doc") {
+    return (
+      <FileText
+        style={{ color: "#5b8bff" }}
+        width={size}
+        height={size}
+        className={className}
+        strokeWidth={1.75}
+      />
+    );
+  }
   const cat: FileCategory = type === "folder" ? "folder" : categoryOf(mimeType ?? null, name);
   const Icon = ICONS[cat];
   const accent = type === "folder" && color ? color : CATEGORY_META[cat].color;

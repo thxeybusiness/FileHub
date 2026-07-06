@@ -31,6 +31,23 @@ export const api = {
     );
   },
 
+  createDoc(name: string, parentId: string | null) {
+    return req<{ node: SerializedNode }>(
+      "/api/nodes",
+      jsonInit("POST", { name, parentId, type: "doc" }),
+    );
+  },
+
+  getDoc(id: string) {
+    return req<{ id: string; name: string; content: string; updatedAt: string }>(
+      `/api/docs/${id}`,
+    );
+  },
+
+  saveDoc(id: string, patch: { content?: string; name?: string }) {
+    return req<{ ok: boolean; updatedAt: string }>(`/api/docs/${id}`, jsonInit("PUT", patch));
+  },
+
   update(id: string, patch: Partial<Pick<SerializedNode, "name" | "starred" | "trashed" | "color" | "parentId">>) {
     return req<{ node: SerializedNode }>(`/api/nodes/${id}`, jsonInit("PATCH", patch));
   },
