@@ -1,0 +1,89 @@
+// FileHub — a modern Drive.
+// Dev uses SQLite (zero-config). For production, switch `provider` to
+// "postgresql" and point DATABASE_URL at your Postgres instance.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id           String   @id @default(cuid())
+  email        String   @unique
+  name         String?
+  passwordHash String
+  storageUsed  BigInt   @default(0)
+  storageLimit BigInt   @default(16106127360) // 15 GB
+  createdAt    DateTime @default(now())
+
+  nodes  Node[]
+  shares Share[]
+
+  @@index([email])
+}
+
+// A Node is either a folder or a file. Storing both in one table keeps the
+// tree operations (move, list children, breadcrumb) simple.
+model Node {
+  id       String  @id @default(cuid())
+  userId   String
+  user     User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  parentId String?
+  parent   Node?   @relation("Tree", fields: [parentId], references: [id], onDelete: Cascade)
+  children Node[]  @relation("Tree")
+
+  name  String
+  type  String // "folder" | "file"
+  color String? // optional folder color accent
+
+  // File-only metadata (null for folders)
+  mimeType   String?
+  size       BigInt  @default(0)
+  storageKey String? // key into the storage backend
+
+  starred   Boolean   @default(false)
+  trashed   Boolean   @default(false)
+  trashedAt DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  shares   Share[]
+  versions FileVersion[]
+
+  @@index([userId, parentId])
+  @@index([userId, trashed])
+  @@index([userId, starred])
+}
+
+// Previous byte snapshots of a file, so users can restore an older version.
+model FileVersion {
+  id         String   @id @default(cuid())
+  nodeId     String
+  node       Node     @relation(fields: [nodeId], references: [id], onDelete: Cascade)
+  storageKey String
+  size       BigInt   @default(0)
+  mimeType   String?
+  createdAt  DateTime @default(now())
+
+  @@index([nodeId])
+}
+
+// A public share link for a node (file or folder).
+model Share {
+  id        String   @id @default(cuid())
+  token     String   @unique
+  nodeId    String
+  node      Node     @relation(fields: [nodeId], references: [id], onDelete: Cascade)
+  ownerId   String
+  owner     User     @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+  access    String   @default("view") // "view" | "edit"
+  expiresAt DateTime?
+  createdAt DateTime @default(now())
+
+  @@index([nodeId])
+}
