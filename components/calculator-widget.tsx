@@ -28,8 +28,16 @@ export function CalculatorWidget() {
   const [prev, setPrev] = useState<number | null>(null);
   const [op, setOp] = useState<Op | null>(null);
   const [overwrite, setOverwrite] = useState(true);
+  const [expBase, setExpBase] = useState<number | null>(null);
+  const [expPow, setExpPow] = useState(2);
+
+  const exitExp = () => {
+    setExpBase(null);
+    setExpPow(2);
+  };
 
   const inputDigit = useCallback((d: string) => {
+    exitExp();
     setCurrent((c) => {
       if (overwrite) return d;
       if (c === "0" && d !== ".") return d;
@@ -41,6 +49,7 @@ export function CalculatorWidget() {
   }, [overwrite]);
 
   const chooseOp = useCallback((next: Op) => {
+    exitExp();
     setCurrent((c) => {
       const cur = parseFloat(c);
       if (prev !== null && op && !overwrite) {
@@ -58,6 +67,7 @@ export function CalculatorWidget() {
   }, [prev, op, overwrite]);
 
   const equals = useCallback(() => {
+    exitExp();
     if (prev === null || !op) return;
     const r = compute(prev, op, parseFloat(current));
     setCurrent(fmt(r));
@@ -67,25 +77,35 @@ export function CalculatorWidget() {
   }, [prev, op, current]);
 
   const clearAll = useCallback(() => {
-    setCurrent("0"); setPrev(null); setOp(null); setOverwrite(true);
-  }, []);
-
-  const clearEntry = useCallback(() => {
-    setCurrent("0"); setOverwrite(true);
+    setCurrent("0"); setPrev(null); setOp(null); setOverwrite(true); exitExp();
   }, []);
 
   const backspace = useCallback(() => {
+    exitExp();
     setCurrent((c) => (overwrite || c.length <= 1 || (c.length === 2 && c.startsWith("-")) ? "0" : c.slice(0, -1)));
   }, [overwrite]);
 
   const percent = useCallback(() => {
+    exitExp();
     setCurrent((c) => fmt(parseFloat(c) / 100));
     setOverwrite(true);
   }, []);
 
   const negate = useCallback(() => {
+    exitExp();
     setCurrent((c) => (c === "0" ? c : c.startsWith("-") ? c.slice(1) : "-" + c));
   }, []);
+
+  // Exposant : 1er clic -> ²; clics suivants -> ³, ⁴, ⁵… sur la même base.
+  const power = useCallback(() => {
+    const base = expBase !== null ? expBase : parseFloat(current);
+    if (!isFinite(base)) return;
+    const pow = expBase !== null ? expPow + 1 : 2;
+    setExpBase(base);
+    setExpPow(pow);
+    setCurrent(fmt(Math.pow(base, pow)));
+    setOverwrite(true);
+  }, [expBase, expPow, current]);
 
   // Support clavier quand la calculatrice est ouverte.
   useEffect(() => {
@@ -101,14 +121,16 @@ export function CalculatorWidget() {
       else if (k === "Enter" || k === "=") { e.preventDefault(); equals(); }
       else if (k === "Backspace") backspace();
       else if (k === "%") percent();
+      else if (k === "^") { e.preventDefault(); power(); }
       else if (k === "Escape") setOpen(false);
       else return;
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [open, inputDigit, chooseOp, equals, backspace, percent]);
+  }, [open, inputDigit, chooseOp, equals, backspace, percent, power]);
 
-  const expr = prev !== null && op ? `${fmt(prev)} ${op}` : "";
+  const inExp = expBase !== null;
+  const expr = inExp ? `= ${current}` : prev !== null && op ? `${fmt(prev)} ${op}` : "";
 
   return (
     <>
@@ -138,12 +160,25 @@ export function CalculatorWidget() {
           {/* Écran */}
           <div className="px-4 pt-3 pb-2 text-right">
             <div className="h-4 text-xs text-muted truncate">{expr}</div>
-            <div className="text-3xl font-semibold tracking-tight truncate">{current}</div>
+            <div className="text-3xl font-semibold tracking-tight truncate">
+              {inExp ? (
+                <span>
+                  {fmt(expBase)}
+                  <sup className="ml-0.5 text-xl text-brand-300">{expPow}</sup>
+                </span>
+              ) : (
+                current
+              )}
+            </div>
           </div>
 
           {/* Clavier */}
           <div className="grid grid-cols-4 gap-1.5 p-3">
-            <Btn onClick={clearEntry} variant="fn">C</Btn>
+            <Btn onClick={power} variant="fn" title="Exposant (puissance)">
+              <span>
+                x<sup className="text-[10px]">{inExp ? expPow : 2}</sup>
+              </span>
+            </Btn>
             <Btn onClick={negate} variant="fn">±</Btn>
             <Btn onClick={percent} variant="fn">%</Btn>
             <Btn onClick={() => chooseOp("÷")} variant="op" active={op === "÷" && overwrite}>÷</Btn>
@@ -191,6 +226,7 @@ function Btn({
   wide,
   full,
   className,
+  title,
 }: {
   children: React.ReactNode;
   onClick: () => void;
@@ -199,10 +235,12 @@ function Btn({
   wide?: boolean;
   full?: boolean;
   className?: string;
+  title?: string;
 }) {
   return (
     <button
       onClick={onClick}
+      title={title}
       className={cn(
         "h-11 rounded-xl text-base font-medium transition active:scale-95",
         wide && "col-span-2",
