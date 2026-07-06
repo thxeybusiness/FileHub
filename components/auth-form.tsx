@@ -3,12 +3,24 @@
 import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { HardDrive, Loader2 } from "lucide-react";
+import {
+  Cloud,
+  Loader2,
+  ArrowRight,
+  ArrowLeft,
+  Eye,
+  EyeOff,
+  UploadCloud,
+  Share2,
+  ShieldCheck,
+} from "lucide-react";
+import { AuroraBackground } from "./aurora-bg";
 
 export function AuthForm({ mode }: { mode: "login" | "signup" }) {
   const router = useRouter();
   const [error, setError] = useState<string | null>(null);
   const [pending, setPending] = useState(false);
+  const [showPw, setShowPw] = useState(false);
 
   async function onSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -41,108 +53,142 @@ export function AuthForm({ mode }: { mode: "login" | "signup" }) {
   }
 
   return (
-    <div className="min-h-screen grid lg:grid-cols-2">
-      {/* Left: brand panel */}
-      <div className="hidden lg:flex flex-col justify-between p-12 bg-gradient-to-br from-brand-600 to-brand-800 text-white">
-        <div className="flex items-center gap-2 text-xl font-semibold">
-          <HardDrive className="size-6" />
-          FileHub
-        </div>
-        <div className="space-y-4">
-          <h1 className="text-4xl font-bold leading-tight">
-            Votre espace de fichiers,
-            <br /> réinventé.
-          </h1>
-          <p className="text-brand-100 text-lg max-w-md">
-            Stockez, organisez, prévisualisez et partagez. Rapide, moderne et
-            pensé pour vous faire gagner du temps.
-          </p>
-        </div>
-        <div className="flex gap-6 text-sm text-brand-100">
-          <span>Upload glisser-déposer</span>
-          <span>Aperçu instantané</span>
-          <span>Partage sécurisé</span>
-        </div>
-      </div>
+    <div className="relative flex min-h-screen flex-col overflow-x-hidden bg-[#07070c] text-white antialiased">
+      <AuroraBackground />
 
-      {/* Right: form */}
-      <div className="flex items-center justify-center p-6 sm:p-12">
-        <div className="w-full max-w-sm">
-          <div className="lg:hidden flex items-center gap-2 text-xl font-semibold mb-8">
-            <HardDrive className="size-6 text-brand-600" />
-            FileHub
-          </div>
-          <h2 className="text-2xl font-bold">
-            {mode === "login" ? "Bon retour 👋" : "Créer votre compte"}
-          </h2>
-          <p className="text-muted mt-1 mb-8">
-            {mode === "login"
-              ? "Connectez-vous pour accéder à vos fichiers."
-              : "Quelques secondes et c'est parti."}
-          </p>
+      {/* Top bar : retour à l'accueil */}
+      <header className="relative z-10 mx-auto flex h-16 w-full max-w-6xl items-center px-5 sm:px-8">
+        <Link href="/" className="flex items-center gap-2.5 font-semibold tracking-tight">
+          <span className="grid size-8 place-items-center rounded-xl bg-gradient-to-br from-[#3b6dff] to-[#7b3bff] shadow-lg shadow-blue-500/30">
+            <Cloud className="size-5" />
+          </span>
+          <span className="text-lg">
+            File<span className="text-white/60">'</span>Hub
+          </span>
+        </Link>
+        <Link
+          href="/"
+          className="ml-auto flex items-center gap-1.5 rounded-full border border-white/10 bg-white/5 px-4 py-2 text-sm text-white/70 backdrop-blur transition hover:text-white"
+        >
+          <ArrowLeft className="size-4" /> Accueil
+        </Link>
+      </header>
 
-          <form onSubmit={onSubmit} className="space-y-4">
-            {mode === "signup" && (
-              <Field
-                label="Nom"
-                name="name"
-                type="text"
-                placeholder="Votre nom"
-                autoComplete="name"
-              />
-            )}
-            <Field
-              label="Email"
-              name="email"
-              type="email"
-              placeholder="vous@exemple.com"
-              autoComplete="email"
-              required
-            />
-            <Field
-              label="Mot de passe"
-              name="password"
-              type="password"
-              placeholder="••••••••"
-              autoComplete={mode === "login" ? "current-password" : "new-password"}
-              required
-            />
-
-            {error && (
-              <p className="text-sm text-red-600 bg-red-50 border border-red-100 rounded-lg px-3 py-2">
-                {error}
-              </p>
-            )}
-
-            <button
-              type="submit"
-              disabled={pending}
-              className="w-full h-11 rounded-xl bg-brand-600 text-white font-medium hover:bg-brand-700 transition disabled:opacity-60 flex items-center justify-center gap-2"
+      {/* Carte centrale */}
+      <main className="relative z-10 flex flex-1 items-center justify-center px-5 py-10 sm:px-8">
+        <div className="w-full max-w-md" style={{ animation: "revealUp 0.7s both" }}>
+          <div className="rounded-[1.75rem] border border-white/10 bg-white/[0.04] p-8 shadow-2xl shadow-black/60 backdrop-blur-xl sm:p-10">
+            <div
+              className="mb-6 inline-flex items-center gap-2 rounded-full border border-white/15 bg-white/5 px-3.5 py-1.5 text-xs text-white/70"
+              style={{ animation: "revealUp 0.7s 0.05s both" }}
             >
-              {pending && <Loader2 className="size-4 animate-spin" />}
-              {mode === "login" ? "Se connecter" : "Créer mon compte"}
-            </button>
-          </form>
+              <ShieldCheck className="size-3.5 text-emerald-300" />
+              {mode === "login" ? "Content de vous revoir" : "15 Go offerts, sans carte"}
+            </div>
 
-          <p className="text-sm text-muted mt-6 text-center">
-            {mode === "login" ? (
-              <>
-                Pas encore de compte ?{" "}
-                <Link href="/signup" className="text-brand-600 font-medium hover:underline">
-                  Inscrivez-vous
-                </Link>
-              </>
-            ) : (
-              <>
-                Déjà inscrit ?{" "}
-                <Link href="/login" className="text-brand-600 font-medium hover:underline">
-                  Connectez-vous
-                </Link>
-              </>
-            )}
-          </p>
+            <h1
+              className="text-3xl font-bold leading-tight tracking-tight"
+              style={{ animation: "revealUp 0.75s 0.1s both" }}
+            >
+              {mode === "login" ? (
+                <>
+                  Bon{" "}
+                  <span className="bg-gradient-to-r from-[#5b8bff] via-[#a78bff] to-[#22d3ee] bg-clip-text italic text-transparent" style={{ backgroundSize: "200% auto", animation: "gradientPan 5s linear infinite" }}>
+                    retour
+                  </span>
+                </>
+              ) : (
+                <>
+                  Créez votre{" "}
+                  <span className="bg-gradient-to-r from-[#5b8bff] via-[#a78bff] to-[#22d3ee] bg-clip-text italic text-transparent" style={{ backgroundSize: "200% auto", animation: "gradientPan 5s linear infinite" }}>
+                    espace
+                  </span>
+                </>
+              )}
+            </h1>
+            <p className="mt-2 text-white/55" style={{ animation: "revealUp 0.8s 0.15s both" }}>
+              {mode === "login"
+                ? "Connectez-vous pour accéder à vos fichiers."
+                : "Quelques secondes et c'est parti."}
+            </p>
+
+            <form onSubmit={onSubmit} className="mt-8 space-y-4" style={{ animation: "revealUp 0.85s 0.2s both" }}>
+              {mode === "signup" && (
+                <Field label="Nom" name="name" type="text" placeholder="Votre nom" autoComplete="name" />
+              )}
+              <Field label="Email" name="email" type="email" placeholder="vous@exemple.com" autoComplete="email" required />
+
+              <label className="block">
+                <span className="text-sm font-medium text-white/80">Mot de passe</span>
+                <div className="relative mt-1.5">
+                  <input
+                    name="password"
+                    type={showPw ? "text" : "password"}
+                    placeholder="••••••••"
+                    autoComplete={mode === "login" ? "current-password" : "new-password"}
+                    required
+                    className="h-12 w-full rounded-xl border border-white/10 bg-white/5 px-4 pr-11 text-white outline-none transition placeholder:text-white/30 focus:border-[#5b8bff] focus:bg-white/[0.07] focus:ring-2 focus:ring-[#3b6dff]/30"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowPw((v) => !v)}
+                    className="absolute right-3 top-1/2 grid size-7 -translate-y-1/2 place-items-center rounded-lg text-white/40 transition hover:text-white/80"
+                    aria-label={showPw ? "Masquer" : "Afficher"}
+                  >
+                    {showPw ? <EyeOff className="size-4" /> : <Eye className="size-4" />}
+                  </button>
+                </div>
+              </label>
+
+              {error && (
+                <p className="rounded-xl border border-red-500/20 bg-red-500/10 px-3.5 py-2.5 text-sm text-red-300">
+                  {error}
+                </p>
+              )}
+
+              <button
+                type="submit"
+                disabled={pending}
+                className="group flex h-12 w-full items-center justify-center gap-2 rounded-xl bg-white font-semibold text-[#07070c] transition hover:scale-[1.01] disabled:opacity-60"
+              >
+                {pending ? (
+                  <Loader2 className="size-5 animate-spin" />
+                ) : (
+                  <>
+                    {mode === "login" ? "Se connecter" : "Créer mon compte"}
+                    <ArrowRight className="size-4 transition-transform group-hover:translate-x-1" />
+                  </>
+                )}
+              </button>
+            </form>
+
+            <p className="mt-6 text-center text-sm text-white/50" style={{ animation: "revealUp 0.9s 0.25s both" }}>
+              {mode === "login" ? (
+                <>
+                  Pas encore de compte ?{" "}
+                  <Link href="/signup" className="font-medium text-white transition hover:text-cyan-300">
+                    Inscrivez-vous
+                  </Link>
+                </>
+              ) : (
+                <>
+                  Déjà inscrit ?{" "}
+                  <Link href="/login" className="font-medium text-white transition hover:text-cyan-300">
+                    Connectez-vous
+                  </Link>
+                </>
+              )}
+            </p>
+          </div>
+
+          {/* mini réassurance sous la carte */}
+          <div className="mt-6 flex items-center justify-center gap-5 text-xs text-white/40" style={{ animation: "revealUp 1s 0.3s both" }}>
+            <span className="inline-flex items-center gap-1.5"><UploadCloud className="size-3.5" /> Glisser-déposer</span>
+            <span className="inline-flex items-center gap-1.5"><Eye className="size-3.5" /> Aperçu instantané</span>
+            <span className="inline-flex items-center gap-1.5"><Share2 className="size-3.5" /> Partage sécurisé</span>
+          </div>
         </div>
-      </div>
+      </main>
     </div>
   );
 }
@@ -153,10 +199,10 @@ function Field({
 }: { label: string } & React.InputHTMLAttributes<HTMLInputElement>) {
   return (
     <label className="block">
-      <span className="text-sm font-medium text-ink">{label}</span>
+      <span className="text-sm font-medium text-white/80">{label}</span>
       <input
         {...props}
-        className="mt-1.5 w-full h-11 rounded-xl border border-line bg-white px-3.5 outline-none focus:border-brand-500 focus:ring-2 focus:ring-brand-100 transition"
+        className="mt-1.5 h-12 w-full rounded-xl border border-white/10 bg-white/5 px-4 text-white outline-none transition placeholder:text-white/30 focus:border-[#5b8bff] focus:bg-white/[0.07] focus:ring-2 focus:ring-[#3b6dff]/30"
       />
     </label>
   );
