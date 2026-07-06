@@ -1,13 +1,13 @@
 // FileHub — a modern Drive.
-// Dev uses SQLite (zero-config). For production, switch `provider` to
-// "postgresql" and point DATABASE_URL at your Postgres instance.
+// Runs on PostgreSQL (Vercel Postgres / Neon). DATABASE_URL is injected by the
+// Vercel Storage integration; for local dev point it at any Postgres instance.
 
 generator client {
   provider = "prisma-client-js"
 }
 
 datasource db {
-  provider = "sqlite"
+  provider = "postgresql"
   url      = env("DATABASE_URL")
 }
 
