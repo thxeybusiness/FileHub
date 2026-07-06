@@ -20,7 +20,171 @@ import {
   Folder,
   Lock,
   Zap,
+  Menu,
+  X,
 } from "lucide-react";
+
+const NAV_LINKS = [
+  { href: "#accueil", id: "accueil", label: "Accueil" },
+  { href: "#features", id: "features", label: "Fonctionnalités" },
+  { href: "#preview", id: "preview", label: "Aperçu" },
+  { href: "#security", id: "security", label: "Sécurité" },
+];
+
+/* Barre de navigation pleine largeur, fixe, sombre et épurée (façon You'Com) :
+   logo à gauche, liens au centre avec scrollspy, CTA fléché à droite,
+   fine barre de progression de lecture, menu mobile animé. */
+function Navbar() {
+  const [scrolled, setScrolled] = useState(false);
+  const [progress, setProgress] = useState(0);
+  const [active, setActive] = useState("accueil");
+  const [open, setOpen] = useState(false);
+
+  useEffect(() => {
+    const onScroll = () => {
+      setScrolled(window.scrollY > 20);
+      const max = document.documentElement.scrollHeight - window.innerHeight;
+      setProgress(max > 0 ? Math.min(100, (window.scrollY / max) * 100) : 0);
+    };
+    onScroll();
+    window.addEventListener("scroll", onScroll, { passive: true });
+    return () => window.removeEventListener("scroll", onScroll);
+  }, []);
+
+  // Scrollspy : le lien de la section visible s'allume.
+  useEffect(() => {
+    const sections = NAV_LINKS.map((l) => document.getElementById(l.id)).filter(
+      (el): el is HTMLElement => !!el,
+    );
+    const io = new IntersectionObserver(
+      (entries) => {
+        for (const e of entries) {
+          if (e.isIntersecting) setActive(e.target.id);
+        }
+      },
+      { rootMargin: "-35% 0px -55% 0px" },
+    );
+    sections.forEach((s) => io.observe(s));
+    return () => io.disconnect();
+  }, []);
+
+  // Verrouille le scroll quand le menu mobile est ouvert.
+  useEffect(() => {
+    document.body.style.overflow = open ? "hidden" : "";
+    return () => {
+      document.body.style.overflow = "";
+    };
+  }, [open]);
+
+  return (
+    <header
+      className={`fixed inset-x-0 top-0 z-50 border-b transition-all duration-300 ${
+        scrolled
+          ? "border-white/10 bg-[#07070c]/80 backdrop-blur-xl"
+          : "border-transparent bg-transparent"
+      }`}
+    >
+      <div className="mx-auto flex h-16 w-full max-w-7xl items-center px-5 sm:px-8">
+        {/* Logo */}
+        <Link href="/" className="flex items-center gap-2.5 font-semibold tracking-tight">
+          <span className="grid size-8 place-items-center rounded-xl bg-gradient-to-br from-[#3b6dff] to-[#7b3bff] shadow-lg shadow-blue-500/30">
+            <Cloud className="size-5" />
+          </span>
+          <span className="text-lg">
+            File<span className="text-white/60">'</span>Hub
+          </span>
+        </Link>
+
+        {/* Liens centrés (desktop) */}
+        <nav className="absolute left-1/2 hidden -translate-x-1/2 items-center gap-1 md:flex">
+          {NAV_LINKS.map((l) => (
+            <a
+              key={l.id}
+              href={l.href}
+              className={`relative rounded-full px-4 py-2 text-sm transition ${
+                active === l.id ? "text-white" : "text-white/55 hover:text-white"
+              }`}
+            >
+              {l.label}
+              <span
+                className={`absolute inset-x-4 -bottom-[3px] h-px bg-gradient-to-r from-[#5b8bff] to-[#22d3ee] transition-all duration-300 ${
+                  active === l.id ? "opacity-100 scale-x-100" : "opacity-0 scale-x-0"
+                }`}
+              />
+            </a>
+          ))}
+        </nav>
+
+        {/* Actions à droite */}
+        <div className="ml-auto flex items-center gap-1">
+          <Link
+            href="/login"
+            className="hidden rounded-full px-4 py-2 text-sm text-white/60 transition hover:text-white md:block"
+          >
+            Se connecter
+          </Link>
+          <Link
+            href="/signup"
+            className="group hidden items-center gap-1.5 rounded-full px-4 py-2 text-sm font-semibold text-white transition hover:text-cyan-200 md:flex"
+          >
+            Démarrer un projet
+            <ArrowRight className="size-4 transition-transform duration-300 group-hover:translate-x-1" />
+          </Link>
+
+          {/* Burger (mobile) */}
+          <button
+            onClick={() => setOpen(!open)}
+            aria-label="Menu"
+            className="grid size-10 place-items-center rounded-full text-white/80 transition hover:bg-white/10 md:hidden"
+          >
+            {open ? <X className="size-5" /> : <Menu className="size-5" />}
+          </button>
+        </div>
+      </div>
+
+      {/* Barre de progression de lecture */}
+      <div className="absolute inset-x-0 bottom-0 h-px bg-white/5">
+        <div
+          className="h-full bg-gradient-to-r from-[#3b6dff] via-[#7b3bff] to-[#22d3ee] transition-[width] duration-150"
+          style={{ width: `${progress}%` }}
+        />
+      </div>
+
+      {/* Menu mobile plein écran */}
+      {open && (
+        <div className="fixed inset-0 top-16 z-40 border-t border-white/10 bg-[#07070c]/95 backdrop-blur-xl md:hidden">
+          <nav className="flex flex-col gap-1 p-5">
+            {NAV_LINKS.map((l, i) => (
+              <a
+                key={l.id}
+                href={l.href}
+                onClick={() => setOpen(false)}
+                className="rounded-2xl px-4 py-4 text-lg font-medium text-white/80 transition hover:bg-white/5 hover:text-white"
+                style={{ animation: `revealUp 0.4s ${i * 60}ms both` }}
+              >
+                {l.label}
+              </a>
+            ))}
+            <div className="mt-4 flex flex-col gap-2" style={{ animation: "revealUp 0.4s 260ms both" }}>
+              <Link
+                href="/signup"
+                className="flex items-center justify-center gap-2 rounded-full bg-white px-6 py-3.5 font-semibold text-[#07070c]"
+              >
+                Démarrer un projet <ArrowRight className="size-4" />
+              </Link>
+              <Link
+                href="/login"
+                className="flex items-center justify-center rounded-full border border-white/15 px-6 py-3.5 font-medium text-white"
+              >
+                Se connecter
+              </Link>
+            </div>
+          </nav>
+        </div>
+      )}
+    </header>
+  );
+}
 
 /* Reveal-on-scroll wrapper */
 function Reveal({
@@ -86,14 +250,7 @@ function Counter({ to, suffix = "", duration = 1600 }: { to: number; suffix?: st
 }
 
 export function Landing() {
-  const [scrolled, setScrolled] = useState(false);
   const heroRef = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    const onScroll = () => setScrolled(window.scrollY > 20);
-    window.addEventListener("scroll", onScroll, { passive: true });
-    return () => window.removeEventListener("scroll", onScroll);
-  }, []);
 
   // Subtle mouse parallax on the hero mock
   useEffect(() => {
@@ -136,42 +293,11 @@ export function Landing() {
         <StarField />
       </div>
 
-      {/* NAV */}
-      <header
-        className={`fixed inset-x-0 top-0 z-50 transition-all duration-300 ${
-          scrolled ? "backdrop-blur-xl bg-[#07070c]/70 border-b border-white/10" : "border-b border-transparent"
-        }`}
-      >
-        <div className="mx-auto flex h-16 max-w-7xl items-center justify-between px-5 sm:px-8">
-          <Link href="/" className="flex items-center gap-2.5 font-semibold tracking-tight">
-            <span className="grid size-8 place-items-center rounded-xl bg-gradient-to-br from-[#3b6dff] to-[#7b3bff] shadow-lg shadow-blue-500/30">
-              <Cloud className="size-5" />
-            </span>
-            <span className="text-lg">FileHub</span>
-          </Link>
-          <nav className="hidden items-center gap-8 text-sm text-white/60 md:flex">
-            <a href="#features" className="transition hover:text-white">Fonctionnalités</a>
-            <a href="#preview" className="transition hover:text-white">Aperçu</a>
-            <a href="#security" className="transition hover:text-white">Sécurité</a>
-          </nav>
-          <div className="flex items-center gap-2">
-            <Link href="/login" className="hidden rounded-full px-4 py-2 text-sm text-white/70 transition hover:text-white sm:block">
-              Se connecter
-            </Link>
-            <Link
-              href="/signup"
-              className="group relative overflow-hidden rounded-full bg-white px-4 py-2 text-sm font-semibold text-[#07070c] transition hover:shadow-lg hover:shadow-white/20"
-            >
-              <span className="relative z-10 flex items-center gap-1.5">
-                Commencer <ArrowRight className="size-4 transition-transform group-hover:translate-x-0.5" />
-              </span>
-            </Link>
-          </div>
-        </div>
-      </header>
+      {/* NAV — barre pleine largeur façon You'Com */}
+      <Navbar />
 
       {/* HERO */}
-      <section className="relative mx-auto max-w-7xl px-5 pb-24 pt-36 sm:px-8 sm:pt-44">
+      <section id="accueil" className="relative mx-auto max-w-7xl px-5 pb-24 pt-36 sm:px-8 sm:pt-44">
         <div className="mx-auto max-w-3xl text-center">
           <div
             className="mx-auto mb-6 inline-flex items-center gap-2 rounded-full border border-white/15 bg-white/5 px-4 py-1.5 text-xs text-white/70 backdrop-blur"
