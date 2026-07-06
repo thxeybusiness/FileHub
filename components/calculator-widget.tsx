@@ -70,6 +70,10 @@ export function CalculatorWidget() {
     setCurrent("0"); setPrev(null); setOp(null); setOverwrite(true);
   }, []);
 
+  const clearEntry = useCallback(() => {
+    setCurrent("0"); setOverwrite(true);
+  }, []);
+
   const backspace = useCallback(() => {
     setCurrent((c) => (overwrite || c.length <= 1 || (c.length === 2 && c.startsWith("-")) ? "0" : c.slice(0, -1)));
   }, [overwrite]);
@@ -139,7 +143,7 @@ export function CalculatorWidget() {
 
           {/* Clavier */}
           <div className="grid grid-cols-4 gap-1.5 p-3">
-            <Btn onClick={clearAll} variant="fn">AC</Btn>
+            <Btn onClick={clearEntry} variant="fn">C</Btn>
             <Btn onClick={negate} variant="fn">±</Btn>
             <Btn onClick={percent} variant="fn">%</Btn>
             <Btn onClick={() => chooseOp("÷")} variant="op" active={op === "÷" && overwrite}>÷</Btn>
@@ -163,10 +167,15 @@ export function CalculatorWidget() {
             <Btn onClick={() => inputDigit(".")}>,</Btn>
             <Btn onClick={equals} variant="eq">=</Btn>
           </div>
-          <div className="px-3 pb-3">
-            <Btn onClick={backspace} variant="fn" full>
-              <span className="flex items-center justify-center gap-1.5"><Delete className="size-4" /> Effacer</span>
-            </Btn>
+          <div className="flex gap-1.5 px-3 pb-3">
+            <Btn onClick={clearAll} variant="fn" className="flex-1">Tout effacer</Btn>
+            <button
+              onClick={backspace}
+              title="Effacer un caractère"
+              className="grid h-11 w-14 shrink-0 place-items-center rounded-xl bg-white/[0.07] text-white/80 transition hover:bg-white/[0.12] active:scale-95"
+            >
+              <Delete className="size-4" />
+            </button>
           </div>
         </div>
       )}
@@ -181,6 +190,7 @@ function Btn({
   active,
   wide,
   full,
+  className,
 }: {
   children: React.ReactNode;
   onClick: () => void;
@@ -188,6 +198,7 @@ function Btn({
   active?: boolean;
   wide?: boolean;
   full?: boolean;
+  className?: string;
 }) {
   return (
     <button
@@ -196,6 +207,7 @@ function Btn({
         "h-11 rounded-xl text-base font-medium transition active:scale-95",
         wide && "col-span-2",
         full && "w-full",
+        className,
         variant === "num" && "bg-white/5 text-white hover:bg-white/10",
         variant === "fn" && "bg-white/[0.07] text-white/80 hover:bg-white/[0.12]",
         variant === "op" && (active ? "bg-brand-500 text-white" : "bg-brand-500/20 text-brand-200 hover:bg-brand-500/30"),
