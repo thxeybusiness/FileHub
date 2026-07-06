@@ -2,10 +2,11 @@ import { cookies } from "next/headers";
 import { createHmac, timingSafeEqual, randomBytes } from "node:crypto";
 import bcrypt from "bcryptjs";
 import { prisma } from "./prisma";
+import { getAuthSecret } from "./env";
 
 const COOKIE = "filehub_session";
 const MAX_AGE = 60 * 60 * 24 * 30; // 30 days
-const SECRET = process.env.AUTH_SECRET || "insecure-dev-secret";
+const SECRET = getAuthSecret();
 
 function b64url(input: Buffer | string): string {
   return Buffer.from(input)

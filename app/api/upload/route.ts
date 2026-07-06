@@ -1,5 +1,4 @@
 import { NextRequest, NextResponse } from "next/server";
-import path from "node:path";
 import { getUserId } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { storage } from "@/lib/storage";
@@ -47,8 +46,7 @@ export async function POST(req: NextRequest) {
   const created = [];
   for (const file of files) {
     const buffer = Buffer.from(await file.arrayBuffer());
-    const ext = path.extname(file.name);
-    const { key } = await storage.save(buffer, ext);
+    const { key } = await storage.save(buffer);
     const node = await prisma.node.create({
       data: {
         userId,

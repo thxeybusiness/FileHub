@@ -1,6 +1,8 @@
 // FileHub — a modern Drive.
-// Runs on PostgreSQL (Vercel Postgres / Neon). DATABASE_URL is injected by the
-// Vercel Storage integration; for local dev point it at any Postgres instance.
+// Runs on PostgreSQL (same setup as RoadMapXey). DATABASE_URL is injected by
+// the hosting env. Every table is @@map-prefixed with `filehub_` so FileHub can
+// safely share a database with another app WITHOUT any table collision — Prisma
+// only ever touches filehub_* tables.
 
 generator client {
   provider = "prisma-client-js"
@@ -24,6 +26,7 @@ model User {
   shares Share[]
 
   @@index([email])
+  @@map("filehub_user")
 }
 
 // A Node is either a folder or a file. Storing both in one table keeps the
@@ -43,7 +46,7 @@ model Node {
   // File-only metadata (null for folders)
   mimeType   String?
   size       BigInt  @default(0)
-  storageKey String? // key into the storage backend
+  storageKey String? // id of the FileBlob holding the bytes
 
   starred   Boolean   @default(false)
   trashed   Boolean   @default(false)
@@ -58,6 +61,17 @@ model Node {
   @@index([userId, parentId])
   @@index([userId, trashed])
   @@index([userId, starred])
+  @@map("filehub_node")
+}
+
+// Raw file bytes, stored in Postgres (same philosophy as RoadMapXey keeping its
+// data in the database). No external object store required.
+model FileBlob {
+  id        String   @id @default(cuid())
+  data      Bytes
+  createdAt DateTime @default(now())
+
+  @@map("filehub_blob")
 }
 
 // Previous byte snapshots of a file, so users can restore an older version.
@@ -71,19 +85,21 @@ model FileVersion {
   createdAt  DateTime @default(now())
 
   @@index([nodeId])
+  @@map("filehub_file_version")
 }
 
 // A public share link for a node (file or folder).
 model Share {
-  id        String   @id @default(cuid())
-  token     String   @unique
+  id        String    @id @default(cuid())
+  token     String    @unique
   nodeId    String
-  node      Node     @relation(fields: [nodeId], references: [id], onDelete: Cascade)
+  node      Node      @relation(fields: [nodeId], references: [id], onDelete: Cascade)
   ownerId   String
-  owner     User     @relation(fields: [ownerId], references: [id], onDelete: Cascade)
-  access    String   @default("view") // "view" | "edit"
+  owner     User      @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+  access    String    @default("view") // "view" | "edit"
   expiresAt DateTime?
-  createdAt DateTime @default(now())
+  createdAt DateTime  @default(now())
 
   @@index([nodeId])
+  @@map("filehub_share")
 }
