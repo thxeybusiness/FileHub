@@ -23,6 +23,7 @@ import {
   CloudUpload,
   Loader2,
   FileText,
+  Table2,
 } from "lucide-react";
 import type { SerializedNode } from "@/lib/nodes";
 import { api, notifyRefresh } from "@/lib/api";
@@ -152,12 +153,18 @@ export function DriveExplorer({
   const open = (n: SerializedNode) => {
     if (n.type === "folder") router.push(`/drive/folder/${n.id}`);
     else if (n.type === "doc") router.push(`/drive/doc/${n.id}`);
+    else if (n.type === "sheet") router.push(`/drive/sheet/${n.id}`);
     else setPreview(n);
   };
 
   const createDoc = async () => {
     const { node } = await api.createDoc("Document sans titre", folderId);
     router.push(`/drive/doc/${node.id}`);
+  };
+
+  const createSheet = async () => {
+    const { node } = await api.createSheet("Feuille sans titre", folderId);
+    router.push(`/drive/sheet/${node.id}`);
   };
 
   const doRename = async (n: SerializedNode, name: string) => {
@@ -340,6 +347,12 @@ export function DriveExplorer({
                 className="h-10 px-4 rounded-xl border border-white/10 bg-white/5 text-sm font-medium flex items-center gap-2 hover:bg-white/10 transition"
               >
                 <FileText className="size-4 text-brand-300" /> Document
+              </button>
+              <button
+                onClick={createSheet}
+                className="h-10 px-4 rounded-xl border border-white/10 bg-white/5 text-sm font-medium flex items-center gap-2 hover:bg-white/10 transition"
+              >
+                <Table2 className="size-4 text-emerald-400" /> Feuille de calcul
               </button>
               <button
                 onClick={() => setNewFolder(true)}

@@ -48,6 +48,17 @@ export const api = {
     return req<{ ok: boolean; updatedAt: string }>(`/api/docs/${id}`, jsonInit("PUT", patch));
   },
 
+  createSheet(name: string, parentId: string | null) {
+    return req<{ node: SerializedNode }>(
+      "/api/nodes",
+      jsonInit("POST", { name, parentId, type: "sheet" }),
+    );
+  },
+
+  saveSheet(id: string, patch: { content?: unknown; name?: string }) {
+    return req<{ ok: boolean; updatedAt: string }>(`/api/sheets/${id}`, jsonInit("PUT", patch));
+  },
+
   update(id: string, patch: Partial<Pick<SerializedNode, "name" | "starred" | "trashed" | "color" | "parentId">>) {
     return req<{ node: SerializedNode }>(`/api/nodes/${id}`, jsonInit("PATCH", patch));
   },

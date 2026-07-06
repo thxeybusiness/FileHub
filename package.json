@@ -13,6 +13,8 @@
   },
   "dependencies": {
     "@prisma/client": "^6.19.3",
+    "@univerjs/presets": "^0.25.1",
+    "@univerjs/themes": "^0.25.1",
     "bcryptjs": "^3.0.3",
     "clsx": "^2.1.1",
     "lucide-react": "^0.469.0",

@@ -39,7 +39,7 @@ export function NodeIcon({
   size = 20,
   className = "",
 }: {
-  type: "folder" | "file" | "doc";
+  type: "folder" | "file" | "doc" | "sheet";
   mimeType?: string | null;
   name?: string;
   color?: string | null;
@@ -51,6 +51,18 @@ export function NodeIcon({
     return (
       <FileText
         style={{ color: "#5b8bff" }}
+        width={size}
+        height={size}
+        className={className}
+        strokeWidth={1.75}
+      />
+    );
+  }
+  // Une feuille de calcul a son icône verte.
+  if (type === "sheet") {
+    return (
+      <FileSpreadsheet
+        style={{ color: "#10b981" }}
         width={size}
         height={size}
         className={className}

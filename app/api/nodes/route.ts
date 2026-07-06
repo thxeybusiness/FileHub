@@ -28,7 +28,7 @@ export async function GET(req: NextRequest) {
     where.trashed = true;
   } else if (view === "recent") {
     where.trashed = false;
-    where.type = { in: ["file", "doc"] };
+    where.type = { in: ["file", "doc", "sheet"] };
   } else {
     where.trashed = false;
     where.parentId = parent && parent !== "root" ? parent : null;
@@ -53,7 +53,7 @@ const createSchema = z.object({
   name: z.string().trim().min(1).max(255),
   parentId: z.string().nullable().optional(),
   color: z.string().optional(),
-  type: z.enum(["folder", "doc"]).optional(),
+  type: z.enum(["folder", "doc", "sheet"]).optional(),
 });
 
 // POST /api/nodes  — create a folder or a document ("doc")
@@ -84,6 +84,7 @@ export async function POST(req: NextRequest) {
       type,
       color: color ?? null,
       ...(type === "doc" ? { content: "", mimeType: "application/vnd.filehub.doc" } : {}),
+      ...(type === "sheet" ? { content: "", mimeType: "application/vnd.filehub.sheet" } : {}),
     },
     include: { _count: { select: { children: true } } },
   });
