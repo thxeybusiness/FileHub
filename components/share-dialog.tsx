@@ -109,7 +109,7 @@ function Overlay({
       >
         <button
           onClick={onClose}
-          className="absolute top-4 right-4 size-8 grid place-items-center rounded-lg hover:bg-canvas text-muted"
+          className="absolute top-4 right-4 size-8 grid place-items-center rounded-lg hover:bg-white/5 text-muted"
         >
           <X className="size-4" />
         </button>

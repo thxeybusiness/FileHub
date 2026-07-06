@@ -44,7 +44,7 @@ export function MoveDialog({
         <div className="flex items-center gap-2 mb-4">
           <FolderInput className="size-5 text-brand-600" />
           <h3 className="text-lg font-semibold">Déplacer « {node.name} »</h3>
-          <button onClick={onClose} className="ml-auto size-8 grid place-items-center rounded-lg hover:bg-canvas text-muted">
+          <button onClick={onClose} className="ml-auto size-8 grid place-items-center rounded-lg hover:bg-white/5 text-muted">
             <X className="size-4" />
           </button>
         </div>
@@ -80,7 +80,7 @@ export function MoveDialog({
               <button
                 key={f.id}
                 onClick={() => enter(f)}
-                className="w-full flex items-center gap-3 px-4 h-12 hover:bg-canvas text-left"
+                className="w-full flex items-center gap-3 px-4 h-12 hover:bg-white/5 text-left"
               >
                 <Folder className="size-5 text-amber-500" fill="#f59e0b" fillOpacity={0.15} />
                 <span className="flex-1 truncate text-sm">{f.name}</span>
@@ -91,7 +91,7 @@ export function MoveDialog({
         </div>
 
         <div className="flex justify-end gap-2 mt-5">
-          <button onClick={onClose} className="h-10 px-4 rounded-xl border border-line text-sm font-medium hover:bg-canvas">
+          <button onClick={onClose} className="h-10 px-4 rounded-xl border border-line text-sm font-medium hover:bg-white/5">
             Annuler
           </button>
           <button

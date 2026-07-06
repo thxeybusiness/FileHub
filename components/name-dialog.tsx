@@ -38,7 +38,7 @@ export function NameDialog({
       <div className="w-full max-w-sm bg-surface rounded-2xl shadow-2xl p-6" onClick={(e) => e.stopPropagation()}>
         <div className="flex items-center mb-4">
           <h3 className="text-lg font-semibold">{title}</h3>
-          <button onClick={onCancel} className="ml-auto size-8 grid place-items-center rounded-lg hover:bg-canvas text-muted">
+          <button onClick={onCancel} className="ml-auto size-8 grid place-items-center rounded-lg hover:bg-white/5 text-muted">
             <X className="size-4" />
           </button>
         </div>
@@ -53,11 +53,11 @@ export function NameDialog({
               if (e.key === "Enter") submit();
               if (e.key === "Escape") onCancel();
             }}
-            className="mt-1.5 w-full h-11 rounded-xl border border-line px-3.5 outline-none focus:border-brand-500 focus:ring-2 focus:ring-brand-100"
+            className="mt-1.5 w-full h-11 rounded-xl border border-white/10 bg-white/5 px-3.5 outline-none focus:border-brand-400 focus:bg-white/[0.07] focus:ring-2 focus:ring-brand-500/30"
           />
         </label>
         <div className="flex justify-end gap-2 mt-5">
-          <button onClick={onCancel} className="h-10 px-4 rounded-xl border border-line text-sm font-medium hover:bg-canvas">
+          <button onClick={onCancel} className="h-10 px-4 rounded-xl border border-line text-sm font-medium hover:bg-white/5">
             Annuler
           </button>
           <button

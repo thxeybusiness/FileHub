@@ -289,26 +289,26 @@ export function DriveExplorer({
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             placeholder="Rechercher…"
-            className="w-full h-10 pl-9 pr-8 rounded-xl bg-canvas border border-transparent focus:border-brand-300 focus:bg-white outline-none text-sm transition"
+            className="w-full h-10 pl-9 pr-8 rounded-xl bg-white/5 border border-white/10 focus:border-brand-400 focus:bg-white/[0.07] outline-none text-sm transition"
           />
           {query && (
-            <button onClick={() => setQuery("")} className="absolute right-2 top-1/2 -translate-y-1/2 size-6 grid place-items-center rounded-md hover:bg-line text-muted">
+            <button onClick={() => setQuery("")} className="absolute right-2 top-1/2 -translate-y-1/2 size-6 grid place-items-center rounded-md hover:bg-white/10 text-muted">
               <X className="size-3.5" />
             </button>
           )}
         </div>
 
-        <div className="flex items-center gap-1 bg-canvas rounded-xl p-1">
+        <div className="flex items-center gap-1 bg-white/5 rounded-xl p-1">
           <button
             onClick={() => setMode("grid")}
-            className={cn("size-8 grid place-items-center rounded-lg", mode === "grid" ? "bg-white shadow-sm text-brand-600" : "text-muted")}
+            className={cn("size-8 grid place-items-center rounded-lg", mode === "grid" ? "bg-white/10 text-brand-300" : "text-muted hover:text-ink")}
             title="Grille"
           >
             <LayoutGrid className="size-[18px]" />
           </button>
           <button
             onClick={() => setMode("list")}
-            className={cn("size-8 grid place-items-center rounded-lg", mode === "list" ? "bg-white shadow-sm text-brand-600" : "text-muted")}
+            className={cn("size-8 grid place-items-center rounded-lg", mode === "list" ? "bg-white/10 text-brand-300" : "text-muted hover:text-ink")}
             title="Liste"
           >
             <ListIcon className="size-[18px]" />
@@ -329,7 +329,7 @@ export function DriveExplorer({
               </button>
               <button
                 onClick={() => setNewFolder(true)}
-                className="h-10 px-4 rounded-xl border border-line bg-white text-sm font-medium flex items-center gap-2 hover:bg-canvas transition"
+                className="h-10 px-4 rounded-xl border border-white/10 bg-white/5 text-sm font-medium flex items-center gap-2 hover:bg-white/10 transition"
               >
                 <FolderPlus className="size-4" /> Nouveau dossier
               </button>
@@ -348,7 +348,7 @@ export function DriveExplorer({
           {view === "trash" && nodes.length > 0 && (
             <button
               onClick={emptyTrash}
-              className="h-10 px-4 rounded-xl border border-red-200 text-red-600 text-sm font-medium flex items-center gap-2 hover:bg-red-50 transition"
+              className="h-10 px-4 rounded-xl border border-red-200 text-red-600 text-sm font-medium flex items-center gap-2 hover:bg-red-500/10 transition"
             >
               <Trash2 className="size-4" /> Vider la corbeille
             </button>
@@ -401,8 +401,8 @@ export function DriveExplorer({
       {/* Drag overlay */}
       {dragging && (
         <div className="absolute inset-0 z-40 bg-brand-600/10 backdrop-blur-sm grid place-items-center pointer-events-none">
-          <div className="bg-white rounded-3xl shadow-2xl px-10 py-8 flex flex-col items-center gap-3 border-2 border-dashed border-brand-400">
-            <CloudUpload className="size-12 text-brand-600" />
+          <div className="bg-[#0f1017] rounded-3xl shadow-2xl px-10 py-8 flex flex-col items-center gap-3 border-2 border-dashed border-brand-400">
+            <CloudUpload className="size-12 text-brand-400" />
             <p className="text-lg font-semibold">Déposez pour importer</p>
           </div>
         </div>
@@ -454,8 +454,8 @@ export function DriveExplorer({
                 setMenu(null);
               }}
               className={cn(
-                "w-full flex items-center gap-3 px-4 h-10 text-sm text-left hover:bg-canvas transition",
-                (item as { danger?: boolean }).danger && "text-red-600 hover:bg-red-50",
+                "w-full flex items-center gap-3 px-4 h-10 text-sm text-left hover:bg-white/5 transition",
+                (item as { danger?: boolean }).danger && "text-red-600 hover:bg-red-500/10",
               )}
             >
               <item.icon className="size-4" />
@@ -537,11 +537,11 @@ function GridView({
             onDoubleClick={() => onOpen(n)}
             onContextMenu={(e) => onMenu(e, n)}
             className={cn(
-              "group relative rounded-2xl border bg-surface p-3 cursor-pointer transition hover:shadow-md",
-              selected === n.id ? "border-brand-400 ring-2 ring-brand-100" : "border-line",
+              "group relative rounded-2xl border bg-surface p-3 cursor-pointer transition hover:border-white/20 hover:bg-white/[0.06]",
+              selected === n.id ? "border-brand-400 ring-2 ring-brand-500/30" : "border-line",
             )}
           >
-            <div className="aspect-[4/3] rounded-xl bg-canvas grid place-items-center overflow-hidden mb-2.5">
+            <div className="aspect-[4/3] rounded-xl bg-white/5 grid place-items-center overflow-hidden mb-2.5">
               {showThumb ? (
                 // eslint-disable-next-line @next/next/no-img-element
                 <img src={`/api/nodes/${n.id}/raw`} alt={n.name} className="w-full h-full object-cover" loading="lazy" />
@@ -563,7 +563,7 @@ function GridView({
                 onStar(n);
               }}
               className={cn(
-                "absolute top-2 left-2 size-7 grid place-items-center rounded-lg bg-white/90 shadow-sm transition",
+                "absolute top-2 left-2 size-7 grid place-items-center rounded-lg bg-black/50 backdrop-blur shadow-sm transition",
                 n.starred ? "opacity-100" : "opacity-0 group-hover:opacity-100",
               )}
               title="Favori"
@@ -572,7 +572,7 @@ function GridView({
             </button>
             <button
               onClick={(e) => onMenu(e, n)}
-              className="absolute top-2 right-2 size-7 grid place-items-center rounded-lg bg-white/90 shadow-sm opacity-0 group-hover:opacity-100 transition text-muted"
+              className="absolute top-2 right-2 size-7 grid place-items-center rounded-lg bg-black/50 backdrop-blur shadow-sm opacity-0 group-hover:opacity-100 transition text-white/80"
             >
               <MoreVertical className="size-4" />
             </button>
@@ -616,7 +616,7 @@ function ListView({
           onContextMenu={(e) => onMenu(e, n)}
           className={cn(
             "grid grid-cols-[1fr_140px_120px_40px] gap-4 px-4 h-14 items-center cursor-pointer border-b border-line last:border-0 transition",
-            selected === n.id ? "bg-brand-50" : "hover:bg-canvas",
+            selected === n.id ? "bg-brand-500/10" : "hover:bg-white/5",
           )}
         >
           <div className="flex items-center gap-3 min-w-0">
@@ -628,7 +628,7 @@ function ListView({
           <span className="text-sm text-muted">{n.type === "folder" ? "—" : formatBytes(n.size)}</span>
           <button
             onClick={(e) => onMenu(e, n)}
-            className="size-8 grid place-items-center rounded-lg hover:bg-line text-muted"
+            className="size-8 grid place-items-center rounded-lg hover:bg-white/10 text-muted"
           >
             <MoreVertical className="size-4" />
           </button>

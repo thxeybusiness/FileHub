@@ -12,15 +12,16 @@
   --color-brand-800: #1a2fae;
   --color-brand-900: #1b2f89;
 
-  --color-surface: #ffffff;
-  --color-canvas: #f7f8fb;
-  --color-ink: #1a1d29;
-  --color-muted: #6b7280;
-  --color-line: #e6e8ef;
+  /* Dark theme — cohérent avec la landing / l'auth */
+  --color-surface: #0f1017;
+  --color-canvas: #08080c;
+  --color-ink: #eceef4;
+  --color-muted: #9aa0ad;
+  --color-line: #23252f;
 }
 
 :root {
-  color-scheme: light;
+  color-scheme: dark;
 }
 
 * {
@@ -43,20 +44,20 @@ body {
 /* Thin, modern scrollbars */
 * {
   scrollbar-width: thin;
-  scrollbar-color: #cbd0da transparent;
+  scrollbar-color: #2f313d transparent;
 }
 *::-webkit-scrollbar {
   width: 10px;
   height: 10px;
 }
 *::-webkit-scrollbar-thumb {
-  background: #cbd0da;
+  background: #2f313d;
   border-radius: 999px;
   border: 3px solid transparent;
   background-clip: content-box;
 }
 *::-webkit-scrollbar-thumb:hover {
-  background: #a9b0bf;
+  background: #3d404e;
   background-clip: content-box;
 }
 

@@ -72,13 +72,13 @@ export function Sidebar({ initial }: { initial: Me }) {
               className={cn(
                 "flex items-center gap-3 px-3 h-10 rounded-xl text-sm font-medium transition group",
                 active
-                  ? "bg-brand-50 text-brand-700"
-                  : "text-ink/70 hover:bg-canvas hover:text-ink",
+                  ? "bg-brand-500/15 text-brand-200"
+                  : "text-ink/70 hover:bg-white/5 hover:text-ink",
               )}
             >
               <item.icon className="size-[18px]" />
               {item.label}
-              {active && <ChevronRight className="size-4 ml-auto text-brand-400" />}
+              {active && <ChevronRight className="size-4 ml-auto text-brand-300" />}
             </Link>
           );
         })}
@@ -119,7 +119,7 @@ export function Sidebar({ initial }: { initial: Me }) {
           <button
             onClick={logout}
             title="Se déconnecter"
-            className="size-8 grid place-items-center rounded-lg text-muted hover:bg-canvas hover:text-red-600 transition"
+            className="size-8 grid place-items-center rounded-lg text-muted hover:bg-white/5 hover:text-red-600 transition"
           >
             <LogOut className="size-4" />
           </button>

@@ -105,7 +105,7 @@ export function PreviewModal({
             <p className="mt-4">Aperçu indisponible pour ce type de fichier.</p>
             <a
               href={`${url}?download=1`}
-              className="inline-flex items-center gap-2 mt-4 h-10 px-5 rounded-xl bg-white text-ink font-medium"
+              className="inline-flex items-center gap-2 mt-4 h-10 px-5 rounded-xl bg-white text-[#07070c] font-medium"
             >
               <Download className="size-4" /> Télécharger
             </a>
