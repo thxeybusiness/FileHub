@@ -186,6 +186,8 @@ model Share {
   expiresAt     DateTime?
   passwordHash  String? // protection par mot de passe (optionnelle)
   allowDownload Boolean   @default(true) // false = aperçu seul, pas de téléchargement
+  views         Int       @default(0) // nombre d'ouvertures du lien
+  lastViewedAt  DateTime? // dernière ouverture
   createdAt     DateTime  @default(now())
 
   @@index([nodeId])

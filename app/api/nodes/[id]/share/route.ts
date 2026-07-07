@@ -12,6 +12,8 @@ type ShareView = {
   expiresAt: string | null;
   allowDownload: boolean;
   hasPassword: boolean;
+  views: number;
+  lastViewedAt: string | null;
 };
 
 function view(s: {
@@ -19,12 +21,16 @@ function view(s: {
   expiresAt: Date | null;
   allowDownload: boolean;
   passwordHash: string | null;
+  views?: number;
+  lastViewedAt?: Date | null;
 }): ShareView {
   return {
     token: s.token,
     expiresAt: s.expiresAt ? s.expiresAt.toISOString() : null,
     allowDownload: s.allowDownload,
     hasPassword: !!s.passwordHash,
+    views: s.views ?? 0,
+    lastViewedAt: s.lastViewedAt ? s.lastViewedAt.toISOString() : null,
   };
 }
 

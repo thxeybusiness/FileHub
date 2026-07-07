@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { X, Link2, Check, Loader2, Globe, Lock, Clock, Download, Eye } from "lucide-react";
 import type { SerializedNode } from "@/lib/nodes";
 import { api, type ShareInfo } from "@/lib/api";
-import { cn } from "@/lib/utils";
+import { cn, formatRelative } from "@/lib/utils";
 
 const EXPIRY_OPTIONS: { label: string; days: number | null }[] = [
   { label: "Jamais", days: null },
@@ -100,6 +100,19 @@ export function ShareDialog({
               {copied ? <Check className="size-4" /> : <Link2 className="size-4" />}
               {copied ? "Copié" : "Copier"}
             </button>
+          </div>
+
+          {/* Statistiques d'ouverture */}
+          <div className="mt-2.5 flex items-center gap-1.5 text-xs text-muted">
+            <Eye className="size-3.5" />
+            {share.views > 0 ? (
+              <span>
+                Ouvert <span className="text-white/80">{share.views}</span> fois
+                {share.lastViewedAt && <> · dernier accès {formatRelative(share.lastViewedAt)}</>}
+              </span>
+            ) : (
+              <span>Pas encore ouvert</span>
+            )}
           </div>
 
           {/* Réglages */}

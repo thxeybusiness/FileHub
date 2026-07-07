@@ -240,6 +240,8 @@ export type ShareInfo = {
   expiresAt: string | null;
   allowDownload: boolean;
   hasPassword: boolean;
+  views: number;
+  lastViewedAt: string | null;
 };
 
 /** Notify sidebar (and others) that storage/data changed. */

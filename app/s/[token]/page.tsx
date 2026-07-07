@@ -33,6 +33,11 @@ export default async function SharePage({
   });
   if (!node) notFound();
 
+  // Comptabilise l'ouverture du lien (statistiques de partage).
+  await prisma.share
+    .update({ where: { id: share.id }, data: { views: { increment: 1 }, lastViewedAt: new Date() } })
+    .catch(() => {});
+
   const children =
     node.type === "folder"
       ? await prisma.node.findMany({
