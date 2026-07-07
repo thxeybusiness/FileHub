@@ -15,10 +15,9 @@ export type Plan = {
 };
 
 const GB = 1024 ** 3;
-const TB = 1024 ** 4;
 
 export const FREE_STORAGE = 1 * GB; // 1 Go
-export const PREMIUM_STORAGE = 1 * TB;
+export const PREMIUM_STORAGE = 250 * GB; // 250 Go
 
 export const PLANS: Record<PlanId, Plan> = {
   free: {
@@ -41,10 +40,10 @@ export const PLANS: Record<PlanId, Plan> = {
     priceLabel: "9 € / mois",
     priceMonthly: 9,
     storage: PREMIUM_STORAGE,
-    storageLabel: "1 To",
+    storageLabel: "250 Go",
     highlight: true,
     features: [
-      "1 To de stockage",
+      "250 Go de stockage",
       "Espaces partagés illimités",
       "Tous les éditeurs sans limite",
       "Badge Pro",

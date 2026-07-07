@@ -112,7 +112,7 @@ export function BillingPlans({ currentPlan, planStatus, renewsAt, hasSubscriptio
           {banner === "success" && (
             <div className="mb-6 flex items-center gap-3 rounded-2xl border border-emerald-400/30 bg-emerald-500/10 px-4 py-3 text-sm animate-in">
               <Check className="size-5 text-emerald-400 shrink-0" />
-              <span>Bienvenue chez Pro ! Votre stockage a été augmenté à 1 To.</span>
+              <span>Bienvenue chez Pro ! Votre stockage a été augmenté à 250 Go.</span>
             </div>
           )}
           {banner === "canceled" && (
@@ -129,7 +129,7 @@ export function BillingPlans({ currentPlan, planStatus, renewsAt, hasSubscriptio
           <div className="text-center mb-8">
             <h2 className="text-2xl font-bold">Choisissez votre formule</h2>
             <p className="text-muted mt-1">
-              Passez à Pro pour 1 To de stockage et des espaces illimités.
+              Passez à Pro pour 250 Go de stockage et des espaces illimités.
             </p>
           </div>
 
