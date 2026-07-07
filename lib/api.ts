@@ -138,6 +138,14 @@ export const api = {
     return req<{ ok: boolean }>("/api/notifications", { method: "POST" });
   },
 
+  // ── Abonnement (Stripe) ──
+  startCheckout() {
+    return req<{ url: string | null }>("/api/billing/checkout", { method: "POST" });
+  },
+  openBillingPortal() {
+    return req<{ url: string }>("/api/billing/portal", { method: "POST" });
+  },
+
   saveChart(id: string, patch: { content?: unknown; name?: string }) {
     return req<{ ok: boolean; updatedAt: string }>(`/api/charts/${id}`, jsonInit("PUT", patch));
   },

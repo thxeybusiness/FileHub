@@ -23,6 +23,13 @@ model User {
   storageLimit BigInt   @default(16106127360) // 15 GB
   createdAt    DateTime @default(now())
 
+  // Abonnement (Stripe)
+  plan                 String    @default("free") // "free" | "premium"
+  planStatus           String? // statut de l'abonnement Stripe (active, past_due, canceled…)
+  planRenewsAt         DateTime? // fin de la période en cours
+  stripeCustomerId     String?   @unique
+  stripeSubscriptionId String?
+
   nodes            Node[]
   shares           Share[]
   ownedSpaces      Space[]        @relation("SpaceOwner")

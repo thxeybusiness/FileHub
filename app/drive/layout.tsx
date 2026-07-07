@@ -21,6 +21,7 @@ export default async function DriveLayout({
           email: user.email,
           storageUsed: Number(user.storageUsed),
           storageLimit: Number(user.storageLimit),
+          plan: user.plan,
         }}
       />
       <div className="relative z-10 flex-1 min-w-0 flex flex-col">{children}</div>

@@ -13,6 +13,8 @@ import {
   ChevronRight,
   Users,
   Plus,
+  Sparkles,
+  Crown,
 } from "lucide-react";
 import { cn, formatBytes } from "@/lib/utils";
 import { useRouter } from "next/navigation";
@@ -20,7 +22,13 @@ import { api, notifyRefresh, type SpaceSummary } from "@/lib/api";
 import { NameDialog } from "./name-dialog";
 import { NotificationCenter } from "./notification-center";
 
-type Me = { name: string | null; email: string; storageUsed: number; storageLimit: number };
+type Me = {
+  name: string | null;
+  email: string;
+  storageUsed: number;
+  storageLimit: number;
+  plan?: string;
+};
 
 const NAV = [
   { href: "/drive", label: "Mon Drive", icon: HardDrive, exact: true },
@@ -166,12 +174,17 @@ export function Sidebar({ initial }: { initial: Me }) {
         />
       )}
 
-      {/* Storage meter */}
+      {/* Storage meter + abonnement */}
       <div className="px-4 pb-3">
         <div className="rounded-2xl border border-white/10 p-4 bg-white/[0.03]">
           <div className="flex items-center gap-2 text-sm font-medium mb-2">
             <Cloud className="size-4 text-cyan-300" />
             Stockage
+            {me.plan === "premium" && (
+              <span className="ml-auto inline-flex items-center gap-1 rounded-full bg-gradient-to-r from-[#3b6dff] to-[#7b3bff] px-2 py-0.5 text-[10px] font-semibold text-white shadow shadow-blue-500/30">
+                <Crown className="size-3" /> Premium
+              </span>
+            )}
           </div>
           <div className="h-2 rounded-full bg-white/10 overflow-hidden">
             <div
@@ -185,6 +198,23 @@ export function Sidebar({ initial }: { initial: Me }) {
           <p className="text-xs text-muted mt-2">
             {formatBytes(me.storageUsed)} sur {formatBytes(me.storageLimit)}
           </p>
+
+          {me.plan === "premium" ? (
+            <Link
+              href="/drive/abonnement"
+              className="mt-3 flex h-8 items-center justify-center gap-1.5 rounded-lg border border-white/10 text-xs font-medium text-white/80 hover:bg-white/5 transition"
+            >
+              Gérer l'abonnement
+            </Link>
+          ) : (
+            <Link
+              href="/drive/abonnement"
+              className="group relative mt-3 flex h-9 items-center justify-center gap-1.5 overflow-hidden rounded-lg bg-gradient-to-r from-[#3b6dff] to-[#7b3bff] text-xs font-semibold text-white shadow-lg shadow-blue-500/25 transition hover:shadow-blue-500/40"
+            >
+              <Sparkles className="size-3.5" /> Passer à Premium
+              <span className="absolute inset-0 -translate-x-full bg-gradient-to-r from-transparent via-white/25 to-transparent" style={{ animation: "shine 3.5s ease-in-out infinite" }} />
+            </Link>
+          )}
         </div>
       </div>
 

@@ -9,7 +9,14 @@ export async function GET() {
   if (!userId) return NextResponse.json({ error: "Non autorisé" }, { status: 401 });
   const user = await prisma.user.findUnique({
     where: { id: userId },
-    select: { name: true, username: true, email: true, storageUsed: true, storageLimit: true },
+    select: {
+      name: true,
+      username: true,
+      email: true,
+      storageUsed: true,
+      storageLimit: true,
+      plan: true,
+    },
   });
   if (!user) return NextResponse.json({ error: "Non autorisé" }, { status: 401 });
   return NextResponse.json({
@@ -18,5 +25,6 @@ export async function GET() {
     email: user.email,
     storageUsed: Number(user.storageUsed),
     storageLimit: Number(user.storageLimit),
+    plan: user.plan,
   });
 }
