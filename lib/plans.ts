@@ -23,7 +23,7 @@ export const PREMIUM_STORAGE = 1 * TB;
 export const PLANS: Record<PlanId, Plan> = {
   free: {
     id: "free",
-    name: "Free",
+    name: "Basic",
     priceLabel: "0 €",
     priceMonthly: 0,
     storage: FREE_STORAGE,
