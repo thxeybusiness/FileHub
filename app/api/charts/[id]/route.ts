@@ -66,6 +66,13 @@ export async function PUT(
     const serialized = JSON.stringify(parsed.data.content);
     data.content = serialized;
     data.size = BigInt(Buffer.byteLength(serialized, "utf8"));
+    // Encode le type de graphique dans le mimeType (ex.
+    // "application/vnd.filehub.chart+line") pour que la vignette du Drive
+    // affiche une icône propre à chaque type, sans charger tout le contenu.
+    const kind = (parsed.data.content as { type?: unknown } | null)?.type;
+    if (typeof kind === "string" && /^[a-z-]{1,20}$/.test(kind)) {
+      data.mimeType = `application/vnd.filehub.chart+${kind}`;
+    }
   }
   if (parsed.data.name !== undefined) data.name = parsed.data.name;
 

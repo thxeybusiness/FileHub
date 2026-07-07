@@ -12,11 +12,33 @@ import {
   FileType,
   Presentation,
   BarChart3,
+  BarChartHorizontal,
+  BarChart4,
+  LineChart,
+  AreaChart,
+  PieChart,
+  Donut,
+  Radar,
+  ScatterChart,
   Pencil,
   File as FileIcon,
   type LucideIcon,
 } from "lucide-react";
 import { categoryOf, CATEGORY_META, type FileCategory } from "@/lib/filetypes";
+
+// Icône + teinte par type de graphique (les familles partagent une teinte,
+// mais chaque type a une forme distincte).
+const CHART_ICONS: Record<string, { icon: LucideIcon; color: string }> = {
+  bar: { icon: BarChart3, color: "#f59e0b" }, // Barres verticales — ambre
+  "bar-horizontal": { icon: BarChartHorizontal, color: "#f59e0b" },
+  "bar-stacked": { icon: BarChart4, color: "#f59e0b" },
+  line: { icon: LineChart, color: "#22d3ee" }, // Courbes — cyan
+  area: { icon: AreaChart, color: "#22d3ee" },
+  pie: { icon: PieChart, color: "#a78bff" }, // Proportions — violet
+  doughnut: { icon: Donut, color: "#a78bff" },
+  radar: { icon: Radar, color: "#34d399" }, // Autres — vert
+  scatter: { icon: ScatterChart, color: "#fb7185" },
+};
 
 const ICONS: Record<FileCategory, LucideIcon> = {
   folder: Folder,
@@ -72,11 +94,15 @@ export function NodeIcon({
       />
     );
   }
-  // Un graphique a son icône ambre.
+  // Un graphique : une icône ET une teinte propres à chaque type, pour les
+  // distinguer d'un coup d'œil dans le Drive. Le type est encodé dans le
+  // mimeType (« application/vnd.filehub.chart+<type> »).
   if (type === "chart") {
+    const kind = mimeType?.split("+")[1] ?? "bar";
+    const { icon: ChartIcon, color } = CHART_ICONS[kind] ?? CHART_ICONS.bar;
     return (
-      <BarChart3
-        style={{ color: "#f59e0b" }}
+      <ChartIcon
+        style={{ color }}
         width={size}
         height={size}
         className={className}

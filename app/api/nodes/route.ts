@@ -59,7 +59,40 @@ export async function GET(req: NextRequest) {
     include: { _count: { select: { children: true } } },
   });
 
+  await backfillChartKinds(nodes);
+
   return NextResponse.json({ nodes: nodes.map(serializeNode) });
+}
+
+// Migration paresseuse : les graphiques créés avant l'encodage du type dans le
+// mimeType affichent tous la même icône. On complète leur mimeType à la volée
+// (une seule fois) à partir de leur contenu, et on reflète la correction dans
+// la réponse pour que la vignette soit tout de suite la bonne.
+async function backfillChartKinds(nodes: { id: string; type: string; mimeType: string | null }[]) {
+  const stale = nodes.filter((n) => n.type === "chart" && !(n.mimeType ?? "").includes("+"));
+  if (!stale.length) return;
+  const withContent = await prisma.node.findMany({
+    where: { id: { in: stale.map((n) => n.id) } },
+    select: { id: true, content: true },
+  });
+  const contentById = new Map(withContent.map((c) => [c.id, c.content]));
+  await Promise.all(
+    stale.map(async (n) => {
+      let kind = "bar";
+      const content = contentById.get(n.id);
+      if (content) {
+        try {
+          const k = (JSON.parse(content) as { type?: unknown })?.type;
+          if (typeof k === "string" && /^[a-z-]{1,20}$/.test(k)) kind = k;
+        } catch {
+          /* contenu illisible -> reste "bar" */
+        }
+      }
+      const mimeType = `application/vnd.filehub.chart+${kind}`;
+      n.mimeType = mimeType;
+      await prisma.node.update({ where: { id: n.id }, data: { mimeType } }).catch(() => {});
+    }),
+  );
 }
 
 const createSchema = z.object({
