@@ -385,8 +385,10 @@ export function DriveExplorer({
         <div className="px-6 py-3 flex items-center gap-2 shrink-0">
           {canUpload && (
             <>
-              {/* Bouton unique « New Project » : regroupe toutes les créations */}
-              <div className="relative" style={{ perspective: "1500px" }}>
+              {/* Bouton unique « New Project » : regroupe toutes les créations.
+                  Pas de `perspective` ici : elle piégerait l'overlay fixed et
+                  le contexte d'empilement (le contenu passerait par-dessus). */}
+              <div className="relative z-30">
                 <button
                   onClick={() => setProjectMenu((v) => !v)}
                   className="group relative h-10 overflow-hidden rounded-xl bg-gradient-to-r from-[#3b6dff] to-[#7b3bff] px-4 text-sm font-semibold text-white shadow-lg shadow-blue-500/25 transition hover:shadow-blue-500/40 flex items-center gap-2"
