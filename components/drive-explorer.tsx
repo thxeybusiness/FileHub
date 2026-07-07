@@ -45,6 +45,7 @@ import { ShareDialog } from "./share-dialog";
 import { MoveDialog } from "./move-dialog";
 import { NameDialog } from "./name-dialog";
 import { MembersDialog } from "./members-dialog";
+import { ConfirmDialog } from "./confirm-dialog";
 
 type View = "my" | "starred" | "recent" | "trash";
 type UploadTask = { id: string; name: string; progress: number; error?: boolean };
@@ -79,6 +80,8 @@ export function DriveExplorer({
   const [newFolder, setNewFolder] = useState(false);
   const [chartMenu, setChartMenu] = useState(false);
   const [membersOpen, setMembersOpen] = useState(false);
+  const [deleteNode, setDeleteNode] = useState<SerializedNode | null>(null);
+  const [emptyTrashOpen, setEmptyTrashOpen] = useState(false);
   const [menu, setMenu] = useState<{ x: number; y: number; node: SerializedNode } | null>(null);
   const [uploads, setUploads] = useState<UploadTask[]>([]);
   const [dragging, setDragging] = useState(false);
@@ -218,8 +221,8 @@ export function DriveExplorer({
     load();
   };
   const deleteForever = async (n: SerializedNode) => {
-    if (!confirm(`Supprimer définitivement « ${n.name} » ? Cette action est irréversible.`)) return;
     await api.remove(n.id);
+    setDeleteNode(null);
     load();
     notifyRefresh();
   };
@@ -235,8 +238,8 @@ export function DriveExplorer({
     load();
   };
   const emptyTrash = async () => {
-    if (!confirm("Vider la corbeille ? Tous les éléments seront définitivement supprimés.")) return;
     await api.emptyTrash();
+    setEmptyTrashOpen(false);
     load();
     notifyRefresh();
   };
@@ -247,7 +250,7 @@ export function DriveExplorer({
     if (view === "trash") {
       return [
         { icon: RotateCcw, label: "Restaurer", fn: () => restore(n) },
-        { icon: Trash2, label: "Supprimer définitivement", fn: () => deleteForever(n), danger: true },
+        { icon: Trash2, label: "Supprimer définitivement", fn: () => setDeleteNode(n), danger: true },
       ];
     }
     const items = [
@@ -467,7 +470,7 @@ export function DriveExplorer({
           )}
           {view === "trash" && nodes.length > 0 && (
             <button
-              onClick={emptyTrash}
+              onClick={() => setEmptyTrashOpen(true)}
               className="h-10 px-4 rounded-xl border border-red-200 text-red-600 text-sm font-medium flex items-center gap-2 hover:bg-red-500/10 transition"
             >
               <Trash2 className="size-4" /> Vider la corbeille
@@ -624,6 +627,26 @@ export function DriveExplorer({
       )}
       {membersOpen && spaceId && (
         <MembersDialog spaceId={spaceId} onClose={() => setMembersOpen(false)} />
+      )}
+      {deleteNode && (
+        <ConfirmDialog
+          title="Supprimer définitivement"
+          message={`« ${deleteNode.name} » sera supprimé pour toujours. Cette action est irréversible.`}
+          confirmLabel="Supprimer"
+          danger
+          onCancel={() => setDeleteNode(null)}
+          onConfirm={() => deleteForever(deleteNode)}
+        />
+      )}
+      {emptyTrashOpen && (
+        <ConfirmDialog
+          title="Vider la corbeille"
+          message="Tous les éléments de la corbeille seront définitivement supprimés. Cette action est irréversible."
+          confirmLabel="Vider la corbeille"
+          danger
+          onCancel={() => setEmptyTrashOpen(false)}
+          onConfirm={emptyTrash}
+        />
       )}
     </div>
   );

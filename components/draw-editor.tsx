@@ -20,6 +20,7 @@ import {
 } from "lucide-react";
 import { api } from "@/lib/api";
 import { beautifyStroke } from "@/lib/shape-recognizer";
+import { ConfirmDialog } from "./confirm-dialog";
 import { cn } from "@/lib/utils";
 
 type Crumb = { id: string; name: string };
@@ -128,6 +129,7 @@ export function DrawEditor({
   const [canUndo, setCanUndo] = useState(false);
   const [canRedo, setCanRedo] = useState(false);
   const [selCount, setSelCount] = useState(0);
+  const [clearAllOpen, setClearAllOpen] = useState(false);
   // Formes parfaites : redresse automatiquement lignes, cercles, rectangles…
   const [magic, setMagic] = useState(true);
 
@@ -348,8 +350,8 @@ export function DrawEditor({
   };
 
   const clearAll = () => {
+    setClearAllOpen(false);
     if (strokesRef.current.length === 0) return;
-    if (!confirm("Effacer tout le dessin ?")) return;
     snapshot();
     strokesRef.current = [];
     clearSelection();
@@ -827,7 +829,7 @@ export function DrawEditor({
             </ToolBtn>
           ) : (
             <ToolBtn
-              onClick={clearAll}
+              onClick={() => setClearAllOpen(true)}
               disabled={strokesRef.current.length === 0 && !canUndo}
               title="Tout effacer"
               danger
@@ -919,6 +921,17 @@ export function DrawEditor({
           </div>
         </div>
       </div>
+
+      {clearAllOpen && (
+        <ConfirmDialog
+          title="Tout effacer"
+          message="Tout le dessin sera effacé. Vous pourrez annuler avec Ctrl+Z juste après."
+          confirmLabel="Tout effacer"
+          danger
+          onCancel={() => setClearAllOpen(false)}
+          onConfirm={clearAll}
+        />
+      )}
     </div>
   );
 }
