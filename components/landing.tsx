@@ -352,7 +352,7 @@ export function Landing() {
           </div>
 
           <p className="mt-5 text-xs text-white/40" style={{ animation: "revealUp 1.2s 0.35s both" }}>
-            15 Go offerts · Aucune carte requise · Prêt en 30 secondes
+            1 Go offert · Aucune carte requise · Prêt en 30 secondes
           </p>
         </div>
 
@@ -590,7 +590,7 @@ function MockDrive() {
             <div className="mb-2 h-1.5 w-full overflow-hidden rounded-full bg-white/10">
               <div className="h-full w-2/5 rounded-full bg-gradient-to-r from-[#3b6dff] to-[#22d3ee]" />
             </div>
-            <p className="text-[10px] text-white/40">6 Go sur 15 Go</p>
+            <p className="text-[10px] text-white/40">410 Mo sur 1 Go</p>
           </div>
         </div>
         {/* grid */}

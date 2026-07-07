@@ -97,7 +97,7 @@ export function AuthForm({ mode }: { mode: "login" | "signup" }) {
             <FloatPill className="-right-56 -top-8" delay={1.2} icon={UploadCloud} text="Glisser-déposer" tint="#5b8bff" />
             {/* milieu-gauche : stat */}
             <FloatCard className="-left-72 top-1/2 -translate-y-1/2" delay={0.6}>
-              <StatMini value="15 Go" label="offerts, sans carte" />
+              <StatMini value="1 Go" label="offert, sans carte" />
             </FloatCard>
             {/* milieu-droite : lien de partage */}
             <FloatPill className="-right-64 top-[46%]" delay={1.8} icon={Share2} text="Partage par lien" tint="#a78bff" />
@@ -135,7 +135,7 @@ export function AuthForm({ mode }: { mode: "login" | "signup" }) {
           >
             <div className="mb-6 inline-flex items-center gap-2 rounded-full border border-white/15 bg-white/5 px-3.5 py-1.5 text-xs text-white/70">
               <Check className="size-3.5 text-emerald-300" />
-              {mode === "login" ? "Content de vous revoir" : "15 Go offerts, sans carte"}
+              {mode === "login" ? "Content de vous revoir" : "1 Go offert, sans carte"}
             </div>
 
             <h2 className="text-3xl font-bold leading-tight tracking-tight">
