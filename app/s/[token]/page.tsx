@@ -29,7 +29,7 @@ export default async function SharePage({
 
   const node = await prisma.node.findFirst({
     where: { id: share.nodeId, trashed: false },
-    select: { id: true, name: true, type: true, mimeType: true, size: true, updatedAt: true },
+    select: { id: true, name: true, type: true, mimeType: true, size: true, updatedAt: true, content: true },
   });
   if (!node) notFound();
 
@@ -97,7 +97,17 @@ export default async function SharePage({
 
           {/* Body */}
           <div className="p-6">
-            {node.type === "file" ? (
+            {node.type === "doc" ? (
+              <article
+                className="doc-surface prose-share"
+                dangerouslySetInnerHTML={{ __html: sanitizeHtml(node.content ?? "") || "<p>Document vide.</p>" }}
+              />
+            ) : node.type === "sheet" || node.type === "chart" || node.type === "draw" ? (
+              <div className="py-16 text-center text-muted flex flex-col items-center gap-2">
+                <FileWarning className="size-8" />
+                Cet élément s'ouvre dans FileHub.
+              </div>
+            ) : node.type === "file" ? (
               <FilePreview cat={cat} url={rawUrl} name={node.name} />
             ) : children.length === 0 ? (
               <div className="py-16 text-center text-muted flex flex-col items-center gap-2">
@@ -149,4 +159,15 @@ function FilePreview({ cat, url, name }: { cat: string; url: string; name: strin
       Aperçu indisponible — utilisez le bouton Télécharger.
     </div>
   );
+}
+
+// Nettoyage minimal du HTML d'un document avant affichage public :
+// retire scripts, iframes, gestionnaires d'événements et URLs javascript:.
+function sanitizeHtml(html: string): string {
+  return html
+    .replace(/<\s*(script|iframe|object|embed|link|meta|style)\b[\s\S]*?(<\/\s*\1\s*>|$)/gi, "")
+    .replace(/\son\w+\s*=\s*"[^"]*"/gi, "")
+    .replace(/\son\w+\s*=\s*'[^']*'/gi, "")
+    .replace(/\son\w+\s*=\s*[^\s>]+/gi, "")
+    .replace(/(href|src)\s*=\s*(["']?)\s*javascript:[^"'>\s]*/gi, "$1=$2#");
 }

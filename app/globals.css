@@ -137,6 +137,20 @@ body {
   }
 }
 
+/* Document publié en page web (partage public d'un document) */
+.prose-share { max-width: 68ch; margin: 0 auto; line-height: 1.7; font-size: 16px; }
+.prose-share h1 { font-size: 1.8rem; font-weight: 800; letter-spacing: -0.02em; margin: 1.2rem 0 0.6rem; }
+.prose-share h2 { font-size: 1.4rem; font-weight: 700; margin: 1.1rem 0 0.5rem; }
+.prose-share h3 { font-size: 1.15rem; font-weight: 600; margin: 1rem 0 0.4rem; }
+.prose-share p { margin: 0.7rem 0; }
+.prose-share ul, .prose-share ol { margin: 0.7rem 0; padding-left: 1.5rem; }
+.prose-share ul { list-style: disc; }
+.prose-share ol { list-style: decimal; }
+.prose-share li { margin: 0.25rem 0; }
+.prose-share blockquote { border-left: 3px solid rgba(120,130,160,0.4); padding-left: 1rem; margin: 0.8rem 0; opacity: 0.85; }
+.prose-share a { color: #3b6dff; text-decoration: underline; }
+.prose-share img { max-width: 100%; border-radius: 10px; }
+
 /* Rendu du résultat de l'assistant IA (HTML simple) */
 .ai-result h2 { font-size: 1rem; font-weight: 700; margin: 0.5rem 0 0.25rem; }
 .ai-result h3 { font-size: 0.95rem; font-weight: 600; margin: 0.5rem 0 0.25rem; }
