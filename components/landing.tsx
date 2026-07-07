@@ -23,6 +23,7 @@ import {
   Menu,
   X,
 } from "lucide-react";
+import { InstallButton } from "./install-button";
 
 const NAV_LINKS = [
   { href: "#accueil", id: "accueil", label: "Accueil" },
@@ -131,6 +132,9 @@ function Navbar() {
             <ArrowRight className="size-4 transition-transform duration-300 group-hover:translate-x-1" />
           </Link>
 
+          {/* Installer l'app (icône, discret) */}
+          <InstallButton variant="icon" className="hidden md:inline-flex" />
+
           {/* Burger (mobile) */}
           <button
             onClick={() => setOpen(!open)}
@@ -178,6 +182,7 @@ function Navbar() {
               >
                 Se connecter
               </Link>
+              <InstallButton variant="ghost" className="w-full py-3.5" />
             </div>
           </nav>
         </div>
@@ -349,6 +354,7 @@ export function Landing() {
             >
               Se connecter
             </Link>
+            <InstallButton variant="solid" className="w-full sm:w-auto" />
           </div>
 
           <p className="mt-5 text-xs text-white/40" style={{ animation: "revealUp 1.2s 0.35s both" }}>
@@ -370,7 +376,7 @@ export function Landing() {
       <section className="relative mx-auto max-w-6xl px-5 py-10 sm:px-8">
         <div className="grid grid-cols-2 gap-6 rounded-3xl border border-white/10 bg-white/[0.03] p-8 backdrop-blur md:grid-cols-4">
           {[
-            { n: 15, s: " Go", l: "offerts gratuitement" },
+            { n: 1, s: " Go", l: "offert gratuitement" },
             { n: 100, s: "+", l: "types de fichiers gérés" },
             { n: 99, s: "%", l: "de disponibilité" },
             { n: 30, s: "s", l: "pour démarrer" },
