@@ -7,6 +7,7 @@ import {
   Type, Square, Circle, Minus, MoveUpRight, ImageIcon, Copy, ChevronUp, ChevronDown,
   Bold, Italic, Underline as UnderlineIcon, AlignLeft, AlignCenter, AlignRight,
   Palette, LayoutTemplate, Undo2, Redo2, BringToFront, SendToBack, Sparkles as SparkleIcon,
+  PaintBucket, Blend, Droplets, Frame,
 } from "lucide-react";
 import { api } from "@/lib/api";
 import { AiAssistant } from "./ai-assistant";
@@ -52,6 +53,66 @@ const THEMES: Theme[] = [
 const themeOf = (name: string) => THEMES.find((t) => t.name === name) ?? THEMES[0];
 
 const SWATCHES = ["#ffffff", "#0a0a0a", "#5b8bff", "#7b3bff", "#22d3ee", "#34d399", "#eab308", "#f97316", "#ef4444", "#ec4899", "#a78bff", "#94a3b8"];
+
+// ── Fond personnalisable (uni / dégradé linéaire ou radial) ──────────
+type BgKind = "solid" | "linear" | "radial";
+type BgModel = { kind: BgKind; angle: number; colors: string[] };
+
+// Palette de dégradés « inspiration » (appliqués tels quels ou point de départ).
+const GRADIENTS: string[][] = [
+  ["#3b6dff", "#7b3bff"], ["#0f766e", "#10b981"], ["#ff6b6b", "#ff9e7d"],
+  ["#0b1020", "#241247"], ["#f5576c", "#f093fb"], ["#4facfe", "#00f2fe"],
+  ["#fa709a", "#fee140"], ["#30cfd0", "#330867"], ["#a8edea", "#fed6e3"],
+  ["#232526", "#414345"], ["#c2410c", "#fbbf24"], ["#06b6d4", "#3b82f6", "#8b5cf6"],
+];
+
+function extractColors(s: string): string[] {
+  return s.match(/#[0-9a-fA-F]{3,8}|rgba?\([^)]*\)/g) ?? [];
+}
+function parseBg(bg: string): BgModel {
+  const s = (bg || "").trim();
+  const lin = s.match(/^linear-gradient\((.*)\)$/i);
+  if (lin) {
+    const a = lin[1].match(/(-?\d+(?:\.\d+)?)deg/);
+    const cols = extractColors(lin[1]);
+    return { kind: "linear", angle: a ? Number(a[1]) : 135, colors: cols.length >= 2 ? cols : ["#3b6dff", "#7b3bff"] };
+  }
+  const rad = s.match(/^radial-gradient\((.*)\)$/i);
+  if (rad) {
+    const cols = extractColors(rad[1]);
+    return { kind: "radial", angle: 0, colors: cols.length >= 2 ? cols : ["#3b6dff", "#7b3bff"] };
+  }
+  return { kind: "solid", angle: 135, colors: [s || "#0a0e1a"] };
+}
+function buildBg(m: BgModel): string {
+  if (m.kind === "solid") return m.colors[0] || "#0a0e1a";
+  const cols = m.colors.join(",");
+  if (m.kind === "radial") return `radial-gradient(circle at 50% 45%,${cols})`;
+  return `linear-gradient(${m.angle}deg,${cols})`;
+}
+
+// Éléments décoratifs prêts à l'emploi (posés en arrière-plan, éditables).
+function decorEls(kind: string, accent: string): El[] {
+  const bubble = (x: number, y: number, d: number, fill: string, opacity: number): El =>
+    ({ id: uid(), type: "ellipse", x, y, w: d, h: d, rot: 0, fill, opacity });
+  switch (kind) {
+    case "bulle":
+      return [bubble(870, -150, 540, accent, 0.16)];
+    case "bulles":
+      return [
+        bubble(-110, 420, 320, accent, 0.13),
+        bubble(150, -90, 190, "#ffffff", 0.10),
+        bubble(1010, 90, 260, accent, 0.17),
+        bubble(780, 540, 150, "#ffffff", 0.10),
+      ];
+    case "trait":
+      return [{ id: uid(), type: "rect", x: -80, y: 300, w: 1440, h: 12, rot: -16, fill: accent, radius: 6, opacity: 0.55 }];
+    case "cadre":
+      return [{ id: uid(), type: "rect", x: 44, y: 44, w: W - 88, h: H - 88, rot: 0, fill: "transparent", stroke: accent, strokeW: 3, radius: 18, opacity: 1 }];
+    default:
+      return [];
+  }
+}
 
 const mkText = (p: Partial<El>): El => ({
   id: uid(), type: "text", x: 120, y: 120, w: 400, h: 100, rot: 0,
@@ -263,6 +324,13 @@ export function SlidesEditor({
   const delSlide = () => { if (deck.slides.length <= 1) return; mutate((d) => d.slides.splice(cur, 1)); setCur(Math.max(0, cur - 1)); setSel(null); };
   const moveSlide = (dir: -1 | 1) => { const j = cur + dir; if (j < 0 || j >= deck.slides.length) return; mutate((d) => { [d.slides[cur], d.slides[j]] = [d.slides[j], d.slides[cur]]; }); setCur(j); };
   const setSlideBg = (bg: string) => mutate((d) => { d.slides[cur].bg = bg; });
+  // Ajoute un décor en arrière-plan (déplaçable / modifiable comme tout élément).
+  const addDecor = (kind: string) => {
+    const els = decorEls(kind, t.accent);
+    if (!els.length) return;
+    mutate((d) => { d.slides[cur].els.unshift(...els); });
+    setSel(els[els.length - 1].id);
+  };
 
   const applyTheme = (name: string) => {
     const th = themeOf(name);
@@ -473,7 +541,7 @@ export function SlidesEditor({
           {selEl ? (
             <ElementPanel el={selEl} onChange={(p, rec) => setEl(selEl.id, p, rec)} onDup={() => dupEl(selEl.id)} onDelete={() => deleteEl(selEl.id)} onLayer={(d) => layer(selEl.id, d)} onReplaceImage={() => fileRef.current?.click()} />
           ) : (
-            <SlidePanel theme={deck.theme} slideBg={slide.bg} onTheme={applyTheme} onBg={setSlideBg} onLayout={(k) => mutate((d) => { d.slides[cur].els = layoutEls(k, themeOf(d.theme)); })} onAddSlide={addSlide} />
+            <SlidePanel theme={deck.theme} slideBg={slide.bg} onTheme={applyTheme} onBg={setSlideBg} onDecor={addDecor} onLayout={(k) => mutate((d) => { d.slides[cur].els = layoutEls(k, themeOf(d.theme)); })} onAddSlide={addSlide} />
           )}
         </div>
       </div>
@@ -700,8 +768,8 @@ function ElementPanel({ el, onChange, onDup, onDelete, onLayer, onReplaceImage }
   );
 }
 
-function SlidePanel({ theme, slideBg, onTheme, onBg, onLayout, onAddSlide }: {
-  theme: string; slideBg: string; onTheme: (n: string) => void; onBg: (bg: string) => void; onLayout: (k: string) => void; onAddSlide: (k: string) => void;
+function SlidePanel({ theme, slideBg, onTheme, onBg, onDecor, onLayout, onAddSlide }: {
+  theme: string; slideBg: string; onTheme: (n: string) => void; onBg: (bg: string) => void; onDecor: (k: string) => void; onLayout: (k: string) => void; onAddSlide: (k: string) => void;
 }) {
   const layouts = [{ k: "title", l: "Titre" }, { k: "content", l: "Titre + contenu" }, { k: "two", l: "Deux colonnes" }, { k: "section", l: "Section" }, { k: "image", l: "Image + texte" }];
   return (
@@ -728,14 +796,86 @@ function SlidePanel({ theme, slideBg, onTheme, onBg, onLayout, onAddSlide }: {
           ))}
         </div>
       </div>
-      <div>
-        <p className="mb-2 text-xs font-semibold uppercase tracking-wider text-muted">Fond de la diapo</p>
-        <div className="mb-2 flex flex-wrap gap-1.5">
-          {["#0a0e1a", "#ffffff", "#0a0a0a", "linear-gradient(135deg,#3b6dff,#7b3bff)", "linear-gradient(135deg,#0f766e,#10b981)", "linear-gradient(135deg,#ff6b6b,#ff9e7d)"].map((bg) => (
-            <button key={bg} onClick={() => onBg(bg)} className={`h-8 w-10 rounded-lg border ${slideBg === bg ? "border-brand-400" : "border-white/15"}`} style={{ background: bg }} />
+      <BackgroundPanel slideBg={slideBg} onBg={onBg} onDecor={onDecor} />
+    </div>
+  );
+}
+
+function BackgroundPanel({ slideBg, onBg, onDecor }: { slideBg: string; onBg: (bg: string) => void; onDecor: (k: string) => void }) {
+  const [m, setM] = useState<BgModel>(() => parseBg(slideBg));
+  const emitted = useRef(slideBg);
+  useEffect(() => {
+    if (slideBg !== emitted.current) { setM(parseBg(slideBg)); emitted.current = slideBg; }
+  }, [slideBg]);
+  const apply = (next: BgModel) => { setM(next); const s = buildBg(next); emitted.current = s; onBg(s); };
+
+  const setKind = (kind: BgKind) => {
+    if (kind === m.kind) return;
+    if (kind === "solid") apply({ kind, angle: m.angle, colors: [m.colors[0] ?? "#0a0e1a"] });
+    else apply({ kind, angle: m.angle, colors: m.colors.length >= 2 ? m.colors : [m.colors[0] ?? "#3b6dff", "#7b3bff"] });
+  };
+  const setColor = (i: number, c: string) => { const colors = m.colors.slice(); colors[i] = c; apply({ ...m, colors }); };
+  const addStop = () => { if (m.colors.length < 5) apply({ ...m, colors: [...m.colors, "#ffffff"] }); };
+  const removeStop = (i: number) => { if (m.colors.length > 2) apply({ ...m, colors: m.colors.filter((_, j) => j !== i) }); };
+
+  return (
+    <div>
+      <p className="mb-2 text-xs font-semibold uppercase tracking-wider text-muted">Fond de la diapo</p>
+      {/* Aperçu du fond courant */}
+      <div className="mb-2.5 h-16 rounded-xl border border-white/10" style={{ background: buildBg(m) }} />
+      {/* Type de fond */}
+      <div className="mb-3 grid grid-cols-3 gap-1 rounded-lg border border-white/10 bg-white/[0.03] p-1">
+        {([["solid", "Uni", PaintBucket], ["linear", "Dégradé", Blend], ["radial", "Radial", Circle]] as const).map(([k, l, I]) => (
+          <button key={k} onClick={() => setKind(k)} className={`flex items-center justify-center gap-1 rounded-md py-1.5 text-xs transition ${m.kind === k ? "bg-brand-500/25 text-white" : "text-muted hover:bg-white/5"}`}>
+            <I className="size-3.5" /> {l}
+          </button>
+        ))}
+      </div>
+
+      {m.kind === "solid" ? (
+        <ColorRow value={m.colors[0]} onChange={(c) => setColor(0, c)} />
+      ) : (
+        <div className="space-y-2">
+          {m.colors.map((c, i) => (
+            <div key={i} className="flex items-center gap-2">
+              <input type="color" value={c.startsWith("#") ? c : "#ffffff"} onChange={(e) => setColor(i, e.target.value)} className="size-7 shrink-0 cursor-pointer rounded-md border border-white/15 bg-transparent p-0" />
+              <span className="flex-1 truncate font-mono text-[11px] text-muted">{c}</span>
+              {m.colors.length > 2 && (
+                <button onClick={() => removeStop(i)} className="grid size-6 shrink-0 place-items-center rounded-md text-muted hover:bg-white/5 hover:text-red-400" title="Retirer"><X className="size-3.5" /></button>
+              )}
+            </div>
+          ))}
+          {m.colors.length < 5 && (
+            <button onClick={addStop} className="flex items-center gap-1 text-xs text-brand-200 hover:text-white"><Plus className="size-3.5" /> Ajouter une couleur</button>
+          )}
+          {m.kind === "linear" && (
+            <label className="block pt-1">
+              <span className="mb-1 flex justify-between text-[11px] uppercase tracking-wide text-muted"><span>Angle</span><span className="tabular-nums">{m.angle}°</span></span>
+              <input type="range" min={0} max={360} value={m.angle} onChange={(e) => apply({ ...m, angle: Number(e.target.value) })} className="w-full accent-brand-500" />
+            </label>
+          )}
+          <div className="pt-1">
+            <p className="mb-1.5 text-[11px] uppercase tracking-wide text-muted">Inspirations</p>
+            <div className="grid grid-cols-6 gap-1.5">
+              {GRADIENTS.map((g, i) => (
+                <button key={i} onClick={() => apply({ kind: m.kind, angle: m.angle, colors: g })} title="Appliquer" className="h-7 rounded-md border border-white/10 hover:border-white/30" style={{ background: `linear-gradient(135deg,${g.join(",")})` }} />
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Décor : éléments ajoutés en arrière-plan */}
+      <div className="mt-4 border-t border-white/10 pt-4">
+        <p className="mb-2 text-xs font-semibold uppercase tracking-wider text-muted">Décor</p>
+        <div className="grid grid-cols-2 gap-1.5">
+          {([["bulle", "Bulle", Circle], ["bulles", "Bulles", Droplets], ["trait", "Trait", Minus], ["cadre", "Cadre", Frame]] as const).map(([k, l, I]) => (
+            <button key={k} onClick={() => onDecor(k)} className="flex items-center gap-2 rounded-lg border border-white/10 bg-white/[0.03] px-3 py-2 text-sm text-white/85 hover:bg-white/[0.07]">
+              <I className="size-4 text-brand-200" /> {l}
+            </button>
           ))}
         </div>
-        <input type="color" onChange={(e) => onBg(e.target.value)} className="h-8 w-full cursor-pointer rounded-lg border border-white/10 bg-transparent p-0.5" />
+        <p className="mt-1.5 text-[11px] leading-snug text-muted">Ajoutés en arrière-plan — déplaçables, redimensionnables et personnalisables comme n'importe quel élément.</p>
       </div>
     </div>
   );
