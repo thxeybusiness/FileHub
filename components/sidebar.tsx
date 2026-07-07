@@ -239,9 +239,12 @@ export function Sidebar({ initial }: { initial: Me }) {
 
         {/* Abonnement : illimité (Fondateur), gérer (Pro) ou passer à Pro (Basic) */}
         {isFounder ? (
-          <div className="mt-1 flex h-9 items-center justify-center gap-1.5 rounded-xl border border-amber-400/30 bg-gradient-to-r from-amber-500/10 to-pink-500/10 text-xs font-semibold text-amber-200">
+          <Link
+            href="/drive/abonnement"
+            className="mt-1 flex h-9 items-center justify-center gap-1.5 rounded-xl border border-amber-400/30 bg-gradient-to-r from-amber-500/10 to-pink-500/10 text-xs font-semibold text-amber-200 transition hover:from-amber-500/20 hover:to-pink-500/20"
+          >
             <Gem className="size-3.5" /> Accès illimité à vie
-          </div>
+          </Link>
         ) : me.plan === "premium" ? (
           <Link
             href="/drive/abonnement"
