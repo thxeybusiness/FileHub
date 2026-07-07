@@ -1,10 +1,13 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { Cloud, Download, FileWarning } from "lucide-react";
+import { cookies } from "next/headers";
+import { Cloud, Download, FileWarning, Clock } from "lucide-react";
 import { prisma } from "@/lib/prisma";
 import { formatBytes, formatRelative } from "@/lib/utils";
 import { categoryOf, CATEGORY_META } from "@/lib/filetypes";
 import { SharedFileIcon } from "@/components/shared-file-icon";
+import { SharePasswordGate } from "@/components/share-password-gate";
+import { isUnlocked, unlockCookieName } from "@/lib/share";
 
 export default async function SharePage({
   params,
@@ -14,6 +17,15 @@ export default async function SharePage({
   const { token } = await params;
   const share = await prisma.share.findUnique({ where: { token } });
   if (!share || (share.expiresAt && share.expiresAt < new Date())) notFound();
+
+  // Protection par mot de passe : porte de déverrouillage si non validé.
+  if (share.passwordHash) {
+    const store = await cookies();
+    const cookieVal = store.get(unlockCookieName(token))?.value;
+    if (!isUnlocked(cookieVal, token, share.passwordHash)) {
+      return <SharePasswordGate token={token} />;
+    }
+  }
 
   const node = await prisma.node.findFirst({
     where: { id: share.nodeId, trashed: false },
@@ -32,6 +44,7 @@ export default async function SharePage({
 
   const cat = categoryOf(node.mimeType, node.name);
   const rawUrl = `/api/s/${token}/raw`;
+  const canDownload = share.allowDownload;
 
   return (
     <div className="min-h-screen bg-canvas">
@@ -42,6 +55,11 @@ export default async function SharePage({
           </span>
           FileHub
         </Link>
+        {share.expiresAt && (
+          <span className="ml-auto flex items-center gap-1.5 text-xs text-muted">
+            <Clock className="size-3.5" /> Expire {formatRelative(share.expiresAt)}
+          </span>
+        )}
       </header>
 
       <main className="max-w-4xl mx-auto p-6">
@@ -62,7 +80,7 @@ export default async function SharePage({
                   : `${formatBytes(node.size)} · modifié ${formatRelative(node.updatedAt)}`}
               </p>
             </div>
-            {node.type === "file" && (
+            {node.type === "file" && canDownload && (
               <a
                 href={`${rawUrl}?download=1`}
                 className="ml-auto h-10 px-5 rounded-xl bg-brand-600 text-white text-sm font-semibold flex items-center gap-2 hover:bg-brand-700"
@@ -90,7 +108,7 @@ export default async function SharePage({
                     <span className="text-sm text-muted">
                       {c.type === "folder" ? "Dossier" : formatBytes(c.size)}
                     </span>
-                    {c.type === "file" && (
+                    {c.type === "file" && canDownload && (
                       <a
                         href={`${rawUrl}?child=${c.id}&download=1`}
                         className="size-9 grid place-items-center rounded-lg hover:bg-white/5 text-muted"
@@ -106,7 +124,7 @@ export default async function SharePage({
           </div>
         </div>
         <p className="text-center text-xs text-muted mt-4">
-          Partagé via FileHub · Lecture seule
+          Partagé via FileHub · {canDownload ? "Lecture & téléchargement" : "Lecture seule"}
         </p>
       </main>
     </div>

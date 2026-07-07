@@ -163,12 +163,26 @@ export const api = {
   },
 
   share(id: string) {
-    return req<{ token: string }>(`/api/nodes/${id}/share`, { method: "POST" });
+    return req<{ share: ShareInfo }>(`/api/nodes/${id}/share`, { method: "POST" });
+  },
+
+  updateShare(
+    id: string,
+    patch: { expiresInDays?: number | null; password?: string | null; allowDownload?: boolean },
+  ) {
+    return req<{ share: ShareInfo }>(`/api/nodes/${id}/share`, jsonInit("PATCH", patch));
   },
 
   unshare(id: string) {
     return req<{ ok: boolean }>(`/api/nodes/${id}/share`, { method: "DELETE" });
   },
+};
+
+export type ShareInfo = {
+  token: string;
+  expiresAt: string | null;
+  allowDownload: boolean;
+  hasPassword: boolean;
 };
 
 /** Notify sidebar (and others) that storage/data changed. */

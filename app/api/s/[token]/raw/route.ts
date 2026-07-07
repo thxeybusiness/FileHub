@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
+import { cookies } from "next/headers";
 import { prisma } from "@/lib/prisma";
 import { storage } from "@/lib/storage";
+import { isUnlocked, unlockCookieName } from "@/lib/share";
 
 export const runtime = "nodejs";
 
@@ -15,6 +17,21 @@ export async function GET(
   if (!share) return NextResponse.json({ error: "Lien invalide" }, { status: 404 });
   if (share.expiresAt && share.expiresAt < new Date()) {
     return NextResponse.json({ error: "Lien expiré" }, { status: 410 });
+  }
+
+  // Lien protégé : exige le cookie de déverrouillage.
+  if (share.passwordHash) {
+    const store = await cookies();
+    const val = store.get(unlockCookieName(token))?.value;
+    if (!isUnlocked(val, token, share.passwordHash)) {
+      return NextResponse.json({ error: "Mot de passe requis" }, { status: 401 });
+    }
+  }
+
+  const wantsDownload = new URL(req.url).searchParams.get("download") === "1";
+  // Téléchargement interdit si le lien est en lecture seule.
+  if (wantsDownload && !share.allowDownload) {
+    return NextResponse.json({ error: "Téléchargement désactivé" }, { status: 403 });
   }
 
   const childId = new URL(req.url).searchParams.get("child");
@@ -53,13 +70,12 @@ export async function GET(
     return NextResponse.json({ error: "Fichier manquant" }, { status: 404 });
   }
 
-  const download = new URL(req.url).searchParams.get("download") === "1";
   const filename = encodeURIComponent(node.name);
   return new NextResponse(new Uint8Array(buffer), {
     headers: {
       "Content-Type": node.mimeType || "application/octet-stream",
-      "Content-Disposition": `${download ? "attachment" : "inline"}; filename*=UTF-8''${filename}`,
-      "Cache-Control": "public, max-age=3600",
+      "Content-Disposition": `${wantsDownload ? "attachment" : "inline"}; filename*=UTF-8''${filename}`,
+      "Cache-Control": "private, max-age=600",
     },
   });
 }

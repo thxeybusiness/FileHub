@@ -163,9 +163,11 @@ model Share {
   node      Node      @relation(fields: [nodeId], references: [id], onDelete: Cascade)
   ownerId   String
   owner     User      @relation(fields: [ownerId], references: [id], onDelete: Cascade)
-  access    String    @default("view") // "view" | "edit"
-  expiresAt DateTime?
-  createdAt DateTime  @default(now())
+  access        String    @default("view") // "view" | "edit"
+  expiresAt     DateTime?
+  passwordHash  String? // protection par mot de passe (optionnelle)
+  allowDownload Boolean   @default(true) // false = aperçu seul, pas de téléchargement
+  createdAt     DateTime  @default(now())
 
   @@index([nodeId])
   @@map("filehub_share")
