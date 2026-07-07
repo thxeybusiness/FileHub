@@ -18,7 +18,6 @@ import {
   MoreVertical,
   Home,
   ChevronRight,
-  Plus,
   X,
   CloudUpload,
   Loader2,
@@ -514,7 +513,7 @@ export function DriveExplorer({
             <Loader2 className="size-6 animate-spin" />
           </div>
         ) : nodes.length === 0 ? (
-          <EmptyState view={view} searching={searching} onUpload={() => fileInput.current?.click()} canUpload={canUpload} />
+          <EmptyState view={view} searching={searching} />
         ) : mode === "grid" ? (
           <GridView
             nodes={nodes}
@@ -816,13 +815,9 @@ function ListView({
 function EmptyState({
   view,
   searching,
-  onUpload,
-  canUpload,
 }: {
   view: View;
   searching: boolean;
-  onUpload: () => void;
-  canUpload: boolean;
 }) {
   const config: Record<string, { icon: typeof CloudUpload; title: string; sub: string }> = {
     search: { icon: Search, title: "Aucun résultat", sub: "Essayez d'autres mots-clés." },
@@ -840,14 +835,6 @@ function EmptyState({
         </div>
         <h3 className="text-lg font-semibold">{c.title}</h3>
         <p className="text-muted mt-1">{c.sub}</p>
-        {canUpload && view === "my" && !searching && (
-          <button
-            onClick={onUpload}
-            className="mt-5 h-10 px-5 rounded-xl bg-brand-600 text-white text-sm font-semibold inline-flex items-center gap-2 hover:bg-brand-700"
-          >
-            <Plus className="size-4" /> Importer des fichiers
-          </button>
-        )}
       </div>
     </div>
   );
