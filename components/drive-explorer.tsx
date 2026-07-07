@@ -500,8 +500,6 @@ export function DriveExplorer({
                           {QUICK_CHART_TYPES.map((qt, i) => {
                             const meta = CHART_TYPES.find((t) => t.id === qt)!;
                             const Icon = qt === "bar" ? BarChart3 : qt === "line" ? LineChart : PieChart;
-                            // Même code couleur que les vignettes du Drive.
-                            const tint = qt === "line" ? "#22d3ee" : qt === "pie" ? "#a78bff" : "#f59e0b";
                             return (
                               <button
                                 key={qt}
@@ -510,10 +508,10 @@ export function DriveExplorer({
                                   createChart(qt);
                                 }}
                                 style={{ animation: "revealUp 0.32s both", animationDelay: `${i * 50}ms` }}
-                                className="group/chart flex flex-col items-center gap-2 rounded-xl border border-white/5 bg-white/[0.03] p-3 text-center transition hover:-translate-y-0.5 hover:border-white/20 hover:bg-white/[0.07]"
+                                className="group/chart flex flex-col items-center gap-2 rounded-xl border border-white/5 bg-white/[0.03] p-3 text-center transition hover:-translate-y-0.5 hover:border-amber-400/40 hover:bg-white/[0.07]"
                               >
-                                <span className="grid size-9 place-items-center rounded-lg transition group-hover/chart:scale-110" style={{ background: `${tint}22` }}>
-                                  <Icon className="size-[18px]" style={{ color: tint }} />
+                                <span className="grid size-9 place-items-center rounded-lg transition group-hover/chart:scale-110" style={{ background: "#f59e0b22" }}>
+                                  <Icon className="size-[18px]" style={{ color: "#f59e0b" }} />
                                 </span>
                                 <span className="text-xs font-medium leading-tight">{meta.label}</span>
                               </button>

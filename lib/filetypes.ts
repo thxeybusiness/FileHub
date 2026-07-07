@@ -52,7 +52,7 @@ export const CATEGORY_META: Record<
   FileCategory,
   { label: string; color: string; bg: string }
 > = {
-  folder: { label: "Dossier", color: "#f59e0b", bg: "#fef3c7" },
+  folder: { label: "Dossier", color: "#a78bff", bg: "#ede9fe" },
   image: { label: "Image", color: "#ec4899", bg: "#fce7f3" },
   video: { label: "Vidéo", color: "#8b5cf6", bg: "#ede9fe" },
   audio: { label: "Audio", color: "#06b6d4", bg: "#cffafe" },

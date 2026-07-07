@@ -26,18 +26,19 @@ import {
 } from "lucide-react";
 import { categoryOf, CATEGORY_META, type FileCategory } from "@/lib/filetypes";
 
-// Icône + teinte par type de graphique (les familles partagent une teinte,
-// mais chaque type a une forme distincte).
+// Forme distincte par type de graphique, mais une même couleur (ambre) pour
+// toute la famille « graphique ».
+const CHART_COLOR = "#f59e0b";
 const CHART_ICONS: Record<string, { icon: LucideIcon; color: string }> = {
-  bar: { icon: BarChart3, color: "#f59e0b" }, // Barres verticales — ambre
-  "bar-horizontal": { icon: BarChartHorizontal, color: "#f59e0b" },
-  "bar-stacked": { icon: BarChart4, color: "#f59e0b" },
-  line: { icon: LineChart, color: "#22d3ee" }, // Courbes — cyan
-  area: { icon: AreaChart, color: "#22d3ee" },
-  pie: { icon: PieChart, color: "#a78bff" }, // Proportions — violet
-  doughnut: { icon: Donut, color: "#a78bff" },
-  radar: { icon: Radar, color: "#34d399" }, // Autres — vert
-  scatter: { icon: ScatterChart, color: "#fb7185" },
+  bar: { icon: BarChart3, color: CHART_COLOR },
+  "bar-horizontal": { icon: BarChartHorizontal, color: CHART_COLOR },
+  "bar-stacked": { icon: BarChart4, color: CHART_COLOR },
+  line: { icon: LineChart, color: CHART_COLOR },
+  area: { icon: AreaChart, color: CHART_COLOR },
+  pie: { icon: PieChart, color: CHART_COLOR },
+  doughnut: { icon: Donut, color: CHART_COLOR },
+  radar: { icon: Radar, color: CHART_COLOR },
+  scatter: { icon: ScatterChart, color: CHART_COLOR },
 };
 
 const ICONS: Record<FileCategory, LucideIcon> = {
