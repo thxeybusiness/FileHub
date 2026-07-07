@@ -30,7 +30,8 @@ export async function GET(
 }
 
 const saveSchema = z.object({
-  content: z.string().max(500000).optional(),
+  // Généreux : les présentations peuvent embarquer des images (data URL).
+  content: z.string().max(6_000_000).optional(),
   name: z.string().trim().min(1).max(255).optional(),
 });
 
