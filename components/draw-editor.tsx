@@ -67,10 +67,10 @@ const CANVAS_W = 1600;
 const CANVAS_H = 1000;
 
 const ACCENT = "#5b8bff";
-const ROT_OFFSET = 13; // distance (px CSS) du centre de la poignée au bord haut
-const ROT_R = 12; // rayon de la poignée de rotation (px CSS)
-const ROT_HIT = 18; // rayon de capture de la poignée de rotation (px CSS)
-const CORNER_HIT = 15; // rayon de capture des poignées de coin (px CSS)
+const ROT_OFFSET = 8; // distance (px CSS) du centre de la poignée au bord haut
+const ROT_R = 4.5; // rayon de la poignée de rotation (≈ carrés des coins, 10 px)
+const ROT_HIT = 12; // rayon de capture de la poignée de rotation (px CSS)
+const CORNER_HIT = 14; // rayon de capture des poignées de coin (px CSS)
 
 const PALETTE = [
   "#f8fafc",
@@ -1003,19 +1003,19 @@ function drawRotateIcon(
   dpr: number,
 ) {
   ctx.save();
-  // Disque de fond.
+  // Disque de fond bleu (contraste net avec les carrés blancs des coins).
   ctx.beginPath();
   ctx.arc(cx, cy, R, 0, Math.PI * 2);
-  ctx.fillStyle = "#ffffff";
+  ctx.fillStyle = ACCENT;
   ctx.fill();
-  ctx.lineWidth = 1.5 * dpr;
-  ctx.strokeStyle = ACCENT;
+  ctx.lineWidth = Math.max(1, R * 0.18) * dpr;
+  ctx.strokeStyle = "#ffffff";
   ctx.stroke();
 
-  // Arc de la flèche (presque un tour complet, avec une ouverture).
-  const ar = R * 0.5;
-  ctx.strokeStyle = ACCENT;
-  ctx.lineWidth = 1.7 * dpr;
+  // Arc de la flèche blanche (presque un tour complet, avec une ouverture).
+  const ar = R * 0.52;
+  ctx.strokeStyle = "#ffffff";
+  ctx.lineWidth = Math.max(1, R * 0.26) * dpr;
   ctx.lineCap = "round";
   ctx.lineJoin = "round";
   const a0 = -Math.PI * 0.72;
@@ -1031,7 +1031,7 @@ function drawRotateIcon(
   const ty = Math.cos(a1);
   const nx = Math.cos(a1); // normale sortante
   const ny = Math.sin(a1);
-  const s = R * 0.4;
+  const s = R * 0.55;
   ctx.beginPath();
   ctx.moveTo(ex, ey);
   ctx.lineTo(ex - tx * s + nx * s * 0.6, ey - ty * s + ny * s * 0.6);
