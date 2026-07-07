@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { getUserId } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { effectivePlan, isFounder, FOUNDER_STORAGE } from "@/lib/plans";
 
 export const runtime = "nodejs";
 
@@ -19,12 +20,13 @@ export async function GET() {
     },
   });
   if (!user) return NextResponse.json({ error: "Non autorisé" }, { status: 401 });
+  const founder = isFounder(user.email);
   return NextResponse.json({
     name: user.name,
     username: user.username,
     email: user.email,
     storageUsed: Number(user.storageUsed),
-    storageLimit: Number(user.storageLimit),
-    plan: user.plan,
+    storageLimit: founder ? FOUNDER_STORAGE : Number(user.storageLimit),
+    plan: effectivePlan(user.email, user.plan),
   });
 }

@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import Link from "next/link";
-import { ArrowLeft, Check, Sparkles, Loader2, Crown, CreditCard, Home } from "lucide-react";
+import { ArrowLeft, Check, Sparkles, Loader2, Crown, CreditCard, Home, Gem } from "lucide-react";
 import { PLANS, type PlanId } from "@/lib/plans";
 import { api } from "@/lib/api";
 import { cn } from "@/lib/utils";
@@ -13,9 +13,10 @@ type Props = {
   planStatus: string | null;
   renewsAt: string | null;
   hasSubscription: boolean;
+  founder?: boolean;
 };
 
-export function BillingPlans({ currentPlan, planStatus, renewsAt, hasSubscription }: Props) {
+export function BillingPlans({ currentPlan, planStatus, renewsAt, hasSubscription, founder }: Props) {
   const params = useSearchParams();
   const [busy, setBusy] = useState<null | "checkout" | "portal">(null);
   const [error, setError] = useState<string | null>(null);
@@ -73,6 +74,40 @@ export function BillingPlans({ currentPlan, planStatus, renewsAt, hasSubscriptio
       </header>
 
       <div className="flex-1 min-h-0 overflow-auto px-6 py-8">
+        {founder ? (
+          <div className="mx-auto w-full max-w-lg">
+            <div className="relative overflow-hidden rounded-3xl border border-amber-400/30 bg-gradient-to-b from-amber-500/10 via-pink-500/5 to-transparent p-8 text-center">
+              <div
+                className="pointer-events-none absolute -right-16 -top-16 size-48 rounded-full opacity-40 blur-3xl"
+                style={{ background: "radial-gradient(circle, #f59e0b66, transparent 70%)" }}
+              />
+              <span className="mx-auto grid size-16 place-items-center rounded-2xl bg-gradient-to-br from-[#f59e0b] to-[#f472b6] shadow-lg shadow-amber-500/30">
+                <Gem className="size-8 text-white" />
+              </span>
+              <h2 className="mt-5 text-2xl font-bold">Compte Fondateur</h2>
+              <p className="mt-2 text-muted">
+                Merci d&apos;avoir créé FileHub. Ce compte bénéficie d&apos;un accès
+                <span className="text-amber-200 font-semibold"> illimité à vie</span>.
+              </p>
+              <ul className="mx-auto mt-6 max-w-xs space-y-2.5 text-left">
+                {[
+                  "Stockage illimité",
+                  "Espaces partagés illimités",
+                  "Tous les éditeurs, sans aucune limite",
+                  "Toutes les fonctionnalités à venir incluses",
+                ].map((f) => (
+                  <li key={f} className="flex items-start gap-2.5 text-sm">
+                    <Check className="mt-0.5 size-4 shrink-0 text-amber-300" />
+                    <span className="text-white/85">{f}</span>
+                  </li>
+                ))}
+              </ul>
+              <span className="mt-7 inline-flex items-center gap-1.5 rounded-full border border-amber-400/30 bg-white/5 px-3 py-1 text-xs font-semibold text-amber-200">
+                <Gem className="size-3.5" /> Aucun paiement — à vie
+              </span>
+            </div>
+          </div>
+        ) : (
         <div className="mx-auto w-full max-w-3xl">
           {banner === "success" && (
             <div className="mb-6 flex items-center gap-3 rounded-2xl border border-emerald-400/30 bg-emerald-500/10 px-4 py-3 text-sm animate-in">
@@ -194,6 +229,7 @@ export function BillingPlans({ currentPlan, planStatus, renewsAt, hasSubscriptio
             Paiement sécurisé par Stripe. Résiliable à tout moment.
           </p>
         </div>
+        )}
       </div>
     </div>
   );

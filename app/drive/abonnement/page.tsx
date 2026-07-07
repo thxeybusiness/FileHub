@@ -3,7 +3,7 @@ import { redirect } from "next/navigation";
 import { getUserId } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { BillingPlans } from "@/components/billing-plans";
-import type { PlanId } from "@/lib/plans";
+import { isFounder, type PlanId } from "@/lib/plans";
 
 export default async function AbonnementPage() {
   const userId = await getUserId();
@@ -11,7 +11,7 @@ export default async function AbonnementPage() {
 
   const user = await prisma.user.findUnique({
     where: { id: userId },
-    select: { plan: true, planStatus: true, planRenewsAt: true, stripeSubscriptionId: true },
+    select: { email: true, plan: true, planStatus: true, planRenewsAt: true, stripeSubscriptionId: true },
   });
   if (!user) redirect("/login");
 
@@ -22,6 +22,7 @@ export default async function AbonnementPage() {
         planStatus={user.planStatus ?? null}
         renewsAt={user.planRenewsAt ? user.planRenewsAt.toISOString() : null}
         hasSubscription={Boolean(user.stripeSubscriptionId)}
+        founder={isFounder(user.email)}
       />
     </Suspense>
   );

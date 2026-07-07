@@ -15,6 +15,7 @@ import {
   Plus,
   Sparkles,
   Crown,
+  Gem,
 } from "lucide-react";
 import { cn, formatBytes } from "@/lib/utils";
 import { useRouter } from "next/navigation";
@@ -78,10 +79,13 @@ export function Sidebar({ initial }: { initial: Me }) {
     router.push(`/drive/space/${space.id}`);
   }
 
-  const pct = me.storageLimit
-    ? Math.min(100, (me.storageUsed / me.storageLimit) * 100)
-    : 0;
-  const nearFull = pct > 90;
+  const isFounder = me.plan === "founder";
+  const pct = isFounder
+    ? 3 // barre symbolique : accès illimité
+    : me.storageLimit
+      ? Math.min(100, (me.storageUsed / me.storageLimit) * 100)
+      : 0;
+  const nearFull = !isFounder && pct > 90;
 
   return (
     <aside className="relative z-10 w-64 shrink-0 h-screen border-r border-white/10 bg-white/[0.03] backdrop-blur-xl flex flex-col">
@@ -191,7 +195,9 @@ export function Sidebar({ initial }: { initial: Me }) {
             />
           </div>
           <p className="text-xs text-muted mt-2">
-            {formatBytes(me.storageUsed)} sur {formatBytes(me.storageLimit)}
+            {isFounder
+              ? `${formatBytes(me.storageUsed)} · Illimité`
+              : `${formatBytes(me.storageUsed)} sur ${formatBytes(me.storageLimit)}`}
           </p>
         </div>
       </div>
@@ -205,7 +211,11 @@ export function Sidebar({ initial }: { initial: Me }) {
           <div className="min-w-0 flex-1">
             <div className="flex items-center gap-1.5">
               <p className="text-sm font-medium truncate">{me.name || "Utilisateur"}</p>
-              {me.plan === "premium" ? (
+              {isFounder ? (
+                <span className="inline-flex items-center gap-0.5 rounded-full bg-gradient-to-r from-[#f59e0b] to-[#f472b6] px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wide text-white shadow shadow-amber-500/30">
+                  <Gem className="size-2.5" /> Fondateur
+                </span>
+              ) : me.plan === "premium" ? (
                 <span className="inline-flex items-center gap-0.5 rounded-full bg-gradient-to-r from-[#3b6dff] to-[#7b3bff] px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wide text-white shadow shadow-blue-500/30">
                   <Crown className="size-2.5" /> Pro
                 </span>
@@ -227,8 +237,12 @@ export function Sidebar({ initial }: { initial: Me }) {
           </button>
         </div>
 
-        {/* Abonnement : passer à Pro (Basic) ou gérer (Pro) */}
-        {me.plan === "premium" ? (
+        {/* Abonnement : illimité (Fondateur), gérer (Pro) ou passer à Pro (Basic) */}
+        {isFounder ? (
+          <div className="mt-1 flex h-9 items-center justify-center gap-1.5 rounded-xl border border-amber-400/30 bg-gradient-to-r from-amber-500/10 to-pink-500/10 text-xs font-semibold text-amber-200">
+            <Gem className="size-3.5" /> Accès illimité à vie
+          </div>
+        ) : me.plan === "premium" ? (
           <Link
             href="/drive/abonnement"
             className="mt-1 flex h-9 items-center justify-center gap-1.5 rounded-xl border border-white/10 text-xs font-medium text-white/80 hover:bg-white/5 transition"

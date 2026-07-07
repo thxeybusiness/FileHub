@@ -4,6 +4,7 @@ import { prisma } from "@/lib/prisma";
 import { storage } from "@/lib/storage";
 import { adjustStorage, serializeNode } from "@/lib/nodes";
 import { getSpaceRole } from "@/lib/spaces";
+import { isFounder } from "@/lib/plans";
 
 export const runtime = "nodejs";
 
@@ -36,16 +37,19 @@ export async function POST(req: NextRequest) {
     if (!parent) return NextResponse.json({ error: "Dossier introuvable" }, { status: 404 });
   }
 
-  // Quota (uniquement pour le drive personnel — les espaces ne comptent pas).
+  // Quota (uniquement pour le drive personnel — les espaces ne comptent pas ;
+  // les comptes Fondateur sont illimités).
   if (!spaceId) {
     const user = await prisma.user.findUnique({
       where: { id: userId },
-      select: { storageUsed: true, storageLimit: true },
+      select: { email: true, storageUsed: true, storageLimit: true },
     });
     if (!user) return NextResponse.json({ error: "Non autorisé" }, { status: 401 });
-    const incoming = files.reduce((sum, f) => sum + f.size, 0);
-    if (user.storageUsed + BigInt(incoming) > user.storageLimit) {
-      return NextResponse.json({ error: "Quota de stockage dépassé" }, { status: 413 });
+    if (!isFounder(user.email)) {
+      const incoming = files.reduce((sum, f) => sum + f.size, 0);
+      if (user.storageUsed + BigInt(incoming) > user.storageLimit) {
+        return NextResponse.json({ error: "Quota de stockage dépassé" }, { status: 413 });
+      }
     }
   }
 

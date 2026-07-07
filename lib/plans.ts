@@ -57,6 +57,22 @@ export function planStorage(plan: string): number {
   return plan === "premium" ? PREMIUM_STORAGE : FREE_STORAGE;
 }
 
+// ── Grade spécial « Fondateur » ────────────────────────────────────────────
+// Comptes fondateurs : accès illimité, hors système d'abonnement Stripe.
+export const FOUNDER_EMAILS = new Set<string>(["thxeybusiness@gmail.com"]);
+
+// 1 Po : concrètement illimité (le quota d'upload ne sera jamais atteint).
+export const FOUNDER_STORAGE = 1024 ** 5;
+
+export function isFounder(email: string | null | undefined): boolean {
+  return !!email && FOUNDER_EMAILS.has(email.trim().toLowerCase());
+}
+
+/** Plan effectif pour l'affichage : le fondateur prime sur tout. */
+export function effectivePlan(email: string | null | undefined, plan: string): string {
+  return isFounder(email) ? "founder" : plan;
+}
+
 export function isActive(status: string | null | undefined): boolean {
   return status === "active" || status === "trialing";
 }
