@@ -67,8 +67,9 @@ const CANVAS_W = 1600;
 const CANVAS_H = 1000;
 
 const ACCENT = "#5b8bff";
-const HANDLE_DIST = 30; // distance (px CSS) de la poignée de rotation au cadre
-const ROT_HIT = 16; // rayon de capture de la poignée de rotation (px CSS)
+const ROT_OFFSET = 13; // distance (px CSS) du centre de la poignée au bord haut
+const ROT_R = 12; // rayon de la poignée de rotation (px CSS)
+const ROT_HIT = 18; // rayon de capture de la poignée de rotation (px CSS)
 const CORNER_HIT = 15; // rayon de capture des poignées de coin (px CSS)
 
 const PALETTE = [
@@ -174,22 +175,6 @@ export function DrawEditor({
       ctx.stroke();
       ctx.setLineDash([]);
 
-      // Poignée de rotation au-dessus du bord haut (c0→c1).
-      const cen = { x: (c[0].x + c[2].x) / 2, y: (c[0].y + c[2].y) / 2 };
-      const topMid = { x: (c[0].x + c[1].x) / 2, y: (c[0].y + c[1].y) / 2 };
-      const out = normPx(topMid.x - cen.x, topMid.y - cen.y);
-      const hx = topMid.x + out.x * HANDLE_DIST * dpr;
-      const hy = topMid.y + out.y * HANDLE_DIST * dpr;
-      ctx.beginPath();
-      ctx.moveTo(topMid.x, topMid.y);
-      ctx.lineTo(hx, hy);
-      ctx.stroke();
-      ctx.beginPath();
-      ctx.arc(hx, hy, 7 * dpr, 0, Math.PI * 2);
-      ctx.fillStyle = "#ffffff";
-      ctx.fill();
-      ctx.stroke();
-
       // Poignées de redimensionnement aux 4 coins.
       ctx.fillStyle = "#ffffff";
       for (const p of c) {
@@ -199,12 +184,21 @@ export function DrawEditor({
         ctx.stroke();
       }
 
+      // Poignée de rotation, collée au milieu du bord haut, représentée
+      // par une flèche circulaire.
+      const cen = { x: (c[0].x + c[2].x) / 2, y: (c[0].y + c[2].y) / 2 };
+      const topMid = { x: (c[0].x + c[1].x) / 2, y: (c[0].y + c[1].y) / 2 };
+      const out = normPx(topMid.x - cen.x, topMid.y - cen.y);
+      const hx = topMid.x + out.x * ROT_OFFSET * dpr;
+      const hy = topMid.y + out.y * ROT_OFFSET * dpr;
+      drawRotateIcon(ctx, hx, hy, ROT_R * dpr, dpr);
+
       const g = gestureRef.current;
       if (g && g.mode === "rotate") {
         const deg = (((Math.round((g.angle * 180) / Math.PI)) % 360) + 360) % 360;
         ctx.fillStyle = ACCENT;
         ctx.font = `${12 * dpr}px system-ui, sans-serif`;
-        ctx.fillText(`${deg}°`, hx + 12 * dpr, hy + 4 * dpr);
+        ctx.fillText(`${deg}°`, hx + 14 * dpr, hy + 4 * dpr);
       }
       ctx.restore();
     }
@@ -430,8 +424,8 @@ export function DrawEditor({
         y: (corners[0].y + corners[1].y) / 2,
       };
       const out = normPx(topMid.x - cen.x, topMid.y - cen.y);
-      const hx = topMid.x + out.x * HANDLE_DIST;
-      const hy = topMid.y + out.y * HANDLE_DIST;
+      const hx = topMid.x + out.x * ROT_OFFSET;
+      const hy = topMid.y + out.y * ROT_OFFSET;
       if (Math.hypot(x - hx, y - hy) < ROT_HIT) {
         const { origPts, origBox } = snapshotOrig();
         gestureRef.current = {
@@ -998,6 +992,53 @@ function drawStroke(
     ctx.lineTo(x1 * w, y1 * h);
     ctx.stroke();
   }
+}
+
+/** Poignée de rotation : disque blanc + flèche circulaire (icône « pivoter »). */
+function drawRotateIcon(
+  ctx: CanvasRenderingContext2D,
+  cx: number,
+  cy: number,
+  R: number,
+  dpr: number,
+) {
+  ctx.save();
+  // Disque de fond.
+  ctx.beginPath();
+  ctx.arc(cx, cy, R, 0, Math.PI * 2);
+  ctx.fillStyle = "#ffffff";
+  ctx.fill();
+  ctx.lineWidth = 1.5 * dpr;
+  ctx.strokeStyle = ACCENT;
+  ctx.stroke();
+
+  // Arc de la flèche (presque un tour complet, avec une ouverture).
+  const ar = R * 0.5;
+  ctx.strokeStyle = ACCENT;
+  ctx.lineWidth = 1.7 * dpr;
+  ctx.lineCap = "round";
+  ctx.lineJoin = "round";
+  const a0 = -Math.PI * 0.72;
+  const a1 = Math.PI * 0.92;
+  ctx.beginPath();
+  ctx.arc(cx, cy, ar, a0, a1, false);
+  ctx.stroke();
+
+  // Pointe de flèche à l'extrémité de l'arc, orientée selon la tangente.
+  const ex = cx + Math.cos(a1) * ar;
+  const ey = cy + Math.sin(a1) * ar;
+  const tx = -Math.sin(a1); // tangente (sens anti-horaire)
+  const ty = Math.cos(a1);
+  const nx = Math.cos(a1); // normale sortante
+  const ny = Math.sin(a1);
+  const s = R * 0.4;
+  ctx.beginPath();
+  ctx.moveTo(ex, ey);
+  ctx.lineTo(ex - tx * s + nx * s * 0.6, ey - ty * s + ny * s * 0.6);
+  ctx.moveTo(ex, ey);
+  ctx.lineTo(ex - tx * s - nx * s * 0.6, ey - ty * s - ny * s * 0.6);
+  ctx.stroke();
+  ctx.restore();
 }
 
 function distToSegmentPx(
