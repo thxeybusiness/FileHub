@@ -28,6 +28,8 @@ import {
   ChevronDown,
   Users,
   Brush,
+  Sparkles,
+  Cloud,
 } from "lucide-react";
 import type { SerializedNode } from "@/lib/nodes";
 import { api, notifyRefresh } from "@/lib/api";
@@ -78,7 +80,7 @@ export function DriveExplorer({
   const [moveNode, setMoveNode] = useState<SerializedNode | null>(null);
   const [renameNode, setRenameNode] = useState<SerializedNode | null>(null);
   const [newFolder, setNewFolder] = useState(false);
-  const [chartMenu, setChartMenu] = useState(false);
+  const [projectMenu, setProjectMenu] = useState(false);
   const [membersOpen, setMembersOpen] = useState(false);
   const [deleteNode, setDeleteNode] = useState<SerializedNode | null>(null);
   const [emptyTrashOpen, setEmptyTrashOpen] = useState(false);
@@ -384,78 +386,98 @@ export function DriveExplorer({
         <div className="px-6 py-3 flex items-center gap-2 shrink-0">
           {canUpload && (
             <>
-              <button
-                onClick={() => fileInput.current?.click()}
-                className="group relative h-10 overflow-hidden rounded-xl bg-gradient-to-r from-[#3b6dff] to-[#7b3bff] px-4 text-sm font-semibold text-white shadow-lg shadow-blue-500/25 transition hover:shadow-blue-500/40 flex items-center gap-2"
-              >
-                <span className="relative z-10 flex items-center gap-2"><Plus className="size-4" /> Importer</span>
-                <span className="absolute inset-0 z-0 -translate-x-full bg-gradient-to-r from-transparent via-white/25 to-transparent" style={{ animation: "shine 3.5s ease-in-out infinite" }} />
-              </button>
-              <button
-                onClick={createDoc}
-                className="h-10 px-4 rounded-xl border border-white/10 bg-white/5 text-sm font-medium flex items-center gap-2 hover:bg-white/10 transition"
-              >
-                <FileText className="size-4 text-brand-300" /> Document
-              </button>
-              <button
-                onClick={createSheet}
-                className="h-10 px-4 rounded-xl border border-white/10 bg-white/5 text-sm font-medium flex items-center gap-2 hover:bg-white/10 transition"
-              >
-                <Table2 className="size-4 text-emerald-400" /> Feuille de calcul
-              </button>
+              {/* Bouton unique « New Project » : regroupe toutes les créations */}
+              <div className="relative" style={{ perspective: "1500px" }}>
+                <button
+                  onClick={() => setProjectMenu((v) => !v)}
+                  className="group relative h-10 overflow-hidden rounded-xl bg-gradient-to-r from-[#3b6dff] to-[#7b3bff] px-4 text-sm font-semibold text-white shadow-lg shadow-blue-500/25 transition hover:shadow-blue-500/40 flex items-center gap-2"
+                >
+                  <span className="relative z-10 flex items-center gap-2">
+                    <Sparkles className="size-4" /> New Project
+                    <ChevronDown className={cn("size-4 transition", projectMenu && "rotate-180")} />
+                  </span>
+                  <span
+                    className="absolute inset-0 z-0 -translate-x-full bg-gradient-to-r from-transparent via-white/25 to-transparent"
+                    style={{ animation: "shine 3.5s ease-in-out infinite" }}
+                  />
+                </button>
 
-              {/* Bouton scindé Graphique + flèche (propose 3 types) */}
-              <div className="relative flex items-center">
-                <button
-                  onClick={() => createChart("bar")}
-                  className="h-10 pl-4 pr-3 rounded-l-xl border border-white/10 bg-white/5 text-sm font-medium flex items-center gap-2 hover:bg-white/10 transition"
-                >
-                  <BarChart3 className="size-4 text-amber-400" /> Graphique
-                </button>
-                <button
-                  onClick={() => setChartMenu((v) => !v)}
-                  className="h-10 px-2 rounded-r-xl border border-l-0 border-white/10 bg-white/5 hover:bg-white/10 transition"
-                  title="Choisir un type"
-                >
-                  <ChevronDown className={cn("size-4 text-muted transition", chartMenu && "rotate-180")} />
-                </button>
-                {chartMenu && (
+                {projectMenu && (
                   <>
-                    <div className="fixed inset-0 z-30" onClick={() => setChartMenu(false)} />
-                    <div className="absolute left-0 top-12 z-40 w-52 rounded-xl border border-white/10 bg-[#0f1017]/95 backdrop-blur-xl p-1.5 shadow-2xl animate-in">
-                      <p className="px-2.5 pt-1.5 pb-1 text-[10px] uppercase tracking-wider text-muted">Créer un graphique</p>
-                      {QUICK_CHART_TYPES.map((qt) => {
-                        const meta = CHART_TYPES.find((t) => t.id === qt)!;
-                        return (
+                    <div className="fixed inset-0 z-40" onClick={() => setProjectMenu(false)} />
+                    <div
+                      className="absolute left-0 top-12 z-50 w-[384px] max-w-[calc(100vw-3rem)] overflow-hidden rounded-2xl border border-white/10 bg-[#0f1017]/95 backdrop-blur-2xl shadow-2xl shadow-black/50"
+                      style={{ animation: "mclarenOpen 0.6s cubic-bezier(0.22,1.15,0.36,1) both", transformOrigin: "top center" }}
+                    >
+                      {/* En-tête avec le logo FileHub */}
+                      <div className="flex items-center gap-3 border-b border-white/10 bg-gradient-to-r from-[#3b6dff]/15 to-[#7b3bff]/15 px-5 py-4">
+                        <span className="grid size-9 place-items-center rounded-xl bg-gradient-to-br from-[#3b6dff] to-[#7b3bff] shadow-lg shadow-blue-500/30">
+                          <Cloud className="size-5 text-white" />
+                        </span>
+                        <div>
+                          <p className="text-sm font-bold leading-tight">
+                            Nouveau projet
+                          </p>
+                          <p className="text-xs text-muted">Que voulez-vous créer&nbsp;?</p>
+                        </div>
+                      </div>
+
+                      {/* Grille des créations */}
+                      <div className="grid grid-cols-2 gap-1.5 p-3">
+                        {[
+                          { icon: Upload, tint: "#5b8bff", label: "Importer", desc: "Fichiers depuis votre appareil", fn: () => fileInput.current?.click() },
+                          { icon: FileText, tint: "#5b8bff", label: "Document", desc: "Traitement de texte", fn: createDoc },
+                          { icon: Table2, tint: "#10b981", label: "Feuille de calcul", desc: "Tableur complet", fn: createSheet },
+                          { icon: BarChart3, tint: "#f59e0b", label: "Graphique", desc: "Tous types de graphiques", fn: () => createChart("bar") },
+                          { icon: Brush, tint: "#ec4899", label: "Dessin", desc: "Tablette graphique", fn: createDraw },
+                          { icon: FolderPlus, tint: "#a78bff", label: "Nouveau dossier", desc: "Organisez vos fichiers", fn: () => setNewFolder(true) },
+                        ].map((o, i) => (
                           <button
-                            key={qt}
+                            key={o.label}
                             onClick={() => {
-                              setChartMenu(false);
-                              createChart(qt);
+                              setProjectMenu(false);
+                              o.fn();
                             }}
-                            className="w-full flex items-center gap-2.5 rounded-lg px-2.5 h-9 text-sm text-left text-white/80 hover:bg-white/5 transition"
+                            style={{ animation: "revealUp 0.4s both", animationDelay: `${180 + i * 45}ms` }}
+                            className="group/card flex items-start gap-3 rounded-xl border border-white/5 bg-white/[0.03] p-3 text-left transition hover:-translate-y-0.5 hover:border-white/15 hover:bg-white/[0.07]"
                           >
-                            <BarChart3 className="size-4 text-amber-400" />
-                            {meta.label}
+                            <span
+                              className="grid size-9 shrink-0 place-items-center rounded-lg transition group-hover/card:scale-110"
+                              style={{ background: `${o.tint}22` }}
+                            >
+                              <o.icon className="size-[18px]" style={{ color: o.tint }} />
+                            </span>
+                            <span className="min-w-0">
+                              <span className="block text-sm font-semibold leading-tight">{o.label}</span>
+                              <span className="mt-0.5 block text-[11px] leading-snug text-muted">{o.desc}</span>
+                            </span>
                           </button>
-                        );
-                      })}
+                        ))}
+                      </div>
+
+                      {/* Types de graphique rapides */}
+                      <div className="flex items-center gap-1.5 border-t border-white/10 px-3 py-2.5">
+                        <span className="text-[10px] uppercase tracking-wider text-muted">Graphique&nbsp;:</span>
+                        {QUICK_CHART_TYPES.map((qt) => {
+                          const meta = CHART_TYPES.find((t) => t.id === qt)!;
+                          return (
+                            <button
+                              key={qt}
+                              onClick={() => {
+                                setProjectMenu(false);
+                                createChart(qt);
+                              }}
+                              className="rounded-lg border border-white/10 bg-white/5 px-2.5 py-1 text-xs text-white/80 transition hover:bg-white/10"
+                            >
+                              {meta.label}
+                            </button>
+                          );
+                        })}
+                      </div>
                     </div>
                   </>
                 )}
               </div>
-              <button
-                onClick={createDraw}
-                className="h-10 px-4 rounded-xl border border-white/10 bg-white/5 text-sm font-medium flex items-center gap-2 hover:bg-white/10 transition"
-              >
-                <Brush className="size-4 text-pink-400" /> Dessin
-              </button>
-              <button
-                onClick={() => setNewFolder(true)}
-                className="h-10 px-4 rounded-xl border border-white/10 bg-white/5 text-sm font-medium flex items-center gap-2 hover:bg-white/10 transition"
-              >
-                <FolderPlus className="size-4" /> Nouveau dossier
-              </button>
               <input
                 ref={fileInput}
                 type="file"
