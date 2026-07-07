@@ -29,6 +29,8 @@ import {
   Brush,
   Sparkles,
   Cloud,
+  LineChart,
+  PieChart,
 } from "lucide-react";
 import type { SerializedNode } from "@/lib/nodes";
 import { api, notifyRefresh } from "@/lib/api";
@@ -80,6 +82,7 @@ export function DriveExplorer({
   const [renameNode, setRenameNode] = useState<SerializedNode | null>(null);
   const [newFolder, setNewFolder] = useState(false);
   const [projectMenu, setProjectMenu] = useState(false);
+  const [chartExpanded, setChartExpanded] = useState(false);
   const [membersOpen, setMembersOpen] = useState(false);
   const [deleteNode, setDeleteNode] = useState<SerializedNode | null>(null);
   const [emptyTrashOpen, setEmptyTrashOpen] = useState(false);
@@ -197,6 +200,11 @@ export function DriveExplorer({
     const { node } = await api.createChart("Graphique sans titre", folderId, spaceId);
     await api.saveChart(node.id, { content: defaultChartDoc(type) });
     router.push(`/drive/chart/${node.id}`);
+  };
+
+  const closeProjectMenu = () => {
+    setProjectMenu(false);
+    setChartExpanded(false);
   };
 
   const createDraw = async () => {
@@ -390,7 +398,10 @@ export function DriveExplorer({
                   le contexte d'empilement (le contenu passerait par-dessus). */}
               <div className="relative z-30">
                 <button
-                  onClick={() => setProjectMenu((v) => !v)}
+                  onClick={() => {
+                    setChartExpanded(false);
+                    setProjectMenu((v) => !v);
+                  }}
                   className="group relative h-10 overflow-hidden rounded-xl bg-gradient-to-r from-[#3b6dff] to-[#7b3bff] px-4 text-sm font-semibold text-white shadow-lg shadow-blue-500/25 transition hover:shadow-blue-500/40 flex items-center gap-2"
                 >
                   <span className="relative z-10 flex items-center gap-2">
@@ -405,7 +416,7 @@ export function DriveExplorer({
 
                 {projectMenu && (
                   <>
-                    <div className="fixed inset-0 z-40" onClick={() => setProjectMenu(false)} />
+                    <div className="fixed inset-0 z-40" onClick={closeProjectMenu} />
                     <div
                       className="absolute left-0 top-12 z-50 w-[440px] max-w-[calc(100vw-3rem)] overflow-hidden rounded-2xl border border-white/10 bg-[#0f1017]/95 backdrop-blur-2xl shadow-2xl shadow-black/50"
                       style={{ animation: "mclarenOpen 0.6s cubic-bezier(0.22,1.15,0.36,1) both", transformOrigin: "top center" }}
@@ -429,18 +440,27 @@ export function DriveExplorer({
                           { icon: Upload, tint: "#5b8bff", label: "Importer", desc: "Fichiers depuis votre appareil", fn: () => fileInput.current?.click() },
                           { icon: FileText, tint: "#5b8bff", label: "Document", desc: "Traitement de texte", fn: createDoc },
                           { icon: Table2, tint: "#10b981", label: "Feuille de calcul", desc: "Tableur complet", fn: createSheet },
-                          { icon: BarChart3, tint: "#f59e0b", label: "Graphique", desc: "Tous types de graphiques", fn: () => createChart("bar") },
+                          { icon: BarChart3, tint: "#f59e0b", label: "Graphique", desc: "Choisir un type", expandable: true },
                           { icon: Brush, tint: "#ec4899", label: "Dessin", desc: "Tablette graphique", fn: createDraw },
                           { icon: FolderPlus, tint: "#a78bff", label: "Nouveau dossier", desc: "Organisez vos fichiers", fn: () => setNewFolder(true) },
                         ].map((o, i) => (
                           <button
                             key={o.label}
                             onClick={() => {
-                              setProjectMenu(false);
-                              o.fn();
+                              if (o.expandable) {
+                                setChartExpanded((v) => !v);
+                                return;
+                              }
+                              closeProjectMenu();
+                              o.fn?.();
                             }}
                             style={{ animation: "revealUp 0.4s both", animationDelay: `${180 + i * 45}ms` }}
-                            className="group/card flex items-start gap-3 rounded-xl border border-white/5 bg-white/[0.03] p-3 text-left transition hover:-translate-y-0.5 hover:border-white/15 hover:bg-white/[0.07]"
+                            className={cn(
+                              "group/card flex items-start gap-3 rounded-xl border p-3 text-left transition hover:-translate-y-0.5 hover:bg-white/[0.07]",
+                              o.expandable && chartExpanded
+                                ? "border-amber-400/40 bg-white/[0.06]"
+                                : "border-white/5 bg-white/[0.03] hover:border-white/15",
+                            )}
                           >
                             <span
                               className="grid size-9 shrink-0 place-items-center rounded-lg transition group-hover/card:scale-110"
@@ -449,32 +469,48 @@ export function DriveExplorer({
                               <o.icon className="size-[18px]" style={{ color: o.tint }} />
                             </span>
                             <span className="min-w-0 flex-1">
-                              <span className="block text-sm font-semibold leading-tight truncate">{o.label}</span>
+                              <span className="flex items-center gap-1 text-sm font-semibold leading-tight">
+                                <span className="truncate">{o.label}</span>
+                                {o.expandable && (
+                                  <ChevronDown
+                                    className={cn(
+                                      "size-3.5 shrink-0 text-muted transition",
+                                      chartExpanded && "rotate-180",
+                                    )}
+                                  />
+                                )}
+                              </span>
                               <span className="mt-0.5 block text-[11px] leading-snug text-muted line-clamp-2">{o.desc}</span>
                             </span>
                           </button>
                         ))}
                       </div>
 
-                      {/* Types de graphique rapides */}
-                      <div className="flex flex-wrap items-center gap-1.5 border-t border-white/10 px-3 py-2.5">
-                        <span className="text-[10px] uppercase tracking-wider text-muted">Graphique&nbsp;:</span>
-                        {QUICK_CHART_TYPES.map((qt) => {
-                          const meta = CHART_TYPES.find((t) => t.id === qt)!;
-                          return (
-                            <button
-                              key={qt}
-                              onClick={() => {
-                                setProjectMenu(false);
-                                createChart(qt);
-                              }}
-                              className="rounded-lg border border-white/10 bg-white/5 px-2.5 py-1 text-xs text-white/80 transition hover:bg-white/10"
-                            >
-                              {meta.label}
-                            </button>
-                          );
-                        })}
-                      </div>
+                      {/* Sous-choix des types de graphique (déplié depuis la carte) */}
+                      {chartExpanded && (
+                        <div className="grid grid-cols-3 gap-1.5 px-3 pb-3">
+                          {QUICK_CHART_TYPES.map((qt, i) => {
+                            const meta = CHART_TYPES.find((t) => t.id === qt)!;
+                            const Icon = qt === "bar" ? BarChart3 : qt === "line" ? LineChart : PieChart;
+                            return (
+                              <button
+                                key={qt}
+                                onClick={() => {
+                                  closeProjectMenu();
+                                  createChart(qt);
+                                }}
+                                style={{ animation: "revealUp 0.32s both", animationDelay: `${i * 50}ms` }}
+                                className="group/chart flex flex-col items-center gap-2 rounded-xl border border-white/5 bg-white/[0.03] p-3 text-center transition hover:-translate-y-0.5 hover:border-amber-400/40 hover:bg-white/[0.07]"
+                              >
+                                <span className="grid size-9 place-items-center rounded-lg transition group-hover/chart:scale-110" style={{ background: "#f59e0b22" }}>
+                                  <Icon className="size-[18px]" style={{ color: "#f59e0b" }} />
+                                </span>
+                                <span className="text-xs font-medium leading-tight">{meta.label}</span>
+                              </button>
+                            );
+                          })}
+                        </div>
+                      )}
                     </div>
                   </>
                 )}
