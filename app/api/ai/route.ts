@@ -139,7 +139,18 @@ export async function POST(req: NextRequest) {
     });
     return NextResponse.json({ result });
   } catch (err) {
-    const message = err instanceof Error ? err.message : "Échec de l'assistant IA";
+    const raw = err instanceof Error ? err.message : String(err);
+    let message = "L'assistant IA a rencontré une erreur. Réessayez dans un instant.";
+    if (/credit balance|Plans & Billing|purchase credits/i.test(raw)) {
+      message =
+        "Crédits Anthropic insuffisants. Ajoutez des crédits sur console.anthropic.com (Plans & Billing) pour activer l'IA.";
+    } else if (/authentication|invalid x-api-key|401/i.test(raw)) {
+      message = "Clé API Anthropic invalide. Vérifiez la variable ANTHROPIC_API_KEY sur Vercel.";
+    } else if (/rate_?limit|429/i.test(raw)) {
+      message = "Trop de requêtes vers l'IA en peu de temps. Réessayez dans quelques secondes.";
+    } else if (/overloaded|529/i.test(raw)) {
+      message = "Le service Claude est momentanément surchargé. Réessayez dans un instant.";
+    }
     return NextResponse.json({ error: message }, { status: 502 });
   }
 }
