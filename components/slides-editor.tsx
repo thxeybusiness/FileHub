@@ -6,7 +6,7 @@ import {
   ArrowLeft, Check, Loader2, ChevronRight, Home, Presentation, Plus, Trash2, Play, X,
   Type, Square, Circle, Minus, MoveUpRight, ImageIcon, Copy, ChevronUp, ChevronDown,
   Bold, Italic, Underline as UnderlineIcon, AlignLeft, AlignCenter, AlignRight,
-  Palette, LayoutTemplate, Undo2, Redo2, BringToFront, SendToBack, Sparkles as SparkleIcon,
+  LayoutTemplate, Undo2, Redo2, BringToFront, SendToBack, Sparkles as SparkleIcon,
   PaintBucket, Blend, Droplets, Frame,
 } from "lucide-react";
 import { api } from "@/lib/api";
@@ -332,17 +332,6 @@ export function SlidesEditor({
     setSel(els[els.length - 1].id);
   };
 
-  const applyTheme = (name: string) => {
-    const th = themeOf(name);
-    mutate((d) => {
-      d.theme = name;
-      for (const s of d.slides) {
-        s.bg = th.bg;
-        for (const e of s.els) if (e.type === "text") e.color = th.text;
-      }
-    });
-  };
-
   // ── Gestes (déplacer / redimensionner / pivoter) ───────────────────
   const stageScale = () => (stageRef.current ? stageRef.current.getBoundingClientRect().width / W : scale);
   const startMove = (e: React.PointerEvent, elId: string) => {
@@ -541,7 +530,7 @@ export function SlidesEditor({
           {selEl ? (
             <ElementPanel el={selEl} onChange={(p, rec) => setEl(selEl.id, p, rec)} onDup={() => dupEl(selEl.id)} onDelete={() => deleteEl(selEl.id)} onLayer={(d) => layer(selEl.id, d)} onReplaceImage={() => fileRef.current?.click()} />
           ) : (
-            <SlidePanel theme={deck.theme} slideBg={slide.bg} onTheme={applyTheme} onBg={setSlideBg} onDecor={addDecor} onLayout={(k) => mutate((d) => { d.slides[cur].els = layoutEls(k, themeOf(d.theme)); })} onAddSlide={addSlide} />
+            <SlidePanel slideBg={slide.bg} onBg={setSlideBg} onDecor={addDecor} onLayout={(k) => mutate((d) => { d.slides[cur].els = layoutEls(k, themeOf(d.theme)); })} onAddSlide={addSlide} />
           )}
         </div>
       </div>
@@ -768,23 +757,13 @@ function ElementPanel({ el, onChange, onDup, onDelete, onLayer, onReplaceImage }
   );
 }
 
-function SlidePanel({ theme, slideBg, onTheme, onBg, onDecor, onLayout, onAddSlide }: {
-  theme: string; slideBg: string; onTheme: (n: string) => void; onBg: (bg: string) => void; onDecor: (k: string) => void; onLayout: (k: string) => void; onAddSlide: (k: string) => void;
+function SlidePanel({ slideBg, onBg, onDecor, onLayout, onAddSlide }: {
+  slideBg: string; onBg: (bg: string) => void; onDecor: (k: string) => void; onLayout: (k: string) => void; onAddSlide: (k: string) => void;
 }) {
   const layouts = [{ k: "title", l: "Titre" }, { k: "content", l: "Titre + contenu" }, { k: "two", l: "Deux colonnes" }, { k: "section", l: "Section" }, { k: "image", l: "Image + texte" }];
   return (
     <div className="space-y-5">
-      <div>
-        <p className="mb-2 flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wider text-muted"><Palette className="size-3.5" /> Thème</p>
-        <div className="grid grid-cols-2 gap-2">
-          {THEMES.map((th) => (
-            <button key={th.name} onClick={() => onTheme(th.name)} className={`overflow-hidden rounded-xl border text-left transition ${theme === th.name ? "border-brand-400 ring-2 ring-brand-400/30" : "border-white/10 hover:border-white/25"}`}>
-              <div className="h-10" style={{ background: th.bg }} />
-              <div className="flex items-center gap-1 px-2 py-1.5"><span className="size-2.5 rounded-full" style={{ background: th.accent }} /><span className="text-xs">{th.label}</span></div>
-            </button>
-          ))}
-        </div>
-      </div>
+      <BackgroundPanel slideBg={slideBg} onBg={onBg} onDecor={onDecor} />
       <div>
         <p className="mb-2 flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wider text-muted"><LayoutTemplate className="size-3.5" /> Mise en page</p>
         <div className="grid grid-cols-1 gap-1.5">
@@ -796,7 +775,6 @@ function SlidePanel({ theme, slideBg, onTheme, onBg, onDecor, onLayout, onAddSli
           ))}
         </div>
       </div>
-      <BackgroundPanel slideBg={slideBg} onBg={onBg} onDecor={onDecor} />
     </div>
   );
 }
