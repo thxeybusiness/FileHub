@@ -3,6 +3,7 @@ import { getUserId } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { storage } from "@/lib/storage";
 import { adjustStorage } from "@/lib/nodes";
+import { logActivity, actorNameFor } from "@/lib/activity";
 
 export const runtime = "nodejs";
 
@@ -49,6 +50,13 @@ export async function DELETE() {
 
   await prisma.node.deleteMany({ where: { id: { in: everything } } });
   if (freed > 0n) await adjustStorage(userId, -freed);
+
+  await logActivity({
+    userId,
+    actorName: await actorNameFor(userId),
+    action: "deleted",
+    targetName: `la corbeille (${everything.length} élément${everything.length > 1 ? "s" : ""})`,
+  });
 
   return NextResponse.json({ ok: true, freed: Number(freed) });
 }
