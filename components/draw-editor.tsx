@@ -32,7 +32,12 @@ export type DrawDoc = { version: 1; bg: string; strokes: Stroke[] };
 
 type Tool = "pen" | "eraser" | "select";
 
-// Geste en cours avec l'outil Sélection.
+// Coin de la boîte de sélection, en coordonnées normalisées.
+type Corner = [number, number];
+
+// Geste en cours avec l'outil Sélection. Les gestes de transformation
+// mémorisent la géométrie d'origine (traits + boîte) et l'appliquent en
+// absolu : la boîte reste ainsi parfaitement rigide, sans dérive.
 type Gesture =
   | { mode: "move"; lastX: number; lastY: number; started: boolean }
   | {
@@ -41,8 +46,19 @@ type Gesture =
       cy: number;
       startAng: number;
       angle: number;
-      orig: Map<number, Pt[]>;
+      origPts: Map<number, Pt[]>;
+      origBox: Corner[];
       started: boolean;
+    }
+  | {
+      mode: "scale";
+      ax: number;
+      ay: number;
+      grab0: number;
+      origPts: Map<number, Pt[]>;
+      origBox: Corner[];
+      started: boolean;
+      factor: number;
     }
   | { mode: "band"; x0: number; y0: number; x1: number; y1: number };
 
@@ -51,6 +67,9 @@ const CANVAS_W = 1600;
 const CANVAS_H = 1000;
 
 const ACCENT = "#5b8bff";
+const HANDLE_DIST = 30; // distance (px CSS) de la poignée de rotation au cadre
+const ROT_HIT = 16; // rayon de capture de la poignée de rotation (px CSS)
+const CORNER_HIT = 15; // rayon de capture des poignées de coin (px CSS)
 
 const PALETTE = [
   "#f8fafc",
@@ -86,11 +105,15 @@ export function DrawEditor({
   const wrapRef = useRef<HTMLDivElement>(null);
   const strokesRef = useRef<Stroke[]>(initialDoc?.strokes ?? []);
   // Historique par instantanés : couvre traits, déplacements, rotations,
-  // suppressions et « tout effacer ».
+  // redimensionnements, suppressions et « tout effacer ».
   const historyRef = useRef<Stroke[][]>([]);
   const redoStackRef = useRef<Stroke[][]>([]);
   const drawing = useRef<Stroke | null>(null);
   const selRef = useRef<number[]>([]);
+  // Boîte de sélection : 4 coins [TL, TR, BR, BL] normalisés. Elle subit
+  // exactement les mêmes transformations que les traits sélectionnés →
+  // rigide (taille constante) et solidaire de la rotation.
+  const boxRef = useRef<Corner[] | null>(null);
   const gestureRef = useRef<Gesture | null>(null);
   const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const nameTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -133,53 +156,60 @@ export function DrawEditor({
       : strokesRef.current;
     for (const s of all) drawStroke(ctx, s, w, h, bg);
 
-    // Surcouche : cadre de sélection + poignée de rotation.
     const rect = canvas.getBoundingClientRect();
     const dpr = rect.width > 0 ? w / rect.width : 1;
-    const sel = selRef.current.filter((i) => i < strokesRef.current.length);
-    if (sel.length > 0) {
-      let x0 = Infinity;
-      let y0 = Infinity;
-      let x1 = -Infinity;
-      let y1 = -Infinity;
-      for (const i of sel) {
-        for (const [nx, ny] of strokesRef.current[i].points) {
-          x0 = Math.min(x0, nx * w);
-          y0 = Math.min(y0, ny * h);
-          x1 = Math.max(x1, nx * w);
-          y1 = Math.max(y1, ny * h);
-        }
-      }
-      const pad = 10 * dpr;
-      x0 -= pad; y0 -= pad; x1 += pad; y1 += pad;
+
+    // Cadre de sélection rigide + poignées.
+    const box = boxRef.current;
+    if (box && selRef.current.length > 0) {
+      const c = box.map(([nx, ny]) => ({ x: nx * w, y: ny * h }));
       ctx.save();
       ctx.strokeStyle = ACCENT;
       ctx.lineWidth = 1.5 * dpr;
       ctx.setLineDash([6 * dpr, 4 * dpr]);
-      ctx.strokeRect(x0, y0, x1 - x0, y1 - y0);
-      ctx.setLineDash([]);
-      // Poignée de rotation au-dessus du cadre.
-      const hx = (x0 + x1) / 2;
-      const hy = y0 - 30 * dpr;
       ctx.beginPath();
-      ctx.moveTo(hx, y0);
-      ctx.lineTo(hx, hy + 8 * dpr);
+      ctx.moveTo(c[0].x, c[0].y);
+      for (let i = 1; i < 4; i++) ctx.lineTo(c[i].x, c[i].y);
+      ctx.closePath();
+      ctx.stroke();
+      ctx.setLineDash([]);
+
+      // Poignée de rotation au-dessus du bord haut (c0→c1).
+      const cen = { x: (c[0].x + c[2].x) / 2, y: (c[0].y + c[2].y) / 2 };
+      const topMid = { x: (c[0].x + c[1].x) / 2, y: (c[0].y + c[1].y) / 2 };
+      const out = normPx(topMid.x - cen.x, topMid.y - cen.y);
+      const hx = topMid.x + out.x * HANDLE_DIST * dpr;
+      const hy = topMid.y + out.y * HANDLE_DIST * dpr;
+      ctx.beginPath();
+      ctx.moveTo(topMid.x, topMid.y);
+      ctx.lineTo(hx, hy);
       ctx.stroke();
       ctx.beginPath();
-      ctx.arc(hx, hy, 8 * dpr, 0, Math.PI * 2);
+      ctx.arc(hx, hy, 7 * dpr, 0, Math.PI * 2);
       ctx.fillStyle = "#ffffff";
       ctx.fill();
       ctx.stroke();
+
+      // Poignées de redimensionnement aux 4 coins.
+      ctx.fillStyle = "#ffffff";
+      for (const p of c) {
+        ctx.beginPath();
+        ctx.rect(p.x - 5 * dpr, p.y - 5 * dpr, 10 * dpr, 10 * dpr);
+        ctx.fill();
+        ctx.stroke();
+      }
+
       const g = gestureRef.current;
       if (g && g.mode === "rotate") {
-        const deg = Math.round((g.angle * 180) / Math.PI);
+        const deg = (((Math.round((g.angle * 180) / Math.PI)) % 360) + 360) % 360;
         ctx.fillStyle = ACCENT;
         ctx.font = `${12 * dpr}px system-ui, sans-serif`;
-        ctx.fillText(`${((deg % 360) + 360) % 360}°`, hx + 14 * dpr, hy + 4 * dpr);
+        ctx.fillText(`${deg}°`, hx + 12 * dpr, hy + 4 * dpr);
       }
       ctx.restore();
     }
-    // Rectangle de sélection en cours (élastique).
+
+    // Rectangle de sélection élastique.
     const g = gestureRef.current;
     if (g && g.mode === "band") {
       ctx.save();
@@ -256,10 +286,49 @@ export function DrawEditor({
     syncHistoryFlags();
   };
 
+  /** Boîte de sélection (4 coins normalisés) englobant les traits donnés. */
+  const computeBox = (ids: number[]): Corner[] | null => {
+    const canvas = canvasRef.current;
+    if (!canvas || ids.length === 0) return null;
+    const r = canvas.getBoundingClientRect();
+    if (r.width === 0 || r.height === 0) return null;
+    let x0 = Infinity;
+    let y0 = Infinity;
+    let x1 = -Infinity;
+    let y1 = -Infinity;
+    for (const i of ids) {
+      const s = strokesRef.current[i];
+      if (!s) continue;
+      for (const [nx, ny] of s.points) {
+        x0 = Math.min(x0, nx);
+        y0 = Math.min(y0, ny);
+        x1 = Math.max(x1, nx);
+        y1 = Math.max(y1, ny);
+      }
+    }
+    if (!isFinite(x0)) return null;
+    const px = 10 / r.width;
+    const py = 10 / r.height;
+    x0 -= px; y0 -= py; x1 += px; y1 += py;
+    return [
+      [x0, y0],
+      [x1, y0],
+      [x1, y1],
+      [x0, y1],
+    ];
+  };
+
   const setSelection = (ids: number[]) => {
     selRef.current = ids;
+    boxRef.current = computeBox(ids);
     setSelCount(ids.length);
     render();
+  };
+
+  const clearSelection = () => {
+    selRef.current = [];
+    boxRef.current = null;
+    setSelCount(0);
   };
 
   const undo = () => {
@@ -267,8 +336,7 @@ export function DrawEditor({
     if (!prev) return;
     redoStackRef.current.push(cloneStrokes(strokesRef.current));
     strokesRef.current = prev;
-    selRef.current = [];
-    setSelCount(0);
+    clearSelection();
     syncHistoryFlags();
     render();
     scheduleSave();
@@ -279,8 +347,7 @@ export function DrawEditor({
     if (!next) return;
     historyRef.current.push(cloneStrokes(strokesRef.current));
     strokesRef.current = next;
-    selRef.current = [];
-    setSelCount(0);
+    clearSelection();
     syncHistoryFlags();
     render();
     scheduleSave();
@@ -291,8 +358,7 @@ export function DrawEditor({
     if (!confirm("Effacer tout le dessin ?")) return;
     snapshot();
     strokesRef.current = [];
-    selRef.current = [];
-    setSelCount(0);
+    clearSelection();
     render();
     scheduleSave();
   };
@@ -302,33 +368,121 @@ export function DrawEditor({
     snapshot();
     const dead = new Set(selRef.current);
     strokesRef.current = strokesRef.current.filter((_, i) => !dead.has(i));
-    setSelection([]);
+    clearSelection();
+    render();
     scheduleSave();
   };
 
-  // ── Outil Sélection : déplacer / pivoter ────────────────────────────────
+  // ── Outil Sélection : déplacer / pivoter / redimensionner ───────────────
   const cssPos = (e: React.PointerEvent) => {
     const r = canvasRef.current!.getBoundingClientRect();
     return { x: e.clientX - r.left, y: e.clientY - r.top, r };
   };
 
-  /** Boîte englobante de la sélection, en pixels CSS. */
-  const selBBoxCss = (rw: number, rh: number) => {
-    const sel = selRef.current.filter((i) => i < strokesRef.current.length);
-    if (sel.length === 0) return null;
-    let x0 = Infinity;
-    let y0 = Infinity;
-    let x1 = -Infinity;
-    let y1 = -Infinity;
-    for (const i of sel) {
-      for (const [nx, ny] of strokesRef.current[i].points) {
-        x0 = Math.min(x0, nx * rw);
-        y0 = Math.min(y0, ny * rh);
-        x1 = Math.max(x1, nx * rw);
-        y1 = Math.max(y1, ny * rh);
+  /** Coins de la boîte en pixels CSS. */
+  const boxCssCorners = (rw: number, rh: number) =>
+    boxRef.current?.map(([nx, ny]) => ({ x: nx * rw, y: ny * rh })) ?? null;
+
+  /** Applique une transformation (px CSS → px CSS) aux traits d'origine et
+   * à la boîte d'origine. Garantit une boîte rigide et solidaire. */
+  const applyTransform = (
+    origPts: Map<number, Pt[]>,
+    origBox: Corner[],
+    rw: number,
+    rh: number,
+    fn: (x: number, y: number) => [number, number],
+  ) => {
+    for (const [i, pts] of origPts) {
+      const s = strokesRef.current[i];
+      if (!s) continue;
+      s.points = pts.map(([nx, ny, p]) => {
+        const [x, y] = fn(nx * rw, ny * rh);
+        return [x / rw, y / rh, p] as Pt;
+      });
+    }
+    boxRef.current = origBox.map(([nx, ny]) => {
+      const [x, y] = fn(nx * rw, ny * rh);
+      return [x / rw, y / rh] as Corner;
+    });
+  };
+
+  const snapshotOrig = () => {
+    const origPts = new Map<number, Pt[]>();
+    for (const i of selRef.current) {
+      if (strokesRef.current[i]) {
+        origPts.set(i, strokesRef.current[i].points.map((p) => [...p] as Pt));
       }
     }
-    return { x0: x0 - 10, y0: y0 - 10, x1: x1 + 10, y1: y1 + 10 };
+    return { origPts, origBox: (boxRef.current ?? []).map((c) => [...c] as Corner) };
+  };
+
+  const selectDown = (e: React.PointerEvent) => {
+    const { x, y, r } = cssPos(e);
+    const corners = boxCssCorners(r.width, r.height);
+    if (corners) {
+      const cen = {
+        x: (corners[0].x + corners[2].x) / 2,
+        y: (corners[0].y + corners[2].y) / 2,
+      };
+      // Poignée de rotation ?
+      const topMid = {
+        x: (corners[0].x + corners[1].x) / 2,
+        y: (corners[0].y + corners[1].y) / 2,
+      };
+      const out = normPx(topMid.x - cen.x, topMid.y - cen.y);
+      const hx = topMid.x + out.x * HANDLE_DIST;
+      const hy = topMid.y + out.y * HANDLE_DIST;
+      if (Math.hypot(x - hx, y - hy) < ROT_HIT) {
+        const { origPts, origBox } = snapshotOrig();
+        gestureRef.current = {
+          mode: "rotate",
+          cx: cen.x,
+          cy: cen.y,
+          startAng: Math.atan2(y - cen.y, x - cen.x),
+          angle: 0,
+          origPts,
+          origBox,
+          started: false,
+        };
+        return;
+      }
+      // Poignée de coin → redimensionnement (ancre = coin opposé).
+      for (let ci = 0; ci < 4; ci++) {
+        if (Math.hypot(x - corners[ci].x, y - corners[ci].y) < CORNER_HIT) {
+          const anchor = corners[(ci + 2) % 4];
+          const grab0 = Math.hypot(corners[ci].x - anchor.x, corners[ci].y - anchor.y);
+          if (grab0 < 1) break;
+          const { origPts, origBox } = snapshotOrig();
+          gestureRef.current = {
+            mode: "scale",
+            ax: anchor.x,
+            ay: anchor.y,
+            grab0,
+            origPts,
+            origBox,
+            started: false,
+            factor: 1,
+          };
+          return;
+        }
+      }
+      // À l'intérieur du cadre (éventuellement pivoté) → déplacement.
+      if (pointInQuad(x, y, corners)) {
+        gestureRef.current = { mode: "move", lastX: x, lastY: y, started: false };
+        return;
+      }
+    }
+    // Clic sur un trait → le sélectionner puis le déplacer.
+    const hit = hitStroke(x, y, r.width, r.height);
+    if (hit >= 0) {
+      setSelection([hit]);
+      gestureRef.current = { mode: "move", lastX: x, lastY: y, started: false };
+      return;
+    }
+    // Sinon : rectangle élastique.
+    setSelection([]);
+    gestureRef.current = { mode: "band", x0: x, y0: y, x1: x, y1: y };
+    render();
   };
 
   /** Trait visible le plus proche du point (pixels CSS), ou -1. */
@@ -361,52 +515,6 @@ export function DrawEditor({
     return best;
   };
 
-  const selectDown = (e: React.PointerEvent) => {
-    const { x, y, r } = cssPos(e);
-    const bb = selBBoxCss(r.width, r.height);
-    if (bb) {
-      // Poignée de rotation ?
-      const hx = (bb.x0 + bb.x1) / 2;
-      const hy = bb.y0 - 30;
-      if (Math.hypot(x - hx, y - hy) < 16) {
-        const cx = (bb.x0 + bb.x1) / 2;
-        const cy = (bb.y0 + bb.y1) / 2;
-        const orig = new Map<number, Pt[]>();
-        for (const i of selRef.current) {
-          if (strokesRef.current[i]) {
-            orig.set(i, strokesRef.current[i].points.map((p) => [...p] as Pt));
-          }
-        }
-        gestureRef.current = {
-          mode: "rotate",
-          cx,
-          cy,
-          startAng: Math.atan2(y - cy, x - cx),
-          angle: 0,
-          orig,
-          started: false,
-        };
-        return;
-      }
-      // Dans le cadre → déplacement.
-      if (x >= bb.x0 && x <= bb.x1 && y >= bb.y0 && y <= bb.y1) {
-        gestureRef.current = { mode: "move", lastX: x, lastY: y, started: false };
-        return;
-      }
-    }
-    // Clic sur un trait → le sélectionner et commencer à le déplacer.
-    const hit = hitStroke(x, y, r.width, r.height);
-    if (hit >= 0) {
-      setSelection([hit]);
-      gestureRef.current = { mode: "move", lastX: x, lastY: y, started: false };
-      return;
-    }
-    // Sinon : rectangle élastique.
-    setSelection([]);
-    gestureRef.current = { mode: "band", x0: x, y0: y, x1: x, y1: y };
-    render();
-  };
-
   const selectMove = (e: React.PointerEvent) => {
     const g = gestureRef.current;
     if (!g) return;
@@ -428,6 +536,9 @@ export function DrawEditor({
         if (!s) continue;
         s.points = s.points.map(([nx, ny, p]) => [nx + ndx, ny + ndy, p] as Pt);
       }
+      if (boxRef.current) {
+        boxRef.current = boxRef.current.map(([nx, ny]) => [nx + ndx, ny + ndy] as Corner);
+      }
       render();
     } else if (g.mode === "rotate") {
       const ang = Math.atan2(y - g.cy, x - g.cx) - g.startAng;
@@ -439,19 +550,25 @@ export function DrawEditor({
       g.angle = ang;
       const cos = Math.cos(ang);
       const sin = Math.sin(ang);
-      for (const [i, opts] of g.orig) {
-        const s = strokesRef.current[i];
-        if (!s) continue;
-        s.points = opts.map(([nx, ny, p]) => {
-          const dx = nx * r.width - g.cx;
-          const dy = ny * r.height - g.cy;
-          return [
-            (g.cx + dx * cos - dy * sin) / r.width,
-            (g.cy + dx * sin + dy * cos) / r.height,
-            p,
-          ] as Pt;
-        });
+      applyTransform(g.origPts, g.origBox, r.width, r.height, (px, py) => {
+        const dx = px - g.cx;
+        const dy = py - g.cy;
+        return [g.cx + dx * cos - dy * sin, g.cy + dx * sin + dy * cos];
+      });
+      render();
+    } else if (g.mode === "scale") {
+      const d = Math.hypot(x - g.ax, y - g.ay);
+      const f = clampN(d / g.grab0, 0.05, 30);
+      if (!g.started && Math.abs(f - 1) < 0.01) return;
+      if (!g.started) {
+        snapshot();
+        g.started = true;
       }
+      g.factor = f;
+      applyTransform(g.origPts, g.origBox, r.width, r.height, (px, py) => [
+        g.ax + (px - g.ax) * f,
+        g.ay + (py - g.ay) * f,
+      ]);
       render();
     } else {
       g.x1 = x;
@@ -564,7 +681,10 @@ export function DrawEditor({
 
   // Changer d'outil désélectionne.
   useEffect(() => {
-    if (tool !== "select" && selRef.current.length > 0) setSelection([]);
+    if (tool !== "select" && selRef.current.length > 0) {
+      clearSelection();
+      render();
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [tool]);
 
@@ -594,8 +714,10 @@ export function DrawEditor({
       const meta = e.metaKey || e.ctrlKey;
       if (!meta) {
         if (typing) return;
-        if (e.key === "Escape") setSelection([]);
-        else if ((e.key === "Delete" || e.key === "Backspace") && selRef.current.length > 0) {
+        if (e.key === "Escape") {
+          clearSelection();
+          render();
+        } else if ((e.key === "Delete" || e.key === "Backspace") && selRef.current.length > 0) {
           e.preventDefault();
           deleteSelection();
         }
@@ -682,7 +804,7 @@ export function DrawEditor({
           <ToolBtn
             active={tool === "select"}
             onClick={() => setTool("select")}
-            title="Sélectionner : cliquez un trait (ou entourez-en plusieurs), glissez pour déplacer, poignée du haut pour pivoter à 360°, Suppr pour supprimer"
+            title="Sélectionner : cliquez un trait (ou entourez-en plusieurs), glissez pour déplacer, coins pour agrandir/rétrécir, poignée du haut pour pivoter à 360°, Suppr pour supprimer"
           >
             <MousePointer2 className="size-5" />
           </ToolBtn>
@@ -893,6 +1015,31 @@ function distToSegmentPx(
   let t = ((px - x0) * dx + (py - y0) * dy) / l2;
   t = t < 0 ? 0 : t > 1 ? 1 : t;
   return Math.hypot(px - (x0 + t * dx), py - (y0 + t * dy));
+}
+
+/** Point dans un quadrilatère convexe (coins en ordre cyclique). */
+function pointInQuad(px: number, py: number, q: { x: number; y: number }[]): boolean {
+  let sign = 0;
+  for (let i = 0; i < 4; i++) {
+    const a = q[i];
+    const b = q[(i + 1) % 4];
+    const cross = (b.x - a.x) * (py - a.y) - (b.y - a.y) * (px - a.x);
+    if (cross !== 0) {
+      const s = cross > 0 ? 1 : -1;
+      if (sign === 0) sign = s;
+      else if (s !== sign) return false;
+    }
+  }
+  return true;
+}
+
+function normPx(x: number, y: number): { x: number; y: number } {
+  const l = Math.hypot(x, y) || 1;
+  return { x: x / l, y: y / l };
+}
+
+function clampN(n: number, lo: number, hi: number) {
+  return n < lo ? lo : n > hi ? hi : n;
 }
 
 function clamp01(n: number) {
