@@ -15,16 +15,18 @@ export function AiAssistant({
   onApplyText,
   applyLabel = "Insérer",
   onApplyChart,
+  onApplyData,
   placeholder = "Demandez ce que vous voulez…",
   accent = "#7b3bff",
 }: {
-  kind: "doc" | "sheet" | "chart" | "draw";
+  kind: "doc" | "sheet" | "chart" | "draw" | "note" | "diagram" | "board" | "slides";
   title?: string;
   quickActions: QuickAction[];
   getContext?: () => string;
   onApplyText?: (text: string) => void;
   applyLabel?: string;
   onApplyChart?: (chart: AiChart) => void;
+  onApplyData?: (data: unknown) => void;
   placeholder?: string;
   accent?: string;
 }) {
@@ -34,6 +36,7 @@ export function AiAssistant({
   const [error, setError] = useState<string | null>(null);
   const [textResult, setTextResult] = useState<string | null>(null);
   const [chartResult, setChartResult] = useState<AiChart | null>(null);
+  const [dataResult, setDataResult] = useState<unknown>(null);
   const [applied, setApplied] = useState(false);
   const [copied, setCopied] = useState(false);
   const [mounted, setMounted] = useState(false);
@@ -52,12 +55,14 @@ export function AiAssistant({
     setError(null);
     setTextResult(null);
     setChartResult(null);
+    setDataResult(null);
     setApplied(false);
     setCopied(false);
     try {
       const text = getContext?.() ?? "";
       const res = await api.ai({ kind, action, text, instruction });
       if (res.chart) setChartResult(res.chart);
+      else if (res.data !== undefined && res.data !== null) setDataResult(res.data);
       else if (typeof res.result === "string") setTextResult(res.result);
       else setError("Réponse vide.");
     } catch (err) {
@@ -81,6 +86,11 @@ export function AiAssistant({
   function applyChart() {
     if (!chartResult) return;
     onApplyChart?.(chartResult);
+    setApplied(true);
+  }
+  function applyData() {
+    if (dataResult == null) return;
+    onApplyData?.(dataResult);
     setApplied(true);
   }
   async function copyResult() {
@@ -198,6 +208,23 @@ export function AiAssistant({
                         {copied ? "Copié" : "Copier"}
                       </button>
                     </div>
+                  </div>
+                )}
+
+                {/* Résultat structuré (kanban / présentation) */}
+                {dataResult != null && !busy && (
+                  <div className="mt-4">
+                    <div className="rounded-xl border border-white/10 bg-white/[0.03] px-3 py-2.5 text-sm text-white/85">
+                      <p className="font-medium">Proposition prête</p>
+                      <p className="mt-1 text-xs text-white/60">Cliquez pour l'appliquer à votre {kind === "slides" ? "présentation" : "tableau"}.</p>
+                    </div>
+                    <button
+                      onClick={applyData}
+                      className="mt-2 inline-flex w-full items-center justify-center gap-1.5 rounded-lg bg-brand-600 px-3 py-2 text-sm font-semibold text-white transition hover:bg-brand-700"
+                    >
+                      {applied ? <Check className="size-4" /> : <CornerDownLeft className="size-4" />}
+                      {applied ? "Appliqué" : "Appliquer"}
+                    </button>
                   </div>
                 )}
 

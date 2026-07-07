@@ -133,6 +133,20 @@ export const api = {
     return req<{ ok: boolean; updatedAt: string }>(`/api/draws/${id}`, jsonInit("PUT", patch));
   },
 
+  // ── Types génériques (note, diagram, board, slides) ──
+  createNode(type: "note" | "diagram" | "board" | "slides", name: string, parentId: string | null, spaceId?: string | null) {
+    return req<{ node: SerializedNode }>(
+      "/api/nodes",
+      jsonInit("POST", { name, parentId, type, spaceId: spaceId ?? null }),
+    );
+  },
+  getContent(id: string) {
+    return req<{ id: string; name: string; type: string; content: string }>(`/api/content/${id}`);
+  },
+  saveContent(id: string, patch: { content?: string; name?: string }) {
+    return req<{ ok: boolean; updatedAt: string }>(`/api/content/${id}`, jsonInit("PUT", patch));
+  },
+
   // ── Espaces communs ──
   listSpaces() {
     return req<{ spaces: SpaceSummary[] }>("/api/spaces");
@@ -166,12 +180,12 @@ export const api = {
     return req<{ reply: string }>("/api/ai/chat", jsonInit("POST", { messages }));
   },
   ai(payload: {
-    kind: "doc" | "sheet" | "chart" | "draw";
+    kind: "doc" | "sheet" | "chart" | "draw" | "note" | "diagram" | "board" | "slides";
     action: string;
     text?: string;
     instruction?: string;
   }) {
-    return req<{ result?: string; chart?: AiChart }>("/api/ai", jsonInit("POST", payload));
+    return req<{ result?: string; chart?: AiChart; data?: unknown }>("/api/ai", jsonInit("POST", payload));
   },
 
   // ── Tableau de bord ──

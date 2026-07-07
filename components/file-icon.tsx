@@ -21,6 +21,9 @@ import {
   Radar,
   ScatterChart,
   Pencil,
+  StickyNote,
+  Workflow,
+  KanbanSquare,
   File as FileIcon,
   type LucideIcon,
 } from "lucide-react";
@@ -64,7 +67,7 @@ export function NodeIcon({
   size = 20,
   className = "",
 }: {
-  type: "folder" | "file" | "doc" | "sheet" | "chart" | "draw";
+  type: "folder" | "file" | "doc" | "sheet" | "chart" | "draw" | "note" | "diagram" | "board" | "slides";
   mimeType?: string | null;
   name?: string;
   color?: string | null;
@@ -122,6 +125,17 @@ export function NodeIcon({
         strokeWidth={1.75}
       />
     );
+  }
+  // Types additionnels : note, diagramme, tableau kanban, présentation.
+  const EXTRA: Record<string, { icon: LucideIcon; color: string }> = {
+    note: { icon: StickyNote, color: "#eab308" },
+    diagram: { icon: Workflow, color: "#14b8a6" },
+    board: { icon: KanbanSquare, color: "#f97316" },
+    slides: { icon: Presentation, color: "#fb7185" },
+  };
+  if (EXTRA[type]) {
+    const { icon: Icon, color } = EXTRA[type];
+    return <Icon style={{ color }} width={size} height={size} className={className} strokeWidth={1.75} />;
   }
   const cat: FileCategory = type === "folder" ? "folder" : categoryOf(mimeType ?? null, name);
   const Icon = ICONS[cat];

@@ -27,6 +27,10 @@ import {
   ChevronDown,
   Users,
   Brush,
+  Presentation,
+  KanbanSquare,
+  StickyNote,
+  Workflow,
   Sparkles,
   Cloud,
   LineChart,
@@ -184,6 +188,8 @@ export function DriveExplorer({
     else if (n.type === "sheet") router.push(`/drive/sheet/${n.id}`);
     else if (n.type === "chart") router.push(`/drive/chart/${n.id}`);
     else if (n.type === "draw") router.push(`/drive/draw/${n.id}`);
+    else if (n.type === "note" || n.type === "diagram" || n.type === "board" || n.type === "slides")
+      router.push(`/drive/${n.type}/${n.id}`);
     else setPreview(n);
   };
 
@@ -211,6 +217,12 @@ export function DriveExplorer({
   const createDraw = async () => {
     const { node } = await api.createDraw("Dessin sans titre", folderId, spaceId);
     router.push(`/drive/draw/${node.id}`);
+  };
+
+  const createTyped = async (type: "note" | "diagram" | "board" | "slides") => {
+    const label = { note: "Note sans titre", diagram: "Diagramme sans titre", board: "Tableau sans titre", slides: "Présentation sans titre" }[type];
+    const { node } = await api.createNode(type, label, folderId, spaceId);
+    router.push(`/drive/${type}/${node.id}`);
   };
 
   const doRename = async (n: SerializedNode, name: string) => {
@@ -449,6 +461,10 @@ export function DriveExplorer({
                           { icon: FileText, tint: "#5b8bff", label: "Document", desc: "Traitement de texte", fn: createDoc },
                           { icon: Table2, tint: "#10b981", label: "Feuille de calcul", desc: "Tableur complet", fn: createSheet },
                           { icon: BarChart3, tint: "#f59e0b", label: "Graphique", desc: "Choisir un type", expandable: true },
+                          { icon: Presentation, tint: "#fb7185", label: "Présentation", desc: "Diaporama + IA", fn: () => createTyped("slides") },
+                          { icon: KanbanSquare, tint: "#f97316", label: "Tableau kanban", desc: "Tâches en colonnes", fn: () => createTyped("board") },
+                          { icon: StickyNote, tint: "#eab308", label: "Note", desc: "Markdown rapide", fn: () => createTyped("note") },
+                          { icon: Workflow, tint: "#14b8a6", label: "Diagramme", desc: "Schéma Mermaid", fn: () => createTyped("diagram") },
                           { icon: Brush, tint: "#ec4899", label: "Dessin", desc: "Tablette graphique", fn: createDraw },
                           { icon: FolderPlus, tint: "#a78bff", label: "Nouveau dossier", desc: "Organisez vos fichiers", fn: () => setNewFolder(true) },
                         ].map((o, i) => (

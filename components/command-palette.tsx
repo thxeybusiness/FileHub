@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import {
   Search, HardDrive, Sparkles, LayoutDashboard, Clock, Star, Trash2, Crown,
   FileText, Table2, BarChart3, Brush, FolderPlus, CornerDownLeft, ArrowUp, ArrowDown,
+  Presentation, KanbanSquare, StickyNote, Workflow,
   type LucideIcon,
 } from "lucide-react";
 import { api } from "@/lib/api";
@@ -74,19 +75,24 @@ export function CommandPalette() {
     router.push(href);
   }
 
-  async function create(type: "doc" | "sheet" | "chart" | "draw" | "folder") {
+  async function create(type: "doc" | "sheet" | "chart" | "draw" | "folder" | "note" | "diagram" | "board" | "slides") {
     setOpen(false);
     if (type === "folder") {
       const { node } = await api.createFolder("Nouveau dossier", null, null);
       router.push(`/drive/folder/${node.id}`);
       return;
     }
+    const labels: Record<string, string> = {
+      doc: "Document sans titre", sheet: "Feuille sans titre", chart: "Graphique sans titre", draw: "Dessin sans titre",
+      note: "Note sans titre", diagram: "Diagramme sans titre", board: "Tableau sans titre", slides: "Présentation sans titre",
+    };
+    if (type === "note" || type === "diagram" || type === "board" || type === "slides") {
+      const { node } = await api.createNode(type, labels[type], null, null);
+      router.push(`/drive/${type}/${node.id}`);
+      return;
+    }
     const creators = { doc: api.createDoc, sheet: api.createSheet, chart: api.createChart, draw: api.createDraw };
-    const { node } = await creators[type](
-      { doc: "Document sans titre", sheet: "Feuille sans titre", chart: "Graphique sans titre", draw: "Dessin sans titre" }[type],
-      null,
-      null,
-    );
+    const { node } = await creators[type](labels[type], null, null);
     router.push(`/drive/${type}/${node.id}`);
   }
 
@@ -105,6 +111,10 @@ export function CommandPalette() {
       { id: "new-sheet", label: "Nouvelle feuille de calcul", icon: Table2, run: () => create("sheet") },
       { id: "new-chart", label: "Nouveau graphique", icon: BarChart3, run: () => create("chart") },
       { id: "new-draw", label: "Nouveau dessin", icon: Brush, run: () => create("draw") },
+      { id: "new-slides", label: "Nouvelle présentation", icon: Presentation, run: () => create("slides") },
+      { id: "new-board", label: "Nouveau tableau kanban", icon: KanbanSquare, run: () => create("board") },
+      { id: "new-note", label: "Nouvelle note", icon: StickyNote, run: () => create("note") },
+      { id: "new-diagram", label: "Nouveau diagramme", icon: Workflow, run: () => create("diagram") },
       { id: "new-folder", label: "Nouveau dossier", icon: FolderPlus, run: () => create("folder") },
     ];
     const q = query.trim().toLowerCase();
@@ -133,7 +143,7 @@ export function CommandPalette() {
   function openNode(n: SerializedNode) {
     setOpen(false);
     if (n.type === "folder") router.push(`/drive/folder/${n.id}`);
-    else if (n.type === "doc" || n.type === "sheet" || n.type === "chart" || n.type === "draw")
+    else if (["doc", "sheet", "chart", "draw", "note", "diagram", "board", "slides"].includes(n.type))
       router.push(`/drive/${n.type}/${n.id}`);
     else router.push(n.parentId ? `/drive/folder/${n.parentId}` : "/drive");
   }

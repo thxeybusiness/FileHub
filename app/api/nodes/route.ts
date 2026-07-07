@@ -8,6 +8,22 @@ import { logActivity, actorNameFor } from "@/lib/activity";
 
 export const runtime = "nodejs";
 
+// Contenus initiaux des nouveaux types de document.
+const DEFAULT_DIAGRAM = `graph TD
+  A[Début] --> B{Décision}
+  B -->|Oui| C[Action]
+  B -->|Non| D[Fin]`;
+const DEFAULT_BOARD = JSON.stringify({
+  columns: [
+    { id: "c1", title: "À faire", cards: [] },
+    { id: "c2", title: "En cours", cards: [] },
+    { id: "c3", title: "Terminé", cards: [] },
+  ],
+});
+const DEFAULT_SLIDES = JSON.stringify({
+  slides: [{ title: "Titre de la présentation", bullets: ["Premier point", "Deuxième point"] }],
+});
+
 // GET /api/nodes?parent=<id|root>&view=my|starred|trash|recent&q=<search>&space=<id>
 export async function GET(req: NextRequest) {
   const userId = await getUserId();
@@ -41,7 +57,7 @@ export async function GET(req: NextRequest) {
     where.trashed = true;
   } else if (view === "recent") {
     where.trashed = false;
-    where.type = { in: ["file", "doc", "sheet", "chart", "draw"] };
+    where.type = { in: ["file", "doc", "sheet", "chart", "draw", "note", "diagram", "board", "slides"] };
   } else {
     where.trashed = false;
     where.parentId = parent && parent !== "root" ? parent : null;
@@ -99,7 +115,9 @@ const createSchema = z.object({
   name: z.string().trim().min(1).max(255),
   parentId: z.string().nullable().optional(),
   color: z.string().optional(),
-  type: z.enum(["folder", "doc", "sheet", "chart", "draw"]).optional(),
+  type: z
+    .enum(["folder", "doc", "sheet", "chart", "draw", "note", "diagram", "board", "slides"])
+    .optional(),
   spaceId: z.string().nullable().optional(),
 });
 
@@ -142,6 +160,16 @@ export async function POST(req: NextRequest) {
       ...(type === "sheet" ? { content: "", mimeType: "application/vnd.filehub.sheet" } : {}),
       ...(type === "chart" ? { content: "", mimeType: "application/vnd.filehub.chart" } : {}),
       ...(type === "draw" ? { content: "", mimeType: "application/vnd.filehub.draw" } : {}),
+      ...(type === "note" ? { content: "", mimeType: "application/vnd.filehub.note" } : {}),
+      ...(type === "diagram"
+        ? { content: DEFAULT_DIAGRAM, mimeType: "application/vnd.filehub.diagram" }
+        : {}),
+      ...(type === "board"
+        ? { content: DEFAULT_BOARD, mimeType: "application/vnd.filehub.board" }
+        : {}),
+      ...(type === "slides"
+        ? { content: DEFAULT_SLIDES, mimeType: "application/vnd.filehub.slides" }
+        : {}),
     },
     include: { _count: { select: { children: true } } },
   });

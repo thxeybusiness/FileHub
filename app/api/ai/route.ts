@@ -7,7 +7,7 @@ export const runtime = "nodejs";
 export const maxDuration = 60;
 
 const schema = z.object({
-  kind: z.enum(["doc", "sheet", "chart", "draw"]),
+  kind: z.enum(["doc", "sheet", "chart", "draw", "note", "diagram", "board", "slides"]),
   action: z.string().min(1).max(40),
   text: z.string().max(40000).optional(), // contenu / sélection / données
   instruction: z.string().max(2000).optional(), // demande libre de l'utilisateur
@@ -67,6 +67,31 @@ const DRAW_ACTIONS: Record<string, (t: string, instr?: string) => string> = {
   custom: (_t, instr) => `${instr}`,
 };
 
+// ── Note (Markdown) ──────────────────────────────────────────────────
+const NOTE_SYSTEM = `Tu es l'assistant de prise de notes de FileHub.
+Réponds UNIQUEMENT en Markdown (titres #, listes -, **gras**, \`code\`, > citation).
+Pas de bloc de code englobant, pas de commentaire hors de la note.`;
+
+const NOTE_ACTIONS: Record<string, (t: string, instr?: string) => string> = {
+  improve: (t) => `Améliore et structure cette note en Markdown :\n\n${t}`,
+  summarize: (t) => `Résume cette note en points clés (Markdown) :\n\n${t}`,
+  todo: (t) => `Extrais une liste de tâches (cases à cocher Markdown) de cette note :\n\n${t}`,
+  continue: (t) => `Continue cette note de façon utile :\n\n${t}`,
+  custom: (t, instr) => `${instr}\n\n${t ? `Note actuelle :\n${t}` : "(Rédige à partir de la consigne.)"}`,
+};
+
+// ── Diagramme (Mermaid) ──────────────────────────────────────────────
+const DIAGRAM_SYSTEM = `Tu génères des diagrammes Mermaid pour FileHub.
+Réponds UNIQUEMENT avec du code Mermaid valide (graph/flowchart, sequenceDiagram, classDiagram, etc.).
+Aucune explication, aucun bloc \`\`\`, juste le code du diagramme.`;
+
+const DIAGRAM_ACTIONS: Record<string, (t: string, instr?: string) => string> = {
+  generate: (t, instr) =>
+    `Crée un diagramme Mermaid pour : ${instr || "un processus pertinent"}.${t ? `\n\nDiagramme actuel (à faire évoluer si utile) :\n${t}` : ""}`,
+  fix: (t) => `Corrige la syntaxe de ce diagramme Mermaid et renvoie-le complet :\n\n${t}`,
+  custom: (t, instr) => `${instr}\n\n${t ? `Diagramme actuel :\n${t}` : ""}`,
+};
+
 // ── Graphique (sortie structurée) ────────────────────────────────────
 const CHART_SYSTEM = `Tu génères la configuration d'un graphique pour FileHub à partir d'une description.
 Choisis le type le plus adapté parmi : bar, bar-horizontal, bar-stacked, line, area, pie, doughnut, radar, scatter.
@@ -98,6 +123,46 @@ const CHART_SCHEMA = {
   required: ["type", "categories", "series"],
 };
 
+// ── Kanban (sortie structurée) ───────────────────────────────────────
+const BOARD_SYSTEM = `Tu organises un tableau kanban pour FileHub à partir d'une demande.
+Crée des colonnes claires (ex. À faire / En cours / Terminé, ou par thème) et des cartes concrètes et actionnables.`;
+const BOARD_SCHEMA = {
+  type: "object",
+  additionalProperties: false,
+  properties: {
+    columns: {
+      type: "array",
+      items: {
+        type: "object",
+        additionalProperties: false,
+        properties: { title: { type: "string" }, cards: { type: "array", items: { type: "string" } } },
+        required: ["title", "cards"],
+      },
+    },
+  },
+  required: ["columns"],
+};
+
+// ── Présentation (sortie structurée) ─────────────────────────────────
+const SLIDES_SYSTEM = `Tu crées une présentation (diaporama) pour FileHub à partir d'un sujet.
+Chaque diapositive a un titre court et 2 à 5 puces concises et percutantes. Vise 5 à 10 diapositives.`;
+const SLIDES_SCHEMA = {
+  type: "object",
+  additionalProperties: false,
+  properties: {
+    slides: {
+      type: "array",
+      items: {
+        type: "object",
+        additionalProperties: false,
+        properties: { title: { type: "string" }, bullets: { type: "array", items: { type: "string" } } },
+        required: ["title", "bullets"],
+      },
+    },
+  },
+  required: ["slides"],
+};
+
 export async function POST(req: NextRequest) {
   const userId = await getUserId();
   if (!userId) return NextResponse.json({ error: "Non autorisé" }, { status: 401 });
@@ -124,17 +189,40 @@ export async function POST(req: NextRequest) {
       });
       return NextResponse.json({ chart });
     }
+    if (kind === "board") {
+      const data = await completeJson({
+        system: BOARD_SYSTEM,
+        user: `${instruction || "Crée un tableau de tâches pertinent."}${text ? `\n\nContexte :\n${text}` : ""}`,
+        schema: BOARD_SCHEMA,
+        maxTokens: 2500,
+      });
+      return NextResponse.json({ data });
+    }
+    if (kind === "slides") {
+      const data = await completeJson({
+        system: SLIDES_SYSTEM,
+        user: `${instruction || "Crée une présentation pertinente."}${text ? `\n\nContexte :\n${text}` : ""}`,
+        schema: SLIDES_SCHEMA,
+        maxTokens: 3000,
+      });
+      return NextResponse.json({ data });
+    }
 
-    const table =
-      kind === "doc" ? DOC_ACTIONS : kind === "sheet" ? SHEET_ACTIONS : DRAW_ACTIONS;
+    const tables: Record<string, Record<string, (t: string, instr?: string) => string>> = {
+      doc: DOC_ACTIONS, sheet: SHEET_ACTIONS, draw: DRAW_ACTIONS, note: NOTE_ACTIONS, diagram: DIAGRAM_ACTIONS,
+    };
+    const systems: Record<string, string> = {
+      doc: DOC_SYSTEM, sheet: SHEET_SYSTEM, draw: DRAW_SYSTEM, note: NOTE_SYSTEM, diagram: DIAGRAM_SYSTEM,
+    };
+    const table = tables[kind];
+    if (!table) return NextResponse.json({ error: "Type inconnu" }, { status: 400 });
     const build = table[action] ?? table.custom;
     if (!build) return NextResponse.json({ error: "Action inconnue" }, { status: 400 });
 
-    const system = kind === "doc" ? DOC_SYSTEM : kind === "sheet" ? SHEET_SYSTEM : DRAW_SYSTEM;
     const result = await completeText({
-      system,
+      system: systems[kind],
       user: build(text, instruction),
-      maxTokens: kind === "doc" ? 6000 : 2000,
+      maxTokens: kind === "doc" ? 6000 : 2500,
       effort: "low",
     });
     return NextResponse.json({ result });
