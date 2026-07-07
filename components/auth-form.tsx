@@ -33,10 +33,14 @@ export function AuthForm({ mode }: { mode: "login" | "signup" }) {
     setError(null);
     setPending(true);
     const form = new FormData(e.currentTarget);
+    const firstName = String(form.get("firstName") ?? "").trim();
+    const lastName = String(form.get("lastName") ?? "").trim();
     const payload = {
       email: String(form.get("email") ?? ""),
       password: String(form.get("password") ?? ""),
-      ...(mode === "signup" ? { name: String(form.get("name") ?? "") } : {}),
+      ...(mode === "signup"
+        ? { name: [firstName, lastName].filter(Boolean).join(" ") }
+        : {}),
     };
     try {
       const res = await fetch(`/api/auth/${mode}`, {
@@ -156,7 +160,12 @@ export function AuthForm({ mode }: { mode: "login" | "signup" }) {
             </p>
 
             <form onSubmit={onSubmit} className="mt-8 space-y-4">
-              {mode === "signup" && <Field label="Nom" name="name" type="text" placeholder="Votre nom" autoComplete="name" />}
+              {mode === "signup" && (
+                <div className="grid grid-cols-2 gap-3">
+                  <Field label="Prénom" name="firstName" type="text" placeholder="Jean" autoComplete="given-name" />
+                  <Field label="Nom" name="lastName" type="text" placeholder="Dupont" autoComplete="family-name" />
+                </div>
+              )}
               <Field label="Email" name="email" type="email" placeholder="vous@exemple.com" autoComplete="email" required />
 
               <label className="block">
