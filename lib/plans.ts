@@ -17,7 +17,7 @@ export type Plan = {
 const GB = 1024 ** 3;
 const TB = 1024 ** 4;
 
-export const FREE_STORAGE = 15 * GB; // 16106127360, aligné sur le défaut Prisma
+export const FREE_STORAGE = 1 * GB; // 1 Go
 export const PREMIUM_STORAGE = 1 * TB;
 
 export const PLANS: Record<PlanId, Plan> = {
@@ -27,9 +27,9 @@ export const PLANS: Record<PlanId, Plan> = {
     priceLabel: "0 €",
     priceMonthly: 0,
     storage: FREE_STORAGE,
-    storageLabel: "15 Go",
+    storageLabel: "1 Go",
     features: [
-      "15 Go de stockage",
+      "1 Go de stockage",
       "Documents, feuilles, graphiques, dessins",
       "1 espace partagé",
       "Partage par lien",

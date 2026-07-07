@@ -20,7 +20,7 @@ model User {
   name         String?
   passwordHash String
   storageUsed  BigInt   @default(0)
-  storageLimit BigInt   @default(16106127360) // 15 GB
+  storageLimit BigInt   @default(1073741824) // 1 GB (Basic)
   createdAt    DateTime @default(now())
 
   // Abonnement (Stripe)

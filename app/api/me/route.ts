@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { getUserId } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { effectivePlan, isFounder, FOUNDER_STORAGE } from "@/lib/plans";
+import { effectivePlan, isFounder, planStorage, FOUNDER_STORAGE } from "@/lib/plans";
 
 export const runtime = "nodejs";
 
@@ -26,7 +26,7 @@ export async function GET() {
     username: user.username,
     email: user.email,
     storageUsed: Number(user.storageUsed),
-    storageLimit: founder ? FOUNDER_STORAGE : Number(user.storageLimit),
+    storageLimit: founder ? FOUNDER_STORAGE : planStorage(user.plan),
     plan: effectivePlan(user.email, user.plan),
   });
 }

@@ -3,7 +3,7 @@ import { getCurrentUser } from "@/lib/auth";
 import { Sidebar } from "@/components/sidebar";
 import { AuroraBackground } from "@/components/aurora-bg";
 import { CalculatorWidget } from "@/components/calculator-widget";
-import { effectivePlan, isFounder, FOUNDER_STORAGE } from "@/lib/plans";
+import { effectivePlan, isFounder, planStorage, FOUNDER_STORAGE } from "@/lib/plans";
 
 export default async function DriveLayout({
   children,
@@ -21,7 +21,7 @@ export default async function DriveLayout({
           name: user.name,
           email: user.email,
           storageUsed: Number(user.storageUsed),
-          storageLimit: isFounder(user.email) ? FOUNDER_STORAGE : Number(user.storageLimit),
+          storageLimit: isFounder(user.email) ? FOUNDER_STORAGE : planStorage(user.plan),
           plan: effectivePlan(user.email, user.plan),
         }}
       />
