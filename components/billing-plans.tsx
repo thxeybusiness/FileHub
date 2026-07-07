@@ -77,7 +77,7 @@ export function BillingPlans({ currentPlan, planStatus, renewsAt, hasSubscriptio
           {banner === "success" && (
             <div className="mb-6 flex items-center gap-3 rounded-2xl border border-emerald-400/30 bg-emerald-500/10 px-4 py-3 text-sm animate-in">
               <Check className="size-5 text-emerald-400 shrink-0" />
-              <span>Bienvenue chez Premium ! Votre stockage a été augmenté à 1 To.</span>
+              <span>Bienvenue chez Pro ! Votre stockage a été augmenté à 1 To.</span>
             </div>
           )}
           {banner === "canceled" && (
@@ -94,7 +94,7 @@ export function BillingPlans({ currentPlan, planStatus, renewsAt, hasSubscriptio
           <div className="text-center mb-8">
             <h2 className="text-2xl font-bold">Choisissez votre formule</h2>
             <p className="text-muted mt-1">
-              Passez à Premium pour 1 To de stockage et des espaces illimités.
+              Passez à Pro pour 1 To de stockage et des espaces illimités.
             </p>
           </div>
 
@@ -146,7 +146,7 @@ export function BillingPlans({ currentPlan, planStatus, renewsAt, hasSubscriptio
                   <div className="mt-6">
                     {plan.id === "free" ? (
                       <div className="h-11 grid place-items-center rounded-xl border border-white/10 text-sm text-muted">
-                        {isPremium ? "Inclus dans Premium" : "Votre formule actuelle"}
+                        {isPremium ? "Inclus dans Pro" : "Votre formule actuelle"}
                       </div>
                     ) : active ? (
                       <button
@@ -168,7 +168,7 @@ export function BillingPlans({ currentPlan, planStatus, renewsAt, hasSubscriptio
                         ) : (
                           <Sparkles className="size-4" />
                         )}
-                        Passer à Premium
+                        Passer à Pro
                         <span className="absolute inset-0 -translate-x-full bg-gradient-to-r from-transparent via-white/25 to-transparent" style={{ animation: "shine 3.5s ease-in-out infinite" }} />
                       </button>
                     )}

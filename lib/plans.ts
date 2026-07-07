@@ -37,7 +37,7 @@ export const PLANS: Record<PlanId, Plan> = {
   },
   premium: {
     id: "premium",
-    name: "Premium",
+    name: "Pro",
     priceLabel: "9 € / mois",
     priceMonthly: 9,
     storage: PREMIUM_STORAGE,
@@ -47,7 +47,7 @@ export const PLANS: Record<PlanId, Plan> = {
       "1 To de stockage",
       "Espaces partagés illimités",
       "Tous les éditeurs sans limite",
-      "Badge Premium",
+      "Badge Pro",
       "Support prioritaire",
     ],
   },

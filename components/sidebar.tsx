@@ -182,7 +182,7 @@ export function Sidebar({ initial }: { initial: Me }) {
             Stockage
             {me.plan === "premium" && (
               <span className="ml-auto inline-flex items-center gap-1 rounded-full bg-gradient-to-r from-[#3b6dff] to-[#7b3bff] px-2 py-0.5 text-[10px] font-semibold text-white shadow shadow-blue-500/30">
-                <Crown className="size-3" /> Premium
+                <Crown className="size-3" /> Pro
               </span>
             )}
           </div>
@@ -211,7 +211,7 @@ export function Sidebar({ initial }: { initial: Me }) {
               href="/drive/abonnement"
               className="group relative mt-3 flex h-9 items-center justify-center gap-1.5 overflow-hidden rounded-lg bg-gradient-to-r from-[#3b6dff] to-[#7b3bff] text-xs font-semibold text-white shadow-lg shadow-blue-500/25 transition hover:shadow-blue-500/40"
             >
-              <Sparkles className="size-3.5" /> Passer à Premium
+              <Sparkles className="size-3.5" /> Passer à Pro
               <span className="absolute inset-0 -translate-x-full bg-gradient-to-r from-transparent via-white/25 to-transparent" style={{ animation: "shine 3.5s ease-in-out infinite" }} />
             </Link>
           )}

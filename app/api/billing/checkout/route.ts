@@ -26,7 +26,7 @@ export async function POST() {
   });
   if (!user) return NextResponse.json({ error: "Non autorisé" }, { status: 401 });
   if (user.plan === "premium") {
-    return NextResponse.json({ error: "Vous êtes déjà Premium." }, { status: 400 });
+    return NextResponse.json({ error: "Vous êtes déjà Pro." }, { status: 400 });
   }
 
   // Réutilise le client Stripe existant, sinon en crée un.
