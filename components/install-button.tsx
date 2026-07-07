@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { createPortal } from "react-dom";
 import { Download, X, Share, Plus, MoreVertical, Check } from "lucide-react";
 
 // Événement navigateur (Chrome / Edge / Android) permettant de déclencher
@@ -93,7 +94,12 @@ export function InstallButton({
         {variant !== "icon" && <span>Installer l'application</span>}
       </button>
 
-      {showHelp && <InstallHelp onClose={() => setShowHelp(false)} />}
+      {/* Portail vers <body> : indispensable pour que la modale plein écran
+          échappe aux ancêtres animés en `transform` (le hero), qui sinon
+          piègent tout `position: fixed`. */}
+      {showHelp &&
+        typeof document !== "undefined" &&
+        createPortal(<InstallHelp onClose={() => setShowHelp(false)} />, document.body)}
     </>
   );
 }
@@ -106,7 +112,12 @@ function InstallHelp({ onClose }: { onClose: () => void }) {
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => e.key === "Escape" && onClose();
     window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
+    const prevOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => {
+      window.removeEventListener("keydown", onKey);
+      document.body.style.overflow = prevOverflow;
+    };
   }, [onClose]);
 
   const steps = isIOS
@@ -127,7 +138,7 @@ function InstallHelp({ onClose }: { onClose: () => void }) {
       onClick={onClose}
     >
       <div
-        className="w-full max-w-sm rounded-2xl border border-white/10 bg-[#0f1017]/95 p-6 text-left shadow-2xl backdrop-blur-xl"
+        className="max-h-[85vh] w-full max-w-sm overflow-y-auto rounded-2xl border border-white/10 bg-[#0f1017]/95 p-6 text-left shadow-2xl backdrop-blur-xl"
         onClick={(e) => e.stopPropagation()}
       >
         <div className="mb-4 flex items-center gap-3">

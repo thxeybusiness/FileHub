@@ -7,7 +7,10 @@ export const metadata: Metadata = {
   description:
     "FileHub : stockez, organisez, prévisualisez et partagez vos fichiers. Un Drive moderne, rapide et complet.",
   manifest: "/manifest.webmanifest",
-  appleWebApp: { capable: true, statusBarStyle: "black-translucent", title: "FileHub" },
+  // « default » réserve l'espace de la barre d'état iOS (pas de chevauchement).
+  // « black-translucent » + viewport-fit=cover faisaient passer le contenu SOUS
+  // la barre d'état de l'iPhone -> en-têtes tronqués.
+  appleWebApp: { capable: true, statusBarStyle: "default", title: "FileHub" },
   icons: { icon: "/icon-192.png", apple: "/icon-192.png" },
 };
 
@@ -15,7 +18,6 @@ export const viewport: Viewport = {
   themeColor: "#07070c",
   width: "device-width",
   initialScale: 1,
-  viewportFit: "cover",
 };
 
 export default function RootLayout({
