@@ -5,6 +5,33 @@ import Link from "next/link";
 import { ArrowLeft, Check, Loader2, ChevronRight, Home, Table2 } from "lucide-react";
 import { api } from "@/lib/api";
 import { filehubTheme } from "@/lib/univer-theme";
+import { AiAssistant } from "./ai-assistant";
+
+// Convertit un snapshot de classeur Univer en TSV (première feuille) pour
+// alimenter l'assistant IA sans dépendre de l'API interne d'Univer.
+function snapshotToTsv(snap: unknown): string {
+  if (!snap || typeof snap !== "object") return "";
+  const s = snap as { sheetOrder?: string[]; sheets?: Record<string, { cellData?: Record<string, Record<string, { v?: unknown }>> }> };
+  const order = s.sheetOrder?.length ? s.sheetOrder : Object.keys(s.sheets ?? {});
+  const cellData = s.sheets?.[order[0]]?.cellData;
+  if (!cellData) return "";
+  let maxRow = 0;
+  let maxCol = 0;
+  for (const r of Object.keys(cellData)) {
+    maxRow = Math.max(maxRow, Number(r));
+    for (const c of Object.keys(cellData[r])) maxCol = Math.max(maxCol, Number(c));
+  }
+  const lines: string[] = [];
+  for (let r = 0; r <= maxRow; r++) {
+    const row: string[] = [];
+    for (let c = 0; c <= maxCol; c++) {
+      const v = cellData[r]?.[c]?.v;
+      row.push(v == null ? "" : String(v));
+    }
+    if (row.some((x) => x !== "")) lines.push(row.join("\t"));
+  }
+  return lines.join("\n").slice(0, 20000);
+}
 
 import "@univerjs/presets/lib/styles/preset-sheets-core.css";
 import "@univerjs/presets/lib/styles/preset-sheets-conditional-formatting.css";
@@ -43,6 +70,7 @@ export function ExcelBoard({
   const [saveState, setSaveState] = useState<SaveState>("saved");
   const [ready, setReady] = useState(false);
   const nameTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const snapshotRef = useRef<unknown>(null);
 
   useEffect(() => {
     let disposed = false;
@@ -142,7 +170,9 @@ export function ExcelBoard({
           ? (initialData as Record<string, unknown>)
           : { name: name || "Feuille de calcul", sheetOrder: [], sheets: {} };
       univerAPI.createWorkbook(snapshot as Parameters<typeof univerAPI.createWorkbook>[0]);
-      lastSerialized = JSON.stringify(univerAPI.getActiveWorkbook()?.save() ?? null);
+      const firstSnap = univerAPI.getActiveWorkbook()?.save() ?? null;
+      snapshotRef.current = firstSnap;
+      lastSerialized = JSON.stringify(firstSnap);
       setReady(true);
 
       const trySave = () => {
@@ -152,6 +182,7 @@ export function ExcelBoard({
         const serialized = JSON.stringify(snap);
         if (serialized === lastSerialized) return;
         lastSerialized = serialized;
+        snapshotRef.current = snap;
         setSaveState("saving");
         if (saveTimeout) clearTimeout(saveTimeout);
         saveTimeout = setTimeout(async () => {
@@ -225,6 +256,19 @@ export function ExcelBoard({
             />
           </div>
         </div>
+        <AiAssistant
+          kind="sheet"
+          title="Analyste tableur"
+          accent="#10b981"
+          getContext={() => snapshotToTsv(snapshotRef.current)}
+          placeholder="Ex. « formule pour la moyenne pondérée », « quelles tendances ? »…"
+          quickActions={[
+            { action: "analyze", label: "Analyser" },
+            { action: "insights", label: "Insights" },
+            { action: "clean", label: "Nettoyer" },
+          ]}
+        />
+
         <div className="flex items-center gap-1.5 text-xs text-muted">
           {saveState === "saving" ? (
             <><Loader2 className="size-3.5 animate-spin" /> Enregistrement…</>

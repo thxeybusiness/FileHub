@@ -32,6 +32,12 @@ export type SpaceMemberInfo = {
   isMe: boolean;
 };
 
+export type AiChart = {
+  type: string;
+  categories: string[];
+  series: { name: string; data: number[] }[];
+};
+
 export type DashboardStats = {
   plan: string;
   storageUsed: number;
@@ -153,6 +159,16 @@ export const api = {
   },
   removeMember(id: string, memberUserId: string) {
     return req<{ ok: boolean }>(`/api/spaces/${id}/members`, jsonInit("DELETE", { userId: memberUserId }));
+  },
+
+  // ── Assistant IA ──
+  ai(payload: {
+    kind: "doc" | "sheet" | "chart" | "draw";
+    action: string;
+    text?: string;
+    instruction?: string;
+  }) {
+    return req<{ result?: string; chart?: AiChart }>("/api/ai", jsonInit("POST", payload));
   },
 
   // ── Tableau de bord ──

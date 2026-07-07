@@ -38,8 +38,9 @@ import {
   Trash2,
   BarChart3,
 } from "lucide-react";
-import { api } from "@/lib/api";
+import { api, type AiChart } from "@/lib/api";
 import { cn } from "@/lib/utils";
+import { AiAssistant } from "./ai-assistant";
 import {
   CHART_TYPES,
   seriesColor,
@@ -126,6 +127,23 @@ export function ChartEditor({
 
   const currentType = CHART_TYPES.find((t) => t.id === doc.type)!;
 
+  // ── Assistant IA ──
+  const aiChartContext = () => {
+    if (!doc.categories.length) return "";
+    const header = ["Catégorie", ...doc.series.map((s) => s.name)].join("\t");
+    const rows = doc.categories.map((c, i) =>
+      [c, ...doc.series.map((s) => s.data[i] ?? "")].join("\t"),
+    );
+    return [header, ...rows].join("\n");
+  };
+  const applyAiChart = (chart: AiChart) => {
+    update(() => ({
+      type: (CHART_TYPES.some((t) => t.id === chart.type) ? chart.type : "bar") as ChartType,
+      categories: chart.categories.length ? chart.categories : ["A", "B", "C"],
+      series: chart.series.length ? chart.series : [{ name: "Série 1", data: [0, 0, 0] }],
+    }));
+  };
+
   return (
     <div className="flex h-full min-h-0 flex-col">
       {/* En-tête */}
@@ -192,6 +210,18 @@ export function ChartEditor({
             </>
           )}
         </div>
+
+        <AiAssistant
+          kind="chart"
+          title="Assistant graphique"
+          accent="#f59e0b"
+          getContext={aiChartContext}
+          onApplyChart={applyAiChart}
+          placeholder="Ex. « ventes par trimestre en courbe », « répartition du budget »…"
+          quickActions={[
+            { action: "generate", label: "Depuis les données" },
+          ]}
+        />
 
         <div className="flex items-center gap-1.5 text-xs text-muted">
           {save === "saving" ? (

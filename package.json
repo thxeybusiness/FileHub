@@ -12,6 +12,7 @@
     "postinstall": "prisma generate"
   },
   "dependencies": {
+    "@anthropic-ai/sdk": "^0.110.0",
     "@prisma/client": "^6.19.3",
     "@univerjs/presets": "^0.25.1",
     "@univerjs/themes": "^0.25.1",

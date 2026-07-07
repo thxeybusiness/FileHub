@@ -21,6 +21,7 @@ import {
 import { api } from "@/lib/api";
 import { beautifyStroke } from "@/lib/shape-recognizer";
 import { ConfirmDialog } from "./confirm-dialog";
+import { AiAssistant } from "./ai-assistant";
 import { cn } from "@/lib/utils";
 
 type Crumb = { id: string; name: string };
@@ -786,6 +787,17 @@ export function DrawEditor({
         >
           <Download className="size-4" /> Exporter
         </button>
+
+        <AiAssistant
+          kind="draw"
+          title="Assistant créatif"
+          accent="#ec4899"
+          placeholder="Ex. « logo pour un café », « schéma d'un réseau »…"
+          quickActions={[
+            { action: "ideas", label: "Idées" },
+            { action: "compose", label: "Composition" },
+          ]}
+        />
       </header>
 
       <div className="flex flex-1 min-h-0">

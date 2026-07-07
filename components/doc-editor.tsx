@@ -25,9 +25,15 @@ import {
   ChevronRight,
   Home,
   FileText,
+  Wand2,
+  ScrollText,
+  Scissors,
+  Languages,
+  ArrowRightToLine,
 } from "lucide-react";
 import { api } from "@/lib/api";
 import { cn } from "@/lib/utils";
+import { AiAssistant } from "./ai-assistant";
 
 type Crumb = { id: string; name: string };
 type SaveState = "saved" | "saving" | "idle";
@@ -113,6 +119,43 @@ export function DocEditor({
     scheduleContentSave();
   };
 
+  // ── Assistant IA : garde la dernière sélection dans le document ──
+  const savedRange = useRef<Range | null>(null);
+  useEffect(() => {
+    const onSel = () => {
+      const sel = window.getSelection();
+      if (sel && sel.rangeCount && editorRef.current?.contains(sel.anchorNode)) {
+        savedRange.current = sel.getRangeAt(0).cloneRange();
+      }
+    };
+    document.addEventListener("selectionchange", onSel);
+    return () => document.removeEventListener("selectionchange", onSel);
+  }, []);
+
+  const aiContext = () => {
+    const r = savedRange.current;
+    if (r && !r.collapsed) return r.toString();
+    return editorRef.current?.innerText ?? "";
+  };
+
+  const applyAiHtml = (html: string) => {
+    const el = editorRef.current;
+    if (!el) return;
+    el.focus();
+    const sel = window.getSelection();
+    if (sel && savedRange.current) {
+      try {
+        sel.removeAllRanges();
+        sel.addRange(savedRange.current);
+      } catch {
+        /* la plage n'est plus valide : insertion au curseur courant */
+      }
+    }
+    document.execCommand("insertHTML", false, html);
+    savedRange.current = null;
+    scheduleContentSave();
+  };
+
   const exportHtml = () => {
     const html = `<!doctype html><meta charset="utf-8"><title>${escapeHtml(name)}</title><body style="font-family:system-ui;max-width:720px;margin:40px auto;line-height:1.6">${editorRef.current?.innerHTML ?? ""}`;
     const blob = new Blob([html], { type: "text/html" });
@@ -173,6 +216,24 @@ export function DocEditor({
         >
           <Download className="size-4" /> Exporter
         </button>
+
+        <AiAssistant
+          kind="doc"
+          title="Assistant d'écriture"
+          accent="#5b8bff"
+          getContext={aiContext}
+          onApplyText={applyAiHtml}
+          applyLabel="Insérer"
+          placeholder="Ex. « écris une intro sur… », « corrige le ton »…"
+          quickActions={[
+            { action: "improve", label: "Améliorer", icon: Wand2 },
+            { action: "summarize", label: "Résumer", icon: ScrollText },
+            { action: "shorten", label: "Raccourcir", icon: Scissors },
+            { action: "professional", label: "Ton pro" },
+            { action: "continue", label: "Continuer", icon: ArrowRightToLine },
+            { action: "translate_en", label: "→ Anglais", icon: Languages },
+          ]}
+        />
       </header>
 
       {/* Barre d'outils */}

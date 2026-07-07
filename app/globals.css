@@ -137,6 +137,18 @@ body {
   }
 }
 
+/* Rendu du résultat de l'assistant IA (HTML simple) */
+.ai-result h2 { font-size: 1rem; font-weight: 700; margin: 0.5rem 0 0.25rem; }
+.ai-result h3 { font-size: 0.95rem; font-weight: 600; margin: 0.5rem 0 0.25rem; }
+.ai-result p { margin: 0.4rem 0; }
+.ai-result ul, .ai-result ol { margin: 0.4rem 0; padding-left: 1.2rem; }
+.ai-result ul { list-style: disc; }
+.ai-result ol { list-style: decimal; }
+.ai-result li { margin: 0.15rem 0; }
+.ai-result blockquote { border-left: 3px solid rgba(255,255,255,0.2); padding-left: 0.7rem; margin: 0.4rem 0; color: rgba(255,255,255,0.7); }
+.ai-result strong { font-weight: 700; }
+.ai-result a { color: #7cc4ff; text-decoration: underline; }
+
 @keyframes revealUp {
   from {
     opacity: 0;
