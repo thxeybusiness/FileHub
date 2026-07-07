@@ -11,7 +11,10 @@ export const metadata: Metadata = {
   // « black-translucent » + viewport-fit=cover faisaient passer le contenu SOUS
   // la barre d'état de l'iPhone -> en-têtes tronqués.
   appleWebApp: { capable: true, statusBarStyle: "default", title: "FileHub" },
-  icons: { icon: "/icon-192.png", apple: "/icon-192.png" },
+  // Le favicon de l'onglet vient des conventions App Router (app/favicon.ico +
+  // app/icon.svg). On ne garde ici que l'icône « Ajouter à l'écran d'accueil »
+  // iOS pour éviter un <link rel="icon"> concurrent qui prenait le dessus.
+  icons: { apple: "/icon-192.png" },
 };
 
 export const viewport: Viewport = {
