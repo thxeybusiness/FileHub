@@ -3,6 +3,7 @@ import { getCurrentUser } from "@/lib/auth";
 import { Sidebar } from "@/components/sidebar";
 import { AuroraBackground } from "@/components/aurora-bg";
 import { CalculatorWidget } from "@/components/calculator-widget";
+import { CommandPalette } from "@/components/command-palette";
 import { effectivePlan, isFounder, planStorage, FOUNDER_STORAGE } from "@/lib/plans";
 
 export default async function DriveLayout({
@@ -26,6 +27,7 @@ export default async function DriveLayout({
         }}
       />
       <div className="relative z-10 flex-1 min-w-0 flex flex-col">{children}</div>
+      <CommandPalette />
       <CalculatorWidget />
     </div>
   );
