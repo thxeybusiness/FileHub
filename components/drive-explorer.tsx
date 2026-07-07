@@ -31,6 +31,7 @@ import {
   Cloud,
   LineChart,
   PieChart,
+  Menu,
 } from "lucide-react";
 import type { SerializedNode } from "@/lib/nodes";
 import { api, notifyRefresh } from "@/lib/api";
@@ -314,7 +315,14 @@ export function DriveExplorer({
       onDrop={onDrop}
     >
       {/* Top bar */}
-      <header className="h-16 shrink-0 border-b border-white/10 px-6 flex items-center gap-4 bg-white/[0.03] backdrop-blur-xl">
+      <header className="h-16 shrink-0 border-b border-white/10 px-4 sm:px-6 flex items-center gap-2 sm:gap-4 bg-white/[0.03] backdrop-blur-xl">
+        <button
+          onClick={() => window.dispatchEvent(new Event("filehub:sidebar"))}
+          className="grid size-9 shrink-0 place-items-center rounded-lg text-muted hover:bg-white/5 hover:text-white transition lg:hidden"
+          title="Menu"
+        >
+          <Menu className="size-5" />
+        </button>
         <div className="min-w-0 flex-1">
           {view === "my" && breadcrumb.length > 0 ? (
             <nav className="flex items-center gap-1 text-sm">
@@ -355,7 +363,7 @@ export function DriveExplorer({
         )}
 
         {/* Search */}
-        <div className="relative w-full max-w-xs">
+        <div className="relative w-full max-w-[9.5rem] sm:max-w-xs">
           <Search className="size-4 text-muted absolute left-3 top-1/2 -translate-y-1/2" />
           <input
             value={query}
@@ -728,7 +736,7 @@ function GridView({
   onStar: (n: SerializedNode) => void;
 }) {
   return (
-    <div className="grid gap-3 grid-cols-[repeat(auto-fill,minmax(180px,1fr))]">
+    <div className="grid gap-3 grid-cols-[repeat(auto-fill,minmax(140px,1fr))] sm:grid-cols-[repeat(auto-fill,minmax(180px,1fr))]">
       {nodes.map((n, i) => {
         const cat = categoryOf(n.mimeType, n.name);
         const showThumb = cat === "image";
@@ -809,10 +817,10 @@ function ListView({
 }) {
   return (
     <div className="rounded-2xl border border-white/10 bg-white/[0.03] backdrop-blur-xl overflow-hidden">
-      <div className="grid grid-cols-[1fr_140px_120px_40px] gap-4 px-4 h-11 items-center text-xs font-medium text-muted border-b border-white/10">
+      <div className="grid grid-cols-[1fr_40px] sm:grid-cols-[1fr_140px_120px_40px] gap-4 px-4 h-11 items-center text-xs font-medium text-muted border-b border-white/10">
         <span>Nom</span>
-        <span>Modifié</span>
-        <span>Taille</span>
+        <span className="hidden sm:block">Modifié</span>
+        <span className="hidden sm:block">Taille</span>
         <span></span>
       </div>
       {nodes.map((n, i) => (
@@ -826,7 +834,7 @@ function ListView({
           onDoubleClick={() => onOpen(n)}
           onContextMenu={(e) => onMenu(e, n)}
           className={cn(
-            "grid grid-cols-[1fr_140px_120px_40px] gap-4 px-4 h-14 items-center cursor-pointer border-b border-line last:border-0 transition",
+            "grid grid-cols-[1fr_40px] sm:grid-cols-[1fr_140px_120px_40px] gap-4 px-4 h-14 items-center cursor-pointer border-b border-line last:border-0 transition",
             selected === n.id ? "bg-brand-500/10" : "hover:bg-white/5",
           )}
         >
@@ -835,8 +843,8 @@ function ListView({
             <span className="text-sm font-medium truncate">{n.name}</span>
             {n.starred && <Star className="size-3.5 fill-yellow-400 text-yellow-400 shrink-0" />}
           </div>
-          <span className="text-sm text-muted">{formatRelative(n.updatedAt)}</span>
-          <span className="text-sm text-muted">{n.type === "folder" ? "—" : formatBytes(n.size)}</span>
+          <span className="hidden sm:block text-sm text-muted">{formatRelative(n.updatedAt)}</span>
+          <span className="hidden sm:block text-sm text-muted">{n.type === "folder" ? "—" : formatBytes(n.size)}</span>
           <button
             onClick={(e) => onMenu(e, n)}
             className="size-8 grid place-items-center rounded-lg hover:bg-white/10 text-muted"

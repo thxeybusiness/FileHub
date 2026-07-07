@@ -16,6 +16,7 @@ import {
   Sparkles,
   Crown,
   Gem,
+  X,
 } from "lucide-react";
 import { cn, formatBytes } from "@/lib/utils";
 import { useRouter } from "next/navigation";
@@ -44,6 +45,8 @@ export function Sidebar({ initial }: { initial: Me }) {
   const [me, setMe] = useState<Me>(initial);
   const [spaces, setSpaces] = useState<SpaceSummary[]>([]);
   const [creatingSpace, setCreatingSpace] = useState(false);
+  // Tiroir mobile (sans effet sur le rendu ordinateur, géré par breakpoint lg).
+  const [mobileOpen, setMobileOpen] = useState(false);
 
   async function logout() {
     await fetch("/api/auth/logout", { method: "POST" }).catch(() => {});
@@ -71,6 +74,18 @@ export function Sidebar({ initial }: { initial: Me }) {
     return () => window.removeEventListener("filehub:refresh", refresh);
   }, []);
 
+  // Ouverture/fermeture du tiroir mobile via un événement global (bouton menu).
+  useEffect(() => {
+    const toggle = () => setMobileOpen((v) => !v);
+    window.addEventListener("filehub:sidebar", toggle);
+    return () => window.removeEventListener("filehub:sidebar", toggle);
+  }, []);
+
+  // Referme le tiroir quand on change de page.
+  useEffect(() => {
+    setMobileOpen(false);
+  }, [pathname]);
+
   async function createSpace(name: string) {
     const { space } = await api.createSpace(name);
     setCreatingSpace(false);
@@ -88,7 +103,22 @@ export function Sidebar({ initial }: { initial: Me }) {
   const nearFull = !isFounder && pct > 90;
 
   return (
-    <aside className="relative z-10 w-64 shrink-0 h-screen border-r border-white/10 bg-white/[0.03] backdrop-blur-xl flex flex-col">
+    <>
+      {/* Fond sombre derrière le tiroir (mobile uniquement) */}
+      <div
+        onClick={() => setMobileOpen(false)}
+        className={cn(
+          "fixed inset-0 z-40 bg-black/60 backdrop-blur-sm transition-opacity lg:hidden",
+          mobileOpen ? "opacity-100" : "pointer-events-none opacity-0",
+        )}
+      />
+      <aside
+        className={cn(
+          "fixed inset-y-0 left-0 z-50 w-64 shrink-0 h-screen border-r border-white/10 bg-[#0b0b12] backdrop-blur-xl flex flex-col transition-transform duration-300",
+          "lg:relative lg:z-10 lg:translate-x-0 lg:bg-white/[0.03]",
+          mobileOpen ? "translate-x-0" : "-translate-x-full",
+        )}
+      >
       <div className="h-16 flex items-center gap-2.5 px-5 border-b border-white/10">
         <span className="grid size-8 place-items-center rounded-xl bg-gradient-to-br from-[#3b6dff] to-[#7b3bff] shadow-lg shadow-blue-500/30">
           <Cloud className="size-5 text-white" />
@@ -96,6 +126,13 @@ export function Sidebar({ initial }: { initial: Me }) {
         <span className="text-lg font-bold tracking-tight">
           File<span className="text-white/50">'</span>Hub
         </span>
+        <button
+          onClick={() => setMobileOpen(false)}
+          className="ml-auto grid size-8 place-items-center rounded-lg text-muted hover:bg-white/5 hover:text-white lg:hidden"
+          title="Fermer"
+        >
+          <X className="size-5" />
+        </button>
       </div>
 
       <nav className="flex-1 px-3 py-4 space-y-1">
@@ -262,6 +299,7 @@ export function Sidebar({ initial }: { initial: Me }) {
           </Link>
         )}
       </div>
-    </aside>
+      </aside>
+    </>
   );
 }
