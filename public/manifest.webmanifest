@@ -1,15 +1,21 @@
 {
+  "id": "/",
   "name": "FileHub — votre espace de fichiers",
   "short_name": "FileHub",
   "description": "Stockez, organisez, prévisualisez et partagez vos fichiers. Un Drive moderne, rapide et complet.",
+  "lang": "fr",
+  "dir": "ltr",
   "start_url": "/drive",
   "scope": "/",
   "display": "standalone",
+  "display_override": ["standalone", "minimal-ui", "window-controls-overlay"],
   "background_color": "#07070c",
   "theme_color": "#07070c",
-  "orientation": "portrait-primary",
+  "categories": ["productivity", "utilities", "business"],
   "icons": [
-    { "src": "/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any maskable" },
-    { "src": "/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any maskable" }
+    { "src": "/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "maskable" },
+    { "src": "/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
   ]
 }

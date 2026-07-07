@@ -25,6 +25,7 @@ import { useRouter } from "next/navigation";
 import { api, notifyRefresh, type SpaceSummary } from "@/lib/api";
 import { NameDialog } from "./name-dialog";
 import { NotificationCenter } from "./notification-center";
+import { InstallButton } from "./install-button";
 
 type Me = {
   name: string | null;
@@ -241,6 +242,11 @@ export function Sidebar({ initial }: { initial: Me }) {
               : `${formatBytes(me.storageUsed)} sur ${formatBytes(me.storageLimit)}`}
           </p>
         </div>
+      </div>
+
+      {/* Installer l'application (masqué si déjà installé) */}
+      <div className="px-4 pb-2">
+        <InstallButton variant="ghost" className="w-full py-2.5 text-sm" />
       </div>
 
       {/* User */}

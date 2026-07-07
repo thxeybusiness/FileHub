@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
-import { Download, X, Share, Plus, MoreVertical, Check } from "lucide-react";
+import { Download, X, Share, Plus, MoreVertical, Check, Menu, Monitor } from "lucide-react";
 
 // Événement navigateur (Chrome / Edge / Android) permettant de déclencher
 // l'installation. Non standardisé -> typage minimal local.
@@ -104,10 +104,83 @@ export function InstallButton({
   );
 }
 
-// Aide pas-à-pas quand l'invite native n'existe pas (surtout iOS Safari).
-function InstallHelp({ onClose }: { onClose: () => void }) {
+// Détecte la plateforme pour donner les bonnes instructions manuelles quand le
+// navigateur n'expose pas d'invite d'installation native (iOS, Safari macOS,
+// Firefox, ou Chrome/Edge dont l'invite a déjà été fermée).
+function detectPlatform(): "ios" | "android" | "mac-safari" | "desktop-chromium" | "other" {
+  if (typeof navigator === "undefined") return "other";
+  const ua = navigator.userAgent;
   const isIOS =
-    typeof navigator !== "undefined" && /iphone|ipad|ipod/i.test(navigator.userAgent);
+    /iphone|ipad|ipod/i.test(ua) ||
+    // iPad iPadOS se fait passer pour un Mac : détection par le tactile.
+    (/macintosh/i.test(ua) && (navigator as Navigator).maxTouchPoints > 1);
+  if (isIOS) return "ios";
+  if (/android/i.test(ua)) return "android";
+  // Chromium de bureau (Chrome, Edge, Brave, Opera…) : expose une invite native
+  // -> ces instructions ne servent qu'en repli (invite déjà fermée).
+  const isChromium = /chrome|chromium|edg\/|opr\//i.test(ua);
+  if (/macintosh|mac os x/i.test(ua)) {
+    // Safari macOS (ni Chrome/Edge/…) -> Ajouter au Dock.
+    const isSafari = /safari/i.test(ua) && !/chrome|chromium|crios|fxios|edg\/|opr\//i.test(ua);
+    if (isSafari) return "mac-safari";
+    if (isChromium) return "desktop-chromium";
+    return "other";
+  }
+  if (isChromium) return "desktop-chromium";
+  return "other";
+}
+
+type Guide = {
+  intro: string;
+  steps: { icon: typeof Download; text: string }[];
+};
+
+const INSTALL_GUIDES: Record<ReturnType<typeof detectPlatform>, Guide> = {
+  ios: {
+    intro: "Ajoutez FileHub à votre écran d'accueil pour un accès instantané, en plein écran.",
+    steps: [
+      { icon: Share, text: "Appuyez sur le bouton Partager dans la barre de Safari." },
+      { icon: Plus, text: "Choisissez « Sur l'écran d'accueil »." },
+      { icon: Check, text: "Validez : l'icône FileHub apparaît sur votre écran." },
+    ],
+  },
+  android: {
+    intro: "Installez FileHub comme une application, directement depuis votre navigateur.",
+    steps: [
+      { icon: MoreVertical, text: "Ouvrez le menu ⋮ du navigateur." },
+      { icon: Download, text: "Touchez « Installer l'application » ou « Ajouter à l'écran d'accueil »." },
+      { icon: Check, text: "Confirmez : FileHub s'ouvre comme une vraie app." },
+    ],
+  },
+  "mac-safari": {
+    intro: "Sur Mac, ajoutez FileHub au Dock pour l'ouvrir comme une application.",
+    steps: [
+      { icon: Share, text: "Dans Safari, ouvrez le menu Fichier (ou le bouton Partager)." },
+      { icon: Plus, text: "Choisissez « Ajouter au Dock… »." },
+      { icon: Check, text: "FileHub apparaît dans le Dock et le Launchpad." },
+    ],
+  },
+  "desktop-chromium": {
+    intro: "Installez FileHub sur votre ordinateur : il s'ouvre dans sa propre fenêtre.",
+    steps: [
+      { icon: Monitor, text: "Cliquez sur l'icône d'installation (un écran ⊕) à droite de la barre d'adresse." },
+      { icon: Menu, text: "Ou via le menu ⋮ → « Installer FileHub »." },
+      { icon: Check, text: "Confirmez : FileHub s'installe et s'ouvre comme une app." },
+    ],
+  },
+  other: {
+    intro: "Installez FileHub comme une application depuis votre navigateur.",
+    steps: [
+      { icon: Menu, text: "Ouvrez le menu de votre navigateur." },
+      { icon: Download, text: "Cherchez « Installer FileHub » ou « Ajouter à l'écran d'accueil »." },
+      { icon: Check, text: "Confirmez : FileHub s'ouvre comme une vraie app." },
+    ],
+  },
+};
+
+// Aide pas-à-pas quand l'invite native n'existe pas.
+function InstallHelp({ onClose }: { onClose: () => void }) {
+  const platform = detectPlatform();
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => e.key === "Escape" && onClose();
@@ -120,17 +193,7 @@ function InstallHelp({ onClose }: { onClose: () => void }) {
     };
   }, [onClose]);
 
-  const steps = isIOS
-    ? [
-        { icon: Share, text: "Appuyez sur le bouton Partager dans la barre de Safari." },
-        { icon: Plus, text: "Choisissez « Sur l'écran d'accueil »." },
-        { icon: Check, text: "Validez : l'icône FileHub apparaît sur votre écran." },
-      ]
-    : [
-        { icon: MoreVertical, text: "Ouvrez le menu ⋮ de votre navigateur." },
-        { icon: Download, text: "Choisissez « Installer FileHub » ou « Installer l'application »." },
-        { icon: Check, text: "Confirmez : FileHub s'ouvre comme une vraie app." },
-      ];
+  const { intro, steps } = INSTALL_GUIDES[platform];
 
   return (
     <div
@@ -154,10 +217,7 @@ function InstallHelp({ onClose }: { onClose: () => void }) {
             <X className="size-4" />
           </button>
         </div>
-        <p className="mb-5 text-sm text-white/60">
-          En quelques secondes, ajoutez FileHub à votre écran d'accueil pour un accès
-          instantané, en plein écran.
-        </p>
+        <p className="mb-5 text-sm text-white/60">{intro}</p>
         <ol className="space-y-3">
           {steps.map((s, i) => (
             <li key={i} className="flex items-center gap-3">
