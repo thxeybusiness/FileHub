@@ -350,7 +350,7 @@ export function DrawEditor({
           <ToolBtn
             active={magic}
             onClick={() => setMagic((v) => !v)}
-            title="Formes parfaites : lignes, cercles, rectangles, triangles… corrigés automatiquement (coins arrondis respectés)"
+            title="Perfection du trait : chaque tracé est corrigé — droites pures, arcs et arrondis parfaits, courbes lissées sans tremblement"
           >
             <Wand2 className="size-5" />
           </ToolBtn>
