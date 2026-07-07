@@ -162,6 +162,9 @@ export const api = {
   },
 
   // ── Assistant IA ──
+  aiChat(messages: { role: "user" | "assistant"; content: string }[]) {
+    return req<{ reply: string }>("/api/ai/chat", jsonInit("POST", { messages }));
+  },
   ai(payload: {
     kind: "doc" | "sheet" | "chart" | "draw";
     action: string;

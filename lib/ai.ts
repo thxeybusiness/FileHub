@@ -36,6 +36,27 @@ export async function completeText(opts: {
     .trim();
 }
 
+export type ChatMessage = { role: "user" | "assistant"; content: string };
+
+/** Conversation multi-tours : renvoie la réponse texte de Claude. */
+export async function completeChat(opts: {
+  system: string;
+  messages: ChatMessage[];
+  maxTokens?: number;
+}): Promise<string> {
+  const res = await getClient().messages.create({
+    model: MODEL,
+    max_tokens: opts.maxTokens ?? 2500,
+    system: opts.system,
+    output_config: { effort: "medium" },
+    messages: opts.messages.map((m) => ({ role: m.role, content: m.content })),
+  });
+  return res.content
+    .map((b) => (b.type === "text" ? b.text : ""))
+    .join("")
+    .trim();
+}
+
 /** Appel avec sortie structurée : renvoie l'objet JSON validé par le schéma. */
 export async function completeJson<T = unknown>(opts: {
   system: string;
