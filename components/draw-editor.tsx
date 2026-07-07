@@ -14,9 +14,9 @@ import {
   Loader2,
   ChevronRight,
   Home,
-  Minus,
   Plus,
   Wand2,
+  MousePointer2,
 } from "lucide-react";
 import { api } from "@/lib/api";
 import { beautifyStroke } from "@/lib/shape-recognizer";
@@ -30,9 +30,27 @@ type Pt = [number, number, number];
 type Stroke = { color: string; size: number; eraser: boolean; points: Pt[] };
 export type DrawDoc = { version: 1; bg: string; strokes: Stroke[] };
 
+type Tool = "pen" | "eraser" | "select";
+
+// Geste en cours avec l'outil Sélection.
+type Gesture =
+  | { mode: "move"; lastX: number; lastY: number; started: boolean }
+  | {
+      mode: "rotate";
+      cx: number;
+      cy: number;
+      startAng: number;
+      angle: number;
+      orig: Map<number, Pt[]>;
+      started: boolean;
+    }
+  | { mode: "band"; x0: number; y0: number; x1: number; y1: number };
+
 // Toile logique : ratio fixe pour normaliser les coordonnées.
 const CANVAS_W = 1600;
 const CANVAS_H = 1000;
+
+const ACCENT = "#5b8bff";
 
 const PALETTE = [
   "#f8fafc",
@@ -47,6 +65,9 @@ const PALETTE = [
   "#ec4899",
 ];
 const SIZES = [2, 4, 8, 16, 28];
+
+const cloneStrokes = (s: Stroke[]): Stroke[] =>
+  s.map((st) => ({ ...st, points: st.points.map((p) => [...p] as Pt) }));
 
 export function DrawEditor({
   id,
@@ -64,19 +85,25 @@ export function DrawEditor({
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const wrapRef = useRef<HTMLDivElement>(null);
   const strokesRef = useRef<Stroke[]>(initialDoc?.strokes ?? []);
-  const redoRef = useRef<Stroke[]>([]);
+  // Historique par instantanés : couvre traits, déplacements, rotations,
+  // suppressions et « tout effacer ».
+  const historyRef = useRef<Stroke[][]>([]);
+  const redoStackRef = useRef<Stroke[][]>([]);
   const drawing = useRef<Stroke | null>(null);
+  const selRef = useRef<number[]>([]);
+  const gestureRef = useRef<Gesture | null>(null);
   const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const nameTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const [name, setName] = useState(initialName);
   const [save, setSave] = useState<SaveState>("saved");
-  const [tool, setTool] = useState<"pen" | "eraser">("pen");
+  const [tool, setTool] = useState<Tool>("pen");
   const [color, setColor] = useState(initialDoc?.strokes?.[0]?.color ?? "#5b8bff");
   const [size, setSize] = useState(4);
   const [bg] = useState(initialDoc?.bg ?? "#ffffff");
-  const [canUndo, setCanUndo] = useState((initialDoc?.strokes?.length ?? 0) > 0);
+  const [canUndo, setCanUndo] = useState(false);
   const [canRedo, setCanRedo] = useState(false);
+  const [selCount, setSelCount] = useState(0);
   // Formes parfaites : redresse automatiquement lignes, cercles, rectangles…
   const [magic, setMagic] = useState(true);
 
@@ -87,22 +114,87 @@ export function DrawEditor({
     localStorage.setItem("filehub:draw:magic", magic ? "1" : "0");
   }, [magic]);
 
-  // ── Rendu de toute la scène ─────────────────────────────────────────────
+  // ── Rendu de toute la scène (+ surcouche de sélection) ─────────────────
   const render = useCallback(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
     const ctx = canvas.getContext("2d");
     if (!ctx) return;
+    const w = canvas.width;
+    const h = canvas.height;
     ctx.save();
-    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    ctx.clearRect(0, 0, w, h);
     ctx.fillStyle = bg;
-    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    ctx.fillRect(0, 0, w, h);
     ctx.lineCap = "round";
     ctx.lineJoin = "round";
     const all = drawing.current
       ? [...strokesRef.current, drawing.current]
       : strokesRef.current;
-    for (const s of all) drawStroke(ctx, s, canvas.width, canvas.height, bg);
+    for (const s of all) drawStroke(ctx, s, w, h, bg);
+
+    // Surcouche : cadre de sélection + poignée de rotation.
+    const rect = canvas.getBoundingClientRect();
+    const dpr = rect.width > 0 ? w / rect.width : 1;
+    const sel = selRef.current.filter((i) => i < strokesRef.current.length);
+    if (sel.length > 0) {
+      let x0 = Infinity;
+      let y0 = Infinity;
+      let x1 = -Infinity;
+      let y1 = -Infinity;
+      for (const i of sel) {
+        for (const [nx, ny] of strokesRef.current[i].points) {
+          x0 = Math.min(x0, nx * w);
+          y0 = Math.min(y0, ny * h);
+          x1 = Math.max(x1, nx * w);
+          y1 = Math.max(y1, ny * h);
+        }
+      }
+      const pad = 10 * dpr;
+      x0 -= pad; y0 -= pad; x1 += pad; y1 += pad;
+      ctx.save();
+      ctx.strokeStyle = ACCENT;
+      ctx.lineWidth = 1.5 * dpr;
+      ctx.setLineDash([6 * dpr, 4 * dpr]);
+      ctx.strokeRect(x0, y0, x1 - x0, y1 - y0);
+      ctx.setLineDash([]);
+      // Poignée de rotation au-dessus du cadre.
+      const hx = (x0 + x1) / 2;
+      const hy = y0 - 30 * dpr;
+      ctx.beginPath();
+      ctx.moveTo(hx, y0);
+      ctx.lineTo(hx, hy + 8 * dpr);
+      ctx.stroke();
+      ctx.beginPath();
+      ctx.arc(hx, hy, 8 * dpr, 0, Math.PI * 2);
+      ctx.fillStyle = "#ffffff";
+      ctx.fill();
+      ctx.stroke();
+      const g = gestureRef.current;
+      if (g && g.mode === "rotate") {
+        const deg = Math.round((g.angle * 180) / Math.PI);
+        ctx.fillStyle = ACCENT;
+        ctx.font = `${12 * dpr}px system-ui, sans-serif`;
+        ctx.fillText(`${((deg % 360) + 360) % 360}°`, hx + 14 * dpr, hy + 4 * dpr);
+      }
+      ctx.restore();
+    }
+    // Rectangle de sélection en cours (élastique).
+    const g = gestureRef.current;
+    if (g && g.mode === "band") {
+      ctx.save();
+      ctx.strokeStyle = ACCENT;
+      ctx.fillStyle = "rgba(91,139,255,0.08)";
+      ctx.lineWidth = 1 * dpr;
+      ctx.setLineDash([5 * dpr, 4 * dpr]);
+      const bx = Math.min(g.x0, g.x1) * dpr;
+      const by = Math.min(g.y0, g.y1) * dpr;
+      const bw = Math.abs(g.x1 - g.x0) * dpr;
+      const bh = Math.abs(g.y1 - g.y0) * dpr;
+      ctx.fillRect(bx, by, bw, bh);
+      ctx.strokeRect(bx, by, bw, bh);
+      ctx.restore();
+    }
     ctx.restore();
   }, [bg]);
 
@@ -151,9 +243,246 @@ export function DrawEditor({
     nameTimer.current = setTimeout(() => persist({ name: v.trim() || "Dessin sans titre" }), 600);
   };
 
+  // ── Historique (instantanés) ─────────────────────────────────────────────
   const syncHistoryFlags = () => {
-    setCanUndo(strokesRef.current.length > 0);
-    setCanRedo(redoRef.current.length > 0);
+    setCanUndo(historyRef.current.length > 0);
+    setCanRedo(redoStackRef.current.length > 0);
+  };
+
+  const snapshot = () => {
+    historyRef.current.push(cloneStrokes(strokesRef.current));
+    if (historyRef.current.length > 50) historyRef.current.shift();
+    redoStackRef.current = [];
+    syncHistoryFlags();
+  };
+
+  const setSelection = (ids: number[]) => {
+    selRef.current = ids;
+    setSelCount(ids.length);
+    render();
+  };
+
+  const undo = () => {
+    const prev = historyRef.current.pop();
+    if (!prev) return;
+    redoStackRef.current.push(cloneStrokes(strokesRef.current));
+    strokesRef.current = prev;
+    selRef.current = [];
+    setSelCount(0);
+    syncHistoryFlags();
+    render();
+    scheduleSave();
+  };
+
+  const redo = () => {
+    const next = redoStackRef.current.pop();
+    if (!next) return;
+    historyRef.current.push(cloneStrokes(strokesRef.current));
+    strokesRef.current = next;
+    selRef.current = [];
+    setSelCount(0);
+    syncHistoryFlags();
+    render();
+    scheduleSave();
+  };
+
+  const clearAll = () => {
+    if (strokesRef.current.length === 0) return;
+    if (!confirm("Effacer tout le dessin ?")) return;
+    snapshot();
+    strokesRef.current = [];
+    selRef.current = [];
+    setSelCount(0);
+    render();
+    scheduleSave();
+  };
+
+  const deleteSelection = () => {
+    if (selRef.current.length === 0) return;
+    snapshot();
+    const dead = new Set(selRef.current);
+    strokesRef.current = strokesRef.current.filter((_, i) => !dead.has(i));
+    setSelection([]);
+    scheduleSave();
+  };
+
+  // ── Outil Sélection : déplacer / pivoter ────────────────────────────────
+  const cssPos = (e: React.PointerEvent) => {
+    const r = canvasRef.current!.getBoundingClientRect();
+    return { x: e.clientX - r.left, y: e.clientY - r.top, r };
+  };
+
+  /** Boîte englobante de la sélection, en pixels CSS. */
+  const selBBoxCss = (rw: number, rh: number) => {
+    const sel = selRef.current.filter((i) => i < strokesRef.current.length);
+    if (sel.length === 0) return null;
+    let x0 = Infinity;
+    let y0 = Infinity;
+    let x1 = -Infinity;
+    let y1 = -Infinity;
+    for (const i of sel) {
+      for (const [nx, ny] of strokesRef.current[i].points) {
+        x0 = Math.min(x0, nx * rw);
+        y0 = Math.min(y0, ny * rh);
+        x1 = Math.max(x1, nx * rw);
+        y1 = Math.max(y1, ny * rh);
+      }
+    }
+    return { x0: x0 - 10, y0: y0 - 10, x1: x1 + 10, y1: y1 + 10 };
+  };
+
+  /** Trait visible le plus proche du point (pixels CSS), ou -1. */
+  const hitStroke = (px: number, py: number, rw: number, rh: number): number => {
+    const scale = rw / CANVAS_W;
+    let best = -1;
+    let bestD = Infinity;
+    for (let i = strokesRef.current.length - 1; i >= 0; i--) {
+      const s = strokesRef.current[i];
+      if (s.eraser) continue;
+      const th = Math.max(10, s.size * scale * 0.75 + 4);
+      const pts = s.points;
+      for (let j = 0; j < pts.length; j++) {
+        const x1 = pts[j][0] * rw;
+        const y1 = pts[j][1] * rh;
+        let d: number;
+        if (j === 0) {
+          d = Math.hypot(px - x1, py - y1);
+        } else {
+          const x0 = pts[j - 1][0] * rw;
+          const y0 = pts[j - 1][1] * rh;
+          d = distToSegmentPx(px, py, x0, y0, x1, y1);
+        }
+        if (d < th && d < bestD) {
+          bestD = d;
+          best = i;
+        }
+      }
+    }
+    return best;
+  };
+
+  const selectDown = (e: React.PointerEvent) => {
+    const { x, y, r } = cssPos(e);
+    const bb = selBBoxCss(r.width, r.height);
+    if (bb) {
+      // Poignée de rotation ?
+      const hx = (bb.x0 + bb.x1) / 2;
+      const hy = bb.y0 - 30;
+      if (Math.hypot(x - hx, y - hy) < 16) {
+        const cx = (bb.x0 + bb.x1) / 2;
+        const cy = (bb.y0 + bb.y1) / 2;
+        const orig = new Map<number, Pt[]>();
+        for (const i of selRef.current) {
+          if (strokesRef.current[i]) {
+            orig.set(i, strokesRef.current[i].points.map((p) => [...p] as Pt));
+          }
+        }
+        gestureRef.current = {
+          mode: "rotate",
+          cx,
+          cy,
+          startAng: Math.atan2(y - cy, x - cx),
+          angle: 0,
+          orig,
+          started: false,
+        };
+        return;
+      }
+      // Dans le cadre → déplacement.
+      if (x >= bb.x0 && x <= bb.x1 && y >= bb.y0 && y <= bb.y1) {
+        gestureRef.current = { mode: "move", lastX: x, lastY: y, started: false };
+        return;
+      }
+    }
+    // Clic sur un trait → le sélectionner et commencer à le déplacer.
+    const hit = hitStroke(x, y, r.width, r.height);
+    if (hit >= 0) {
+      setSelection([hit]);
+      gestureRef.current = { mode: "move", lastX: x, lastY: y, started: false };
+      return;
+    }
+    // Sinon : rectangle élastique.
+    setSelection([]);
+    gestureRef.current = { mode: "band", x0: x, y0: y, x1: x, y1: y };
+    render();
+  };
+
+  const selectMove = (e: React.PointerEvent) => {
+    const g = gestureRef.current;
+    if (!g) return;
+    const { x, y, r } = cssPos(e);
+    if (g.mode === "move") {
+      const dx = x - g.lastX;
+      const dy = y - g.lastY;
+      if (!g.started && Math.hypot(dx, dy) < 2) return;
+      if (!g.started) {
+        snapshot();
+        g.started = true;
+      }
+      g.lastX = x;
+      g.lastY = y;
+      const ndx = dx / r.width;
+      const ndy = dy / r.height;
+      for (const i of selRef.current) {
+        const s = strokesRef.current[i];
+        if (!s) continue;
+        s.points = s.points.map(([nx, ny, p]) => [nx + ndx, ny + ndy, p] as Pt);
+      }
+      render();
+    } else if (g.mode === "rotate") {
+      const ang = Math.atan2(y - g.cy, x - g.cx) - g.startAng;
+      if (!g.started && Math.abs(ang) < 0.01) return;
+      if (!g.started) {
+        snapshot();
+        g.started = true;
+      }
+      g.angle = ang;
+      const cos = Math.cos(ang);
+      const sin = Math.sin(ang);
+      for (const [i, opts] of g.orig) {
+        const s = strokesRef.current[i];
+        if (!s) continue;
+        s.points = opts.map(([nx, ny, p]) => {
+          const dx = nx * r.width - g.cx;
+          const dy = ny * r.height - g.cy;
+          return [
+            (g.cx + dx * cos - dy * sin) / r.width,
+            (g.cy + dx * sin + dy * cos) / r.height,
+            p,
+          ] as Pt;
+        });
+      }
+      render();
+    } else {
+      g.x1 = x;
+      g.y1 = y;
+      render();
+    }
+  };
+
+  const selectUp = () => {
+    const g = gestureRef.current;
+    if (!g) return;
+    if (g.mode === "band") {
+      const r = canvasRef.current!.getBoundingClientRect();
+      const nx0 = Math.min(g.x0, g.x1) / r.width;
+      const ny0 = Math.min(g.y0, g.y1) / r.height;
+      const nx1 = Math.max(g.x0, g.x1) / r.width;
+      const ny1 = Math.max(g.y0, g.y1) / r.height;
+      if (nx1 - nx0 > 0.005 || ny1 - ny0 > 0.005) {
+        const ids: number[] = [];
+        strokesRef.current.forEach((s, i) => {
+          if (s.points.some(([px, py]) => px >= nx0 && px <= nx1 && py >= ny0 && py <= ny1)) {
+            ids.push(i);
+          }
+        });
+        setSelection(ids);
+      }
+    } else if (g.started) {
+      scheduleSave();
+    }
+    gestureRef.current = null;
+    render();
   };
 
   // ── Entrée pointeur (souris / tablette / doigt) ─────────────────────────
@@ -171,6 +500,10 @@ export function DrawEditor({
     if (e.button !== 0 && e.pointerType === "mouse") return;
     e.preventDefault();
     (e.target as HTMLElement).setPointerCapture(e.pointerId);
+    if (tool === "select") {
+      selectDown(e);
+      return;
+    }
     drawing.current = {
       color,
       size,
@@ -181,6 +514,10 @@ export function DrawEditor({
   };
 
   const onPointerMove = (e: React.PointerEvent) => {
+    if (tool === "select") {
+      selectMove(e);
+      return;
+    }
     if (!drawing.current) return;
     e.preventDefault();
     // getCoalescedEvents : trait fluide même à vitesse élevée.
@@ -199,6 +536,14 @@ export function DrawEditor({
     render();
   };
 
+  const onPointerUp = () => {
+    if (tool === "select") {
+      selectUp();
+      return;
+    }
+    endStroke();
+  };
+
   const endStroke = () => {
     if (!drawing.current) return;
     if (drawing.current.points.length > 0) {
@@ -209,40 +554,19 @@ export function DrawEditor({
         const fixed = beautifyStroke(drawing.current.points, aspect);
         if (fixed) drawing.current.points = fixed;
       }
+      snapshot();
       strokesRef.current.push(drawing.current);
-      redoRef.current = [];
-      syncHistoryFlags();
-      scheduleSave();
     }
     drawing.current = null;
     render();
-  };
-
-  const undo = () => {
-    if (strokesRef.current.length === 0) return;
-    redoRef.current.push(strokesRef.current.pop()!);
-    syncHistoryFlags();
-    render();
     scheduleSave();
   };
 
-  const redo = () => {
-    if (redoRef.current.length === 0) return;
-    strokesRef.current.push(redoRef.current.pop()!);
-    syncHistoryFlags();
-    render();
-    scheduleSave();
-  };
-
-  const clearAll = () => {
-    if (strokesRef.current.length === 0) return;
-    if (!confirm("Effacer tout le dessin ?")) return;
-    strokesRef.current = [];
-    redoRef.current = [];
-    syncHistoryFlags();
-    render();
-    scheduleSave();
-  };
+  // Changer d'outil désélectionne.
+  useEffect(() => {
+    if (tool !== "select" && selRef.current.length > 0) setSelection([]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [tool]);
 
   const exportPng = () => {
     // Rendu haute résolution sur la toile logique fixe.
@@ -261,11 +585,22 @@ export function DrawEditor({
     a.click();
   };
 
-  // Ctrl/Cmd+Z / Shift+Z, Ctrl/Cmd+S
+  // Raccourcis : Ctrl/Cmd+Z/Y/S, Suppr (sélection), Échap (désélection).
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
+      const target = e.target as HTMLElement | null;
+      const typing =
+        target && (target.tagName === "INPUT" || target.tagName === "TEXTAREA" || target.isContentEditable);
       const meta = e.metaKey || e.ctrlKey;
-      if (!meta) return;
+      if (!meta) {
+        if (typing) return;
+        if (e.key === "Escape") setSelection([]);
+        else if ((e.key === "Delete" || e.key === "Backspace") && selRef.current.length > 0) {
+          e.preventDefault();
+          deleteSelection();
+        }
+        return;
+      }
       const k = e.key.toLowerCase();
       if (k === "z") {
         e.preventDefault();
@@ -344,6 +679,13 @@ export function DrawEditor({
           <ToolBtn active={tool === "eraser"} onClick={() => setTool("eraser")} title="Gomme">
             <Eraser className="size-5" />
           </ToolBtn>
+          <ToolBtn
+            active={tool === "select"}
+            onClick={() => setTool("select")}
+            title="Sélectionner : cliquez un trait (ou entourez-en plusieurs), glissez pour déplacer, poignée du haut pour pivoter à 360°, Suppr pour supprimer"
+          >
+            <MousePointer2 className="size-5" />
+          </ToolBtn>
 
           <span className="my-1 h-px w-8 bg-white/10" />
 
@@ -363,9 +705,20 @@ export function DrawEditor({
           <ToolBtn onClick={redo} disabled={!canRedo} title="Rétablir">
             <Redo2 className="size-5" />
           </ToolBtn>
-          <ToolBtn onClick={clearAll} disabled={!canUndo} title="Tout effacer" danger>
-            <Trash2 className="size-5" />
-          </ToolBtn>
+          {selCount > 0 ? (
+            <ToolBtn onClick={deleteSelection} title={`Supprimer la sélection (${selCount})`} danger>
+              <Trash2 className="size-5" />
+            </ToolBtn>
+          ) : (
+            <ToolBtn
+              onClick={clearAll}
+              disabled={strokesRef.current.length === 0 && !canUndo}
+              title="Tout effacer"
+              danger
+            >
+              <Trash2 className="size-5" />
+            </ToolBtn>
+          )}
 
           <span className="my-1 h-px w-8 bg-white/10" />
 
@@ -438,11 +791,14 @@ export function DrawEditor({
               ref={canvasRef}
               onPointerDown={onPointerDown}
               onPointerMove={onPointerMove}
-              onPointerUp={endStroke}
-              onPointerLeave={endStroke}
-              onPointerCancel={endStroke}
+              onPointerUp={onPointerUp}
+              onPointerLeave={onPointerUp}
+              onPointerCancel={onPointerUp}
               className="absolute inset-0 h-full w-full touch-none"
-              style={{ cursor: tool === "eraser" ? "cell" : "crosshair" }}
+              style={{
+                cursor:
+                  tool === "select" ? "default" : tool === "eraser" ? "cell" : "crosshair",
+              }}
             />
           </div>
         </div>
@@ -520,6 +876,23 @@ function drawStroke(
     ctx.lineTo(x1 * w, y1 * h);
     ctx.stroke();
   }
+}
+
+function distToSegmentPx(
+  px: number,
+  py: number,
+  x0: number,
+  y0: number,
+  x1: number,
+  y1: number,
+): number {
+  const dx = x1 - x0;
+  const dy = y1 - y0;
+  const l2 = dx * dx + dy * dy;
+  if (l2 === 0) return Math.hypot(px - x0, py - y0);
+  let t = ((px - x0) * dx + (py - y0) * dy) / l2;
+  t = t < 0 ? 0 : t > 1 ? 1 : t;
+  return Math.hypot(px - (x0 + t * dx), py - (y0 + t * dy));
 }
 
 function clamp01(n: number) {
