@@ -32,6 +32,28 @@ export type SpaceMemberInfo = {
   isMe: boolean;
 };
 
+export type DashboardStats = {
+  plan: string;
+  storageUsed: number;
+  storageLimit: number;
+  totalCount: number;
+  trashedCount: number;
+  sharesCount: number;
+  spacesCount: number;
+  byType: Record<string, { count: number; size: number }>;
+  biggest: { id: string; name: string; size: number; mimeType: string | null }[];
+};
+
+export type ActivityItem = {
+  id: string;
+  actorName: string;
+  action: string;
+  targetName: string;
+  spaceId: string | null;
+  nodeId: string | null;
+  createdAt: string;
+};
+
 export type Notif = {
   id: string;
   type: string;
@@ -123,11 +145,27 @@ export const api = {
   deleteSpace(id: string) {
     return req<{ ok: boolean }>(`/api/spaces/${id}`, { method: "DELETE" });
   },
-  inviteMember(id: string, identifier: string) {
-    return req<{ member: SpaceMemberInfo }>(`/api/spaces/${id}/members`, jsonInit("POST", { identifier }));
+  inviteMember(id: string, identifier: string, role: "editor" | "viewer" = "editor") {
+    return req<{ member: SpaceMemberInfo }>(`/api/spaces/${id}/members`, jsonInit("POST", { identifier, role }));
+  },
+  updateMemberRole(id: string, memberUserId: string, role: "editor" | "viewer") {
+    return req<{ ok: boolean }>(`/api/spaces/${id}/members`, jsonInit("PATCH", { userId: memberUserId, role }));
   },
   removeMember(id: string, memberUserId: string) {
     return req<{ ok: boolean }>(`/api/spaces/${id}/members`, jsonInit("DELETE", { userId: memberUserId }));
+  },
+
+  // ── Tableau de bord ──
+  getDashboard() {
+    return req<DashboardStats>("/api/dashboard");
+  },
+
+  // ── Journal d'activité ──
+  getActivity(space?: string | null) {
+    const sp = new URLSearchParams();
+    if (space) sp.set("space", space);
+    const qs = sp.toString();
+    return req<{ activities: ActivityItem[] }>(`/api/activity${qs ? `?${qs}` : ""}`);
   },
 
   // ── Notifications ──

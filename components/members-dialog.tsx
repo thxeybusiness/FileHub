@@ -15,6 +15,7 @@ export function MembersDialog({
   const [isOwner, setIsOwner] = useState(false);
   const [members, setMembers] = useState<SpaceMemberInfo[]>([]);
   const [identifier, setIdentifier] = useState("");
+  const [inviteRole, setInviteRole] = useState<"editor" | "viewer">("editor");
   const [inviting, setInviting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
@@ -44,7 +45,7 @@ export function MembersDialog({
     setError(null);
     setNotice(null);
     try {
-      const { member } = await api.inviteMember(spaceId, id);
+      const { member } = await api.inviteMember(spaceId, id, inviteRole);
       setMembers((m) => [...m, member]);
       setIdentifier("");
       setNotice(`${member.username ? "@" + member.username : member.email} a rejoint l'espace.`);
@@ -54,6 +55,11 @@ export function MembersDialog({
     } finally {
       setInviting(false);
     }
+  }
+
+  async function changeRole(userId: string, role: "editor" | "viewer") {
+    setMembers((m) => m.map((x) => (x.id === userId ? { ...x, role } : x)));
+    await api.updateMemberRole(spaceId, userId, role).catch(() => {});
   }
 
   async function remove(userId: string) {
@@ -80,13 +86,21 @@ export function MembersDialog({
         </p>
 
         {/* Invitation */}
-        <form onSubmit={invite} className="flex gap-2">
+        <form onSubmit={invite} className="flex flex-wrap gap-2">
           <input
             value={identifier}
             onChange={(e) => setIdentifier(e.target.value)}
             placeholder="@nomdutilisateur ou email"
-            className="h-11 flex-1 rounded-xl border border-white/10 bg-white/5 px-3.5 text-sm text-white outline-none placeholder:text-white/30 focus:border-brand-400 focus:bg-white/[0.07]"
+            className="h-11 min-w-0 flex-1 rounded-xl border border-white/10 bg-white/5 px-3.5 text-sm text-white outline-none placeholder:text-white/30 focus:border-brand-400 focus:bg-white/[0.07]"
           />
+          <select
+            value={inviteRole}
+            onChange={(e) => setInviteRole(e.target.value as "editor" | "viewer")}
+            className="h-11 rounded-xl border border-white/10 bg-white/5 px-2 text-sm text-white outline-none focus:border-brand-400"
+          >
+            <option value="editor" className="bg-[#0f1017]">Éditeur</option>
+            <option value="viewer" className="bg-[#0f1017]">Lecteur</option>
+          </select>
           <button
             type="submit"
             disabled={inviting || !identifier.trim()}
@@ -121,19 +135,31 @@ export function MembersDialog({
                   </p>
                 </div>
                 {m.isOwner ? (
-                  <span className="flex items-center gap-1 text-xs text-amber-400">
+                  <span className="flex items-center gap-1 text-xs text-amber-400 shrink-0">
                     <Crown className="size-3.5" /> Propriétaire
                   </span>
                 ) : isOwner ? (
-                  <button
-                    onClick={() => remove(m.id)}
-                    className="grid size-8 place-items-center rounded-lg text-muted hover:bg-red-500/10 hover:text-red-400"
-                    title="Retirer"
-                  >
-                    <Trash2 className="size-4" />
-                  </button>
+                  <div className="flex items-center gap-1.5 shrink-0">
+                    <select
+                      value={m.role === "viewer" ? "viewer" : "editor"}
+                      onChange={(e) => changeRole(m.id, e.target.value as "editor" | "viewer")}
+                      className="h-8 rounded-lg border border-white/10 bg-white/5 px-1.5 text-xs text-white outline-none focus:border-brand-400"
+                    >
+                      <option value="editor" className="bg-[#0f1017]">Éditeur</option>
+                      <option value="viewer" className="bg-[#0f1017]">Lecteur</option>
+                    </select>
+                    <button
+                      onClick={() => remove(m.id)}
+                      className="grid size-8 place-items-center rounded-lg text-muted hover:bg-red-500/10 hover:text-red-400"
+                      title="Retirer"
+                    >
+                      <Trash2 className="size-4" />
+                    </button>
+                  </div>
                 ) : (
-                  <span className="text-xs text-muted">Membre</span>
+                  <span className="text-xs text-muted shrink-0">
+                    {m.role === "viewer" ? "Lecteur" : "Éditeur"}
+                  </span>
                 )}
               </div>
             ))

@@ -58,6 +58,25 @@ model Notification {
   @@map("filehub_notification")
 }
 
+// Journal d'activité : trace horodatée des actions (créations, dépôts,
+// partages, changements de membres…). Les identifiants d'acteur/cible sont
+// stockés en clair (pas de relation FK) : le journal survit à la suppression
+// du nœud ou de l'espace concerné.
+model Activity {
+  id         String   @id @default(cuid())
+  userId     String // acteur (celui qui a agi)
+  actorName  String // nom affiché au moment de l'action (instantané)
+  spaceId    String? // renseigné si l'action concerne un espace commun
+  nodeId     String? // nœud concerné, si applicable
+  action     String // created | renamed | trashed | restored | deleted | uploaded | shared | unshared | moved | member_added | member_removed | role_changed
+  targetName String // nom de l'élément concerné (instantané)
+  createdAt  DateTime @default(now())
+
+  @@index([userId, createdAt])
+  @@index([spaceId, createdAt])
+  @@map("filehub_activity")
+}
+
 // Un espace commun : un "drive" partagé entre plusieurs membres.
 model Space {
   id        String   @id @default(cuid())

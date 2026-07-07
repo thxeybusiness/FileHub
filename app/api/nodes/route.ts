@@ -3,7 +3,8 @@ import { z } from "zod";
 import { getUserId } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { serializeNode } from "@/lib/nodes";
-import { getSpaceRole } from "@/lib/spaces";
+import { getSpaceRole, canEditRole } from "@/lib/spaces";
+import { logActivity, actorNameFor } from "@/lib/activity";
 
 export const runtime = "nodejs";
 
@@ -81,10 +82,10 @@ export async function POST(req: NextRequest) {
   }
   const { name, parentId, color, type = "folder", spaceId } = parsed.data;
 
-  // Espace commun : membre requis.
+  // Espace commun : rôle éditeur (ou plus) requis pour créer.
   if (spaceId) {
-    if (!(await getSpaceRole(userId, spaceId))) {
-      return NextResponse.json({ error: "Accès refusé" }, { status: 403 });
+    if (!canEditRole(await getSpaceRole(userId, spaceId))) {
+      return NextResponse.json({ error: "Vous êtes en lecture seule sur cet espace" }, { status: 403 });
     }
   }
 
@@ -110,6 +111,15 @@ export async function POST(req: NextRequest) {
       ...(type === "draw" ? { content: "", mimeType: "application/vnd.filehub.draw" } : {}),
     },
     include: { _count: { select: { children: true } } },
+  });
+
+  await logActivity({
+    userId,
+    actorName: await actorNameFor(userId),
+    action: "created",
+    targetName: node.name,
+    spaceId: node.spaceId,
+    nodeId: node.id,
   });
 
   return NextResponse.json({ node: serializeNode(node) });

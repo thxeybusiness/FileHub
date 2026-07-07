@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { getUserId } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { getMemberSpaceIds, nodeAccessWhere } from "@/lib/spaces";
+import { getMemberSpaceIds, nodeAccessWhere, canWriteSpace } from "@/lib/spaces";
 
 export const runtime = "nodejs";
 
@@ -47,9 +47,12 @@ export async function PUT(
 
   const doc = await prisma.node.findFirst({
     where: { id, type: "doc", ...nodeAccessWhere(userId, memberIds) },
-    select: { id: true },
+    select: { id: true, spaceId: true },
   });
   if (!doc) return NextResponse.json({ error: "Introuvable" }, { status: 404 });
+  if (doc.spaceId && !(await canWriteSpace(userId, doc.spaceId))) {
+    return NextResponse.json({ error: "Vous êtes en lecture seule sur cet espace" }, { status: 403 });
+  }
 
   const body = await req.json().catch(() => null);
   const parsed = saveSchema.safeParse(body);

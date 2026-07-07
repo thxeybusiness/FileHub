@@ -32,6 +32,26 @@ export async function getSpaceRole(
   return m?.role ?? null;
 }
 
+// Un rôle qui autorise l'écriture (créer / modifier / supprimer).
+export function canEditRole(role: string | null | undefined): boolean {
+  return role === "owner" || role === "admin" || role === "editor";
+}
+
+// L'utilisateur peut-il écrire dans cet espace ? (éditeur/admin/owner)
+export async function canWriteSpace(userId: string, spaceId: string): Promise<boolean> {
+  return canEditRole(await getSpaceRole(userId, spaceId));
+}
+
+// Autorise l'écriture sur un nœud : espace -> rôle éditeur requis ;
+// drive personnel -> propriétaire.
+export async function canWriteNode(
+  userId: string,
+  node: { spaceId: string | null; userId: string },
+): Promise<boolean> {
+  if (node.spaceId) return canWriteSpace(userId, node.spaceId);
+  return node.userId === userId;
+}
+
 // Génère un username unique à partir d'un nom / email.
 export async function generateUsername(base: string): Promise<string> {
   const slug =

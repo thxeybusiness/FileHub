@@ -4,7 +4,8 @@ import { getUserId } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { storage } from "@/lib/storage";
 import { adjustStorage, isDescendantOrSelf, serializeNode, type NodeScope } from "@/lib/nodes";
-import { getMemberSpaceIds, nodeAccessWhere } from "@/lib/spaces";
+import { getMemberSpaceIds, nodeAccessWhere, canWriteSpace } from "@/lib/spaces";
+import { logActivity, actorNameFor } from "@/lib/activity";
 
 export const runtime = "nodejs";
 
@@ -27,6 +28,11 @@ export async function PATCH(
   const memberIds = await getMemberSpaceIds(userId);
   const node = await prisma.node.findFirst({ where: { id, ...nodeAccessWhere(userId, memberIds) } });
   if (!node) return NextResponse.json({ error: "Introuvable" }, { status: 404 });
+
+  // Lecture seule sur un espace : modification interdite.
+  if (node.spaceId && !(await canWriteSpace(userId, node.spaceId))) {
+    return NextResponse.json({ error: "Vous êtes en lecture seule sur cet espace" }, { status: 403 });
+  }
 
   const scope: NodeScope = node.spaceId ? { spaceId: node.spaceId } : { userId, spaceId: null };
 
@@ -69,6 +75,24 @@ export async function PATCH(
     data,
     include: { _count: { select: { children: true } } },
   });
+
+  // Journal d'activité : on note l'action la plus signifiante du patch.
+  let action: "renamed" | "trashed" | "restored" | "moved" | null = null;
+  if (trashed === true) action = "trashed";
+  else if (trashed === false) action = "restored";
+  else if (name !== undefined) action = "renamed";
+  else if (parentId !== undefined) action = "moved";
+  if (action) {
+    await logActivity({
+      userId,
+      actorName: await actorNameFor(userId),
+      action,
+      targetName: updated.name,
+      spaceId: updated.spaceId,
+      nodeId: updated.id,
+    });
+  }
+
   return NextResponse.json({ node: serializeNode(updated) });
 }
 
@@ -84,9 +108,14 @@ export async function DELETE(
   const memberIds = await getMemberSpaceIds(userId);
   const root = await prisma.node.findFirst({
     where: { id, ...nodeAccessWhere(userId, memberIds) },
-    select: { id: true, spaceId: true },
+    select: { id: true, spaceId: true, name: true },
   });
   if (!root) return NextResponse.json({ error: "Introuvable" }, { status: 404 });
+
+  // Lecture seule sur un espace : suppression interdite.
+  if (root.spaceId && !(await canWriteSpace(userId, root.spaceId))) {
+    return NextResponse.json({ error: "Vous êtes en lecture seule sur cet espace" }, { status: 403 });
+  }
 
   const childScope = root.spaceId ? { spaceId: root.spaceId } : { userId, spaceId: null };
 
@@ -125,6 +154,15 @@ export async function DELETE(
   await prisma.node.deleteMany({ where: { id: { in: toDelete } } });
   // Les fichiers d'un espace commun ne comptent pas sur le quota personnel.
   if (freed > 0n && !root.spaceId) await adjustStorage(userId, -freed);
+
+  await logActivity({
+    userId,
+    actorName: await actorNameFor(userId),
+    action: "deleted",
+    targetName: root.name,
+    spaceId: root.spaceId,
+    nodeId: root.id,
+  });
 
   return NextResponse.json({ ok: true });
 }

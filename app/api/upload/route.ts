@@ -3,8 +3,9 @@ import { getUserId } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { storage } from "@/lib/storage";
 import { adjustStorage, serializeNode } from "@/lib/nodes";
-import { getSpaceRole } from "@/lib/spaces";
+import { getSpaceRole, canEditRole } from "@/lib/spaces";
 import { isFounder, planStorage } from "@/lib/plans";
+import { logActivity, actorNameFor } from "@/lib/activity";
 
 export const runtime = "nodejs";
 
@@ -23,9 +24,9 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Aucun fichier" }, { status: 400 });
   }
 
-  // Espace commun : membre requis.
-  if (spaceId && !(await getSpaceRole(userId, spaceId))) {
-    return NextResponse.json({ error: "Accès refusé" }, { status: 403 });
+  // Espace commun : rôle éditeur (ou plus) requis pour importer.
+  if (spaceId && !canEditRole(await getSpaceRole(userId, spaceId))) {
+    return NextResponse.json({ error: "Vous êtes en lecture seule sur cet espace" }, { status: 403 });
   }
 
   // Validate parent folder (dans la même portée).
@@ -72,6 +73,20 @@ export async function POST(req: NextRequest) {
     });
     if (!spaceId) await adjustStorage(userId, BigInt(buffer.length));
     created.push(serializeNode(node));
+  }
+
+  if (created.length) {
+    const actorName = await actorNameFor(userId);
+    for (const n of created) {
+      await logActivity({
+        userId,
+        actorName,
+        action: "uploaded",
+        targetName: n.name,
+        spaceId,
+        nodeId: n.id,
+      });
+    }
   }
 
   return NextResponse.json({ nodes: created });

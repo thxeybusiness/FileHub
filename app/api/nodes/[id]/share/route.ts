@@ -3,6 +3,7 @@ import { z } from "zod";
 import { getUserId, randomToken } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { hashSharePassword } from "@/lib/share";
+import { logActivity, actorNameFor } from "@/lib/activity";
 
 export const runtime = "nodejs";
 
@@ -28,7 +29,7 @@ function view(s: {
 }
 
 async function ownNode(id: string, userId: string) {
-  return prisma.node.findFirst({ where: { id, userId }, select: { id: true } });
+  return prisma.node.findFirst({ where: { id, userId }, select: { id: true, name: true, spaceId: true } });
 }
 
 // GET — réglages du lien existant (ou null).
@@ -52,12 +53,21 @@ export async function POST(
   const userId = await getUserId();
   if (!userId) return NextResponse.json({ error: "Non autorisé" }, { status: 401 });
   const { id } = await params;
-  if (!(await ownNode(id, userId))) return NextResponse.json({ error: "Introuvable" }, { status: 404 });
+  const node = await ownNode(id, userId);
+  if (!node) return NextResponse.json({ error: "Introuvable" }, { status: 404 });
 
   let share = await prisma.share.findFirst({ where: { nodeId: id, ownerId: userId } });
   if (!share) {
     share = await prisma.share.create({
       data: { token: randomToken(12), nodeId: id, ownerId: userId },
+    });
+    await logActivity({
+      userId,
+      actorName: await actorNameFor(userId),
+      action: "shared",
+      targetName: node.name,
+      spaceId: node.spaceId,
+      nodeId: node.id,
     });
   }
   return NextResponse.json({ share: view(share) });
@@ -115,6 +125,17 @@ export async function DELETE(
   const userId = await getUserId();
   if (!userId) return NextResponse.json({ error: "Non autorisé" }, { status: 401 });
   const { id } = await params;
-  await prisma.share.deleteMany({ where: { nodeId: id, ownerId: userId } });
+  const node = await ownNode(id, userId);
+  const { count } = await prisma.share.deleteMany({ where: { nodeId: id, ownerId: userId } });
+  if (count > 0 && node) {
+    await logActivity({
+      userId,
+      actorName: await actorNameFor(userId),
+      action: "unshared",
+      targetName: node.name,
+      spaceId: node.spaceId,
+      nodeId: node.id,
+    });
+  }
   return NextResponse.json({ ok: true });
 }

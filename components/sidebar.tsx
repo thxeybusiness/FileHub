@@ -7,6 +7,8 @@ import {
   HardDrive,
   Star,
   Clock,
+  Activity as ActivityIcon,
+  LayoutDashboard,
   Trash2,
   Cloud,
   LogOut,
@@ -34,8 +36,10 @@ type Me = {
 
 const NAV = [
   { href: "/drive", label: "Mon Drive", icon: HardDrive, exact: true },
+  { href: "/drive/tableau-de-bord", label: "Tableau de bord", icon: LayoutDashboard },
   { href: "/drive/recent", label: "Récents", icon: Clock },
   { href: "/drive/starred", label: "Favoris", icon: Star },
+  { href: "/drive/activite", label: "Activité", icon: ActivityIcon },
   { href: "/drive/trash", label: "Corbeille", icon: Trash2 },
 ];
 
