@@ -141,9 +141,66 @@ const SNIPPET_GROUPS: { label: string; items: Snip[] }[] = [
   },
 ];
 
-const THEMES: { k: string; l: string }[] = [
-  { k: "dark", l: "Sombre" }, { k: "default", l: "Clair" }, { k: "forest", l: "Forêt" }, { k: "neutral", l: "Neutre" },
+// ── Palettes « FileHub » (thème Mermaid sur mesure, aux couleurs de l'app) ──
+const FONT = 'ui-sans-serif, system-ui, "Segoe UI", Roboto, Helvetica, Arial, sans-serif';
+// Palette de séries (camemberts, git, etc.) — arc-en-ciel de la marque.
+const SERIES = ["#5b8bff", "#7b3bff", "#22d3ee", "#34d399", "#eab308", "#f97316", "#ef4444", "#ec4899", "#a78bff", "#2dd4bf", "#f59e0b", "#f472b6"];
+function seriesVars(): Record<string, string> {
+  const o: Record<string, string> = {};
+  SERIES.forEach((c, i) => { o[`pie${i + 1}`] = c; });
+  ["#5b8bff", "#22d3ee", "#34d399", "#eab308", "#f97316", "#ef4444", "#ec4899", "#a78bff"].forEach((c, i) => { o[`git${i}`] = c; o[`gitBranchLabel${i}`] = "#0a0e17"; });
+  return o;
+}
+
+type PaletteInput = { key: string; label: string; swatch: string; light?: boolean; fill: string; border: string; text: string; line: string; soft: string; edgeBg: string; note: string };
+type Palette = { key: string; label: string; swatch: string; light: boolean; vars: Record<string, string> };
+function makePalette(o: PaletteInput): Palette {
+  return {
+    key: o.key, label: o.label, swatch: o.swatch, light: !!o.light,
+    vars: {
+      background: "transparent", fontFamily: FONT, fontSize: "15px",
+      primaryColor: o.fill, primaryBorderColor: o.border, primaryTextColor: o.text,
+      secondaryColor: o.soft, secondaryBorderColor: o.border, secondaryTextColor: o.text,
+      tertiaryColor: o.soft, tertiaryBorderColor: o.border, tertiaryTextColor: o.text,
+      lineColor: o.line, textColor: o.text,
+      mainBkg: o.fill, nodeBorder: o.border, nodeTextColor: o.text,
+      clusterBkg: o.soft, clusterBorder: o.border, titleColor: o.text,
+      edgeLabelBackground: o.edgeBg, labelBackgroundColor: o.edgeBg,
+      actorBkg: o.fill, actorBorder: o.border, actorTextColor: o.text, actorLineColor: o.line,
+      signalColor: o.line, signalTextColor: o.text,
+      labelBoxBkgColor: o.fill, labelBoxBorderColor: o.border, labelTextColor: o.text, loopTextColor: o.text,
+      noteBkgColor: o.note, noteTextColor: "#3a2a00", noteBorderColor: o.border,
+      activationBkgColor: o.soft, activationBorderColor: o.border,
+      classText: o.text, attributeBackgroundColorOdd: o.soft, attributeBackgroundColorEven: o.edgeBg,
+      pieTitleTextSize: "18px", pieSectionTextSize: "15px", pieStrokeColor: o.edgeBg, pieOuterStrokeColor: o.edgeBg,
+      ...seriesVars(),
+    },
+  };
+}
+
+const PALETTES: Palette[] = [
+  makePalette({ key: "filehub", label: "FileHub", swatch: "#5b8bff", fill: "#3b6dff", border: "#9db6ff", text: "#ffffff", line: "#8aa2ff", soft: "rgba(91,139,255,0.12)", edgeBg: "#141a2e", note: "#fde68a" }),
+  makePalette({ key: "violet", label: "Améthyste", swatch: "#7b3bff", fill: "#7b3bff", border: "#c9b6ff", text: "#ffffff", line: "#b39cff", soft: "rgba(123,59,255,0.14)", edgeBg: "#181233", note: "#fbcfe8" }),
+  makePalette({ key: "ocean", label: "Océan", swatch: "#22d3ee", fill: "#0e7490", border: "#67e8f9", text: "#ecfeff", line: "#22d3ee", soft: "rgba(34,211,238,0.12)", edgeBg: "#0a1f27", note: "#fde68a" }),
+  makePalette({ key: "mint", label: "Menthe", swatch: "#34d399", fill: "#0f766e", border: "#6ee7b7", text: "#ecfdf5", line: "#34d399", soft: "rgba(52,211,153,0.12)", edgeBg: "#0b201b", note: "#fde68a" }),
+  makePalette({ key: "coral", label: "Corail", swatch: "#fb7185", fill: "#e11d48", border: "#fda4af", text: "#fff1f2", line: "#fb7185", soft: "rgba(251,113,133,0.14)", edgeBg: "#2a0f16", note: "#fde68a" }),
+  makePalette({ key: "light", label: "Clair", swatch: "#e2e8f0", light: true, fill: "#eef2ff", border: "#5b8bff", text: "#1e293b", line: "#64748b", soft: "rgba(91,139,255,0.10)", edgeBg: "#ffffff", note: "#fef3c7" }),
 ];
+const paletteOf = (k: string) => PALETTES.find((p) => p.key === k) ?? PALETTES[0];
+
+// CSS injecté dans le SVG : traits plus épais, coins arrondis, ombres, typo.
+const THEME_CSS = `
+  .edgePath .path, .flowchart-link, path.messageLine0, path.messageLine1, .relation, .transition { stroke-width: 2px !important; }
+  .node rect, .node polygon, .node circle, .node ellipse, .node path, .cluster rect, .er.entityBox, .actor, .task, .exclude-range { stroke-width: 2px; }
+  .node rect, .node ellipse, .node circle, .node polygon, .node path, .actor, .er.entityBox { filter: drop-shadow(0 6px 16px rgba(0,0,0,.30)); }
+  .node rect { rx: 13px; ry: 13px; }
+  .cluster rect { rx: 16px; ry: 16px; }
+  .actor { rx: 12px; ry: 12px; }
+  .nodeLabel, .edgeLabel, .messageText, .loopText, text.actor, .titleText, .pieTitleText, .sectionTitle, .taskText { font-weight: 600; }
+  .edgeLabel { border-radius: 6px; padding: 2px 6px; }
+  .pieCircle, .pieOuterCircle { stroke-width: 2px; }
+  .marker { stroke-width: 1.5px; }
+`;
 
 const DIRS: { k: string; i: LucideIcon; l: string }[] = [
   { k: "TD", i: ArrowDown, l: "Vertical" }, { k: "LR", i: ArrowRight, l: "Horizontal" },
@@ -164,7 +221,7 @@ export function DiagramEditor({
   const [save, setSave] = useState<SaveState>("saved");
   const [svg, setSvg] = useState("");
   const [renderError, setRenderError] = useState<string | null>(null);
-  const [theme, setTheme] = useState("dark");
+  const [theme, setTheme] = useState("filehub");
   const [zoom, setZoom] = useState(1);
   const [pan, setPan] = useState({ x: 0, y: 0 });
   const [menu, setMenu] = useState<null | "tpl" | "snip" | "theme" | "export">(null);
@@ -195,7 +252,11 @@ export function DiagramEditor({
       if (!src) { setSvg(""); setRenderError(null); return; }
       try {
         if (!mermaidRef.current) mermaidRef.current = (await import("mermaid")).default;
-        mermaidRef.current.initialize({ startOnLoad: false, theme: theme as "dark", securityLevel: "strict", fontFamily: "inherit" });
+        mermaidRef.current.initialize({
+          startOnLoad: false, theme: "base", securityLevel: "strict", fontFamily: "inherit",
+          flowchart: { curve: "basis", padding: 16, htmlLabels: true, useMaxWidth: false },
+          themeVariables: paletteOf(theme).vars, themeCSS: THEME_CSS,
+        });
         const n = ++seq.current;
         const { svg: out } = await mermaidRef.current.render(`mmd-${id}-${n}`, src);
         if (n === seq.current) { setSvg(out); setRenderError(null); }
@@ -308,16 +369,16 @@ export function DiagramEditor({
     const c = document.createElement("canvas");
     c.width = Math.round(d.w * scale); c.height = Math.round(d.h * scale);
     const ctx = c.getContext("2d")!;
-    ctx.fillStyle = theme === "dark" ? "#0b0e17" : "#ffffff";
+    ctx.fillStyle = paletteOf(theme).light ? "#ffffff" : "#0b0e17";
     ctx.fillRect(0, 0, c.width, c.height);
     ctx.drawImage(img, 0, 0, c.width, c.height);
     download(c.toDataURL("image/png"), "png");
   };
 
-  const lightTheme = theme !== "dark";
+  const lightTheme = paletteOf(theme).light;
   const previewBg = lightTheme
-    ? "#f8fafc"
-    : "radial-gradient(circle at center, rgba(255,255,255,0.05), transparent 70%), #0a0d16";
+    ? "radial-gradient(rgba(15,23,42,0.06) 1px, transparent 1px) 0 0 / 22px 22px, #f4f6fb"
+    : "radial-gradient(rgba(255,255,255,0.05) 1px, transparent 1px) 0 0 / 22px 22px, radial-gradient(circle at 50% 0%, rgba(91,139,255,0.08), transparent 55%), #0a0d16";
   const svgWrap = "[&_svg]:h-auto [&_svg]:max-w-none [&_svg]:select-none";
 
   return (
@@ -390,12 +451,12 @@ export function DiagramEditor({
         {/* Thème */}
         <div className="mx-1 h-5 w-px bg-white/10" />
         <Dropdown open={menu === "theme"} onToggle={() => setMenu(menu === "theme" ? null : "theme")} onClose={() => setMenu(null)}
-          trigger={<><Palette className="size-4" /> <span className="hidden sm:inline">{THEMES.find((t) => t.k === theme)?.l}</span> <ChevronDown className="size-3" /></>}>
-          <div className="w-36">
-            {THEMES.map((t) => (
-              <button key={t.k} onClick={() => { setTheme(t.k); setMenu(null); }} className={`flex w-full items-center gap-2 rounded-lg px-2.5 py-2 text-sm hover:bg-white/5 ${theme === t.k ? "text-white" : "text-white/70"}`}>
-                <span className="size-3 rounded-full border border-white/20" style={{ background: t.k === "dark" ? "#0a0d16" : t.k === "forest" ? "#1b4d3e" : t.k === "neutral" ? "#e5e7eb" : "#ffffff" }} /> {t.l}
-                {theme === t.k && <Check className="ml-auto size-3.5 text-teal-300" />}
+          trigger={<><Palette className="size-4" /> <span className="hidden sm:inline">{paletteOf(theme).label}</span> <ChevronDown className="size-3" /></>}>
+          <div className="w-40">
+            {PALETTES.map((p) => (
+              <button key={p.key} onClick={() => { setTheme(p.key); setMenu(null); }} className={`flex w-full items-center gap-2.5 rounded-lg px-2.5 py-2 text-sm hover:bg-white/5 ${theme === p.key ? "text-white" : "text-white/70"}`}>
+                <span className="size-4 rounded-md border border-white/20 shadow-inner" style={{ background: p.swatch }} /> {p.label}
+                {theme === p.key && <Check className="ml-auto size-3.5 text-teal-300" />}
               </button>
             ))}
           </div>
