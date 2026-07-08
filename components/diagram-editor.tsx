@@ -7,7 +7,7 @@ import {
   ArrowLeft, ArrowRight, ArrowUp, ArrowDown, Check, Loader2, Workflow, AlertTriangle,
   Maximize2, Sparkles, LayoutTemplate, Shapes, ChevronDown, Palette, Download, ImageIcon,
   Copy, Eye, Code2, ZoomIn, ZoomOut, Maximize, X, ArrowLeftRight, Boxes, Waypoints,
-  Table2, Calendar, PieChart, Network, Route, GitBranch, LayoutGrid, Clock,
+  Table2, Calendar, PieChart, Network, Route, GitBranch, LayoutGrid, Clock, Plus, Trash2,
   type LucideIcon,
 } from "lucide-react";
 import { api } from "@/lib/api";
@@ -207,6 +207,105 @@ const DIRS: { k: string; i: LucideIcon; l: string }[] = [
   { k: "BT", i: ArrowUp, l: "Bas → haut" }, { k: "RL", i: ArrowLeft, l: "Droite → gauche" },
 ];
 
+// ── Mode « Simple » : constructeur visuel d'organigramme ──────────────
+// L'utilisateur ajoute des étapes (boîtes) et les relie ; on génère le
+// code Mermaid en coulisses. Le mode Code reste dispo pour les experts.
+type FShape = "rect" | "round" | "stadium" | "circle" | "diamond" | "hexagon" | "parallelogram" | "cylinder";
+type FNode = { id: string; label: string; shape: FShape };
+type FEdge = { from: string; to: string; label: string };
+type Flow = { dir: string; nodes: FNode[]; edges: FEdge[] };
+
+const SHAPES: { k: FShape; l: string }[] = [
+  { k: "rect", l: "Rectangle" }, { k: "round", l: "Coins arrondis" }, { k: "stadium", l: "Pilule" },
+  { k: "circle", l: "Cercle" }, { k: "diamond", l: "Décision (losange)" }, { k: "hexagon", l: "Hexagone" },
+  { k: "parallelogram", l: "Données" }, { k: "cylinder", l: "Base de données" },
+];
+const SHAPE_LABEL: Record<FShape, string> = Object.fromEntries(SHAPES.map((s) => [s.k, s.l])) as Record<FShape, string>;
+
+const q = (s: string) => `"${(s || " ").replace(/"/g, "&quot;").replace(/\n/g, "<br/>")}"`;
+function wrapShape(shape: FShape, label: string): string {
+  const L = q(label);
+  switch (shape) {
+    case "round": return `(${L})`;
+    case "stadium": return `([${L}])`;
+    case "circle": return `((${L}))`;
+    case "diamond": return `{${L}}`;
+    case "hexagon": return `{{${L}}}`;
+    case "parallelogram": return `[/${L}/]`;
+    case "cylinder": return `[(${L})]`;
+    default: return `[${L}]`;
+  }
+}
+function genFlow(f: Flow): string {
+  if (!f.nodes.length) return "";
+  const out = [`graph ${f.dir || "TD"}`];
+  for (const n of f.nodes) out.push(`  ${n.id}${wrapShape(n.shape, n.label)}`);
+  for (const e of f.edges) {
+    const lbl = e.label && e.label.trim() ? `|${q(e.label)}|` : "";
+    out.push(`  ${e.from} -->${lbl} ${e.to}`);
+  }
+  return out.join("\n");
+}
+
+const unq = (s: string) => s.trim().replace(/^"([\s\S]*)"$/, "$1").replace(/&quot;/g, '"').replace(/<br\s*\/?>/gi, "\n");
+function matchBracket(rest: string): { shape: FShape; label: string; len: number } | null {
+  const pats: [RegExp, FShape][] = [
+    [/^\[\(([\s\S]*?)\)\]/, "cylinder"], [/^\(\(([\s\S]*?)\)\)/, "circle"], [/^\(\[([\s\S]*?)\]\)/, "stadium"],
+    [/^\{\{([\s\S]*?)\}\}/, "hexagon"], [/^\[\/([\s\S]*?)\/\]/, "parallelogram"],
+    [/^\[([\s\S]*?)\]/, "rect"], [/^\(([\s\S]*?)\)/, "round"], [/^\{([\s\S]*?)\}/, "diamond"],
+  ];
+  for (const [re, shape] of pats) { const m = rest.match(re); if (m) return { shape, label: unq(m[1]), len: m[0].length }; }
+  return null;
+}
+// Analyse le code Mermaid en modèle simple. Renvoie null si le diagramme
+// n'est pas un organigramme « simple » (autre type, styles, sous-graphes…).
+function parseFlow(code: string): Flow | null {
+  if (!code.trim()) return { dir: "TD", nodes: [], edges: [] };
+  const lines = code.split(/\r?\n/);
+  const head = (lines[0] || "").trim().match(/^(?:graph|flowchart)\s+(TB|TD|BT|RL|LR)\b/i);
+  if (!head) return null;
+  const dir = head[1].toUpperCase() === "TB" ? "TD" : head[1].toUpperCase();
+  const map = new Map<string, FNode>();
+  const edges: FEdge[] = [];
+  const reg = (id: string, shape: FShape, label: string, explicit: boolean) => {
+    const ex = map.get(id);
+    if (!ex) map.set(id, { id, shape: explicit ? shape : "rect", label: explicit ? label : id });
+    else if (explicit) { ex.shape = shape; ex.label = label; }
+  };
+  const readNode = (s: string) => {
+    const m = s.match(/^\s*([A-Za-z0-9_]+)/);
+    if (!m) return null;
+    const id = m[1];
+    const rest = s.slice(m[0].length);
+    const b = matchBracket(rest);
+    if (b) return { id, shape: b.shape, label: b.label, explicit: true, rest: rest.slice(b.len) };
+    return { id, shape: "rect" as FShape, label: id, explicit: false, rest };
+  };
+  for (let i = 1; i < lines.length; i++) {
+    const line = lines[i].trim();
+    if (!line || line.startsWith("%%")) continue;
+    // Constructions qu'on ne sait pas représenter simplement → bascule Code.
+    if (/^(style|classDef|class|subgraph|end|linkStyle|direction|click)\b/i.test(line)) return null;
+    let cur = readNode(line);
+    if (!cur) continue;
+    reg(cur.id, cur.shape, cur.label, cur.explicit);
+    let rest = cur.rest;
+    let guard = 0;
+    while (rest.trim() && guard++ < 40) {
+      const lm = rest.match(/^\s*(-{2,3}>|-\.->|={2,3}>|-{3}|-\.-|--[ox])\s*(?:\|([^|]*)\|\s*)?/);
+      if (!lm) return null; // syntaxe non gérée en mode simple
+      const label = lm[2] ? unq(lm[2]) : "";
+      rest = rest.slice(lm[0].length);
+      const nxt = readNode(rest);
+      if (!nxt) return null;
+      reg(nxt.id, nxt.shape, nxt.label, nxt.explicit);
+      edges.push({ from: cur.id, to: nxt.id, label });
+      cur = nxt; rest = nxt.rest;
+    }
+  }
+  return { dir, nodes: [...map.values()], edges };
+}
+
 export function DiagramEditor({
   id, initialName, initialContent, backHref, crumbs,
 }: {
@@ -227,6 +326,7 @@ export function DiagramEditor({
   const [menu, setMenu] = useState<null | "tpl" | "snip" | "theme" | "export">(null);
   const [mobileView, setMobileView] = useState<"code" | "preview">("code");
   const [present, setPresent] = useState(false);
+  const [modeState, setModeState] = useState<"simple" | "code">("simple");
 
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const mermaidRef = useRef<typeof import("mermaid").default | null>(null);
@@ -305,6 +405,27 @@ export function DiagramEditor({
   const onName = (v: string) => { setName(v); persist({ name: v.trim() || "Diagramme sans titre" }); };
 
   const applyTemplate = (tpl: Template) => { setMenu(null); onCode(tpl.code); setMobileView("code"); };
+
+  // ── Mode Simple : modèle dérivé du code + actions du constructeur ───
+  const flow = useMemo(() => parseFlow(code), [code]);
+  const canSimple = flow !== null;
+  const mode: "simple" | "code" = canSimple ? modeState : "code";
+  const editFlow = (fn: (f: Flow) => void) => {
+    const f: Flow = flow ? structuredClone(flow) : { dir: "TD", nodes: [], edges: [] };
+    fn(f);
+    onCode(genFlow(f));
+  };
+  const nextNodeId = (f: Flow) => {
+    const used = new Set(f.nodes.map((n) => n.id));
+    for (const c of "ABCDEFGHIJKLMNOPQRSTUVWXYZ") if (!used.has(c)) return c;
+    let i = 1; while (used.has(`N${i}`)) i++; return `N${i}`;
+  };
+  const addNode = () => editFlow((f) => { f.nodes.push({ id: nextNodeId(f), label: "Nouvelle étape", shape: f.nodes.length ? "rect" : "stadium" }); });
+  const setNode = (nid: string, patch: Partial<FNode>) => editFlow((f) => { const n = f.nodes.find((x) => x.id === nid); if (n) Object.assign(n, patch); });
+  const delNode = (nid: string) => editFlow((f) => { f.nodes = f.nodes.filter((n) => n.id !== nid); f.edges = f.edges.filter((e) => e.from !== nid && e.to !== nid); });
+  const addEdge = () => editFlow((f) => { if (f.nodes.length < 2) return; f.edges.push({ from: f.nodes[0].id, to: f.nodes[1].id, label: "" }); });
+  const setEdge = (i: number, patch: Partial<FEdge>) => editFlow((f) => { if (f.edges[i]) Object.assign(f.edges[i], patch); });
+  const delEdge = (i: number) => editFlow((f) => { f.edges.splice(i, 1); });
 
   const insertSnippet = (snippet: string) => {
     setMenu(null);
@@ -404,6 +525,13 @@ export function DiagramEditor({
 
       {/* Barre d'outils */}
       <div className="h-11 shrink-0 border-b border-white/10 bg-white/[0.02] px-3 sm:px-5 flex items-center gap-1.5 overflow-x-auto">
+        {/* Mode Simple / Code */}
+        <div className="flex shrink-0 items-center gap-0.5 rounded-lg border border-white/10 bg-white/[0.03] p-0.5">
+          <button onClick={() => canSimple && setModeState("simple")} disabled={!canSimple} title={canSimple ? "Constructeur visuel" : "Disponible pour les organigrammes"} className={`flex items-center gap-1.5 rounded-md px-2.5 py-1 text-sm transition ${mode === "simple" ? "bg-brand-500/25 text-white" : "text-muted hover:bg-white/5"} ${!canSimple ? "cursor-not-allowed opacity-40" : ""}`}><Sparkles className="size-3.5" /> Simple</button>
+          <button onClick={() => setModeState("code")} title="Éditeur de code Mermaid" className={`flex items-center gap-1.5 rounded-md px-2.5 py-1 text-sm transition ${mode === "code" ? "bg-brand-500/25 text-white" : "text-muted hover:bg-white/5"}`}><Code2 className="size-3.5" /> Code</button>
+        </div>
+        <div className="mx-1 h-5 w-px bg-white/10" />
+
         {/* Modèles */}
         <Dropdown open={menu === "tpl"} onToggle={() => setMenu(menu === "tpl" ? null : "tpl")} onClose={() => setMenu(null)}
           trigger={<><LayoutTemplate className="size-4" /> <span className="hidden sm:inline">Modèles</span> <ChevronDown className="size-3" /></>}>
@@ -416,22 +544,24 @@ export function DiagramEditor({
           </div>
         </Dropdown>
 
-        {/* Éléments */}
-        <Dropdown open={menu === "snip"} onToggle={() => setMenu(menu === "snip" ? null : "snip")} onClose={() => setMenu(null)}
-          trigger={<><Shapes className="size-4" /> <span className="hidden sm:inline">Éléments</span> <ChevronDown className="size-3" /></>}>
-          <div className="max-h-[60vh] w-60 space-y-2 overflow-y-auto">
-            {SNIPPET_GROUPS.map((g) => (
-              <div key={g.label}>
-                <p className="mb-1 px-1 text-[10px] font-semibold uppercase tracking-wider text-muted/70">{g.label}</p>
-                <div className="grid grid-cols-2 gap-1">
-                  {g.items.map((it) => (
-                    <button key={it.l} onClick={() => insertSnippet(it.t)} title={it.t} className="truncate rounded-md px-2 py-1.5 text-left text-xs text-white/85 hover:bg-white/5">{it.l}</button>
-                  ))}
+        {/* Éléments (mode Code uniquement) */}
+        {mode === "code" && (
+          <Dropdown open={menu === "snip"} onToggle={() => setMenu(menu === "snip" ? null : "snip")} onClose={() => setMenu(null)}
+            trigger={<><Shapes className="size-4" /> <span className="hidden sm:inline">Éléments</span> <ChevronDown className="size-3" /></>}>
+            <div className="max-h-[60vh] w-60 space-y-2 overflow-y-auto">
+              {SNIPPET_GROUPS.map((g) => (
+                <div key={g.label}>
+                  <p className="mb-1 px-1 text-[10px] font-semibold uppercase tracking-wider text-muted/70">{g.label}</p>
+                  <div className="grid grid-cols-2 gap-1">
+                    {g.items.map((it) => (
+                      <button key={it.l} onClick={() => insertSnippet(it.t)} title={it.t} className="truncate rounded-md px-2 py-1.5 text-left text-xs text-white/85 hover:bg-white/5">{it.l}</button>
+                    ))}
+                  </div>
                 </div>
-              </div>
-            ))}
-          </div>
-        </Dropdown>
+              ))}
+            </div>
+          </Dropdown>
+        )}
 
         {/* Direction (organigrammes) */}
         {isFlowchart && (
@@ -465,7 +595,7 @@ export function DiagramEditor({
         <div className="ml-auto flex items-center gap-1.5">
           {/* Bascule code / aperçu (mobile) */}
           <div className="flex items-center gap-0.5 rounded-lg border border-white/10 bg-white/[0.03] p-0.5 lg:hidden">
-            <button onClick={() => setMobileView("code")} className={`grid size-7 place-items-center rounded-md ${mobileView === "code" ? "bg-brand-500/25 text-white" : "text-muted"}`} title="Code"><Code2 className="size-4" /></button>
+            <button onClick={() => setMobileView("code")} className={`grid size-7 place-items-center rounded-md ${mobileView === "code" ? "bg-brand-500/25 text-white" : "text-muted"}`} title="Édition"><Shapes className="size-4" /></button>
             <button onClick={() => setMobileView("preview")} className={`grid size-7 place-items-center rounded-md ${mobileView === "preview" ? "bg-brand-500/25 text-white" : "text-muted"}`} title="Aperçu"><Eye className="size-4" /></button>
           </div>
           {/* Export */}
@@ -482,20 +612,26 @@ export function DiagramEditor({
 
       {/* Corps : éditeur + aperçu */}
       <div className="flex flex-1 min-h-0">
-        {/* Éditeur de code */}
-        <div className={`${mobileView === "code" ? "flex" : "hidden"} lg:flex w-full lg:w-[38%] lg:min-w-[300px] lg:max-w-[560px] min-h-0 shrink-0 border-r border-white/10 bg-[#0b0d14]`}>
-          <div ref={gutterRef} className="select-none overflow-hidden py-4 pl-3 pr-2 text-right font-mono text-[13px] leading-[1.6] text-white/25">
-            {Array.from({ length: lineCount }, (_, i) => <div key={i}>{i + 1}</div>)}
-          </div>
-          <textarea
-            ref={codeRef}
-            value={code}
-            onChange={(e) => onCode(e.target.value)}
-            onScroll={syncScroll}
-            spellCheck={false}
-            placeholder={"graph TD\n  A[Début] --> B{Test}\n  B -->|oui| C[OK]\n  B -->|non| D[Fin]\n\n(ou choisissez un modèle ci-dessus)"}
-            className="h-full flex-1 resize-none bg-transparent py-4 pr-4 font-mono text-[13px] leading-[1.6] text-teal-50/90 outline-none placeholder:text-white/25"
-          />
+        {/* Panneau gauche : constructeur visuel (Simple) ou code Mermaid */}
+        <div className={`${mobileView === "code" ? "flex" : "hidden"} lg:flex w-full lg:w-[38%] lg:min-w-[320px] lg:max-w-[580px] min-h-0 shrink-0 flex-col border-r border-white/10 bg-[#0b0d14]`}>
+          {mode === "simple" && flow ? (
+            <FlowBuilder flow={flow} onAddNode={addNode} onSetNode={setNode} onDelNode={delNode} onAddEdge={addEdge} onSetEdge={setEdge} onDelEdge={delEdge} />
+          ) : (
+            <div className="flex min-h-0 flex-1">
+              <div ref={gutterRef} className="select-none overflow-hidden py-4 pl-3 pr-2 text-right font-mono text-[13px] leading-[1.6] text-white/25">
+                {Array.from({ length: lineCount }, (_, i) => <div key={i}>{i + 1}</div>)}
+              </div>
+              <textarea
+                ref={codeRef}
+                value={code}
+                onChange={(e) => onCode(e.target.value)}
+                onScroll={syncScroll}
+                spellCheck={false}
+                placeholder={"graph TD\n  A[Début] --> B{Test}\n  B -->|oui| C[OK]\n  B -->|non| D[Fin]\n\n(ou choisissez un modèle ci-dessus)"}
+                className="h-full flex-1 resize-none bg-transparent py-4 pr-4 font-mono text-[13px] leading-[1.6] text-teal-50/90 outline-none placeholder:text-white/25"
+              />
+            </div>
+          )}
         </div>
 
         {/* Aperçu zoomable */}
@@ -518,7 +654,9 @@ export function DiagramEditor({
             <div className="grid h-full place-items-center px-6 text-center text-sm text-muted">
               <div>
                 <Workflow className="mx-auto mb-3 size-8 text-white/15" />
-                Écrivez du code Mermaid ou choisissez un <span className="text-white/70">modèle</span> pour commencer.
+                {mode === "simple"
+                  ? <>Ajoutez une <span className="text-white/70">étape</span> à gauche, ou choisissez un <span className="text-white/70">modèle</span>.</>
+                  : <>Écrivez du code Mermaid ou choisissez un <span className="text-white/70">modèle</span> pour commencer.</>}
               </div>
             </div>
           )}
@@ -547,6 +685,79 @@ export function DiagramEditor({
           </div>
         </div>
       )}
+    </div>
+  );
+}
+
+// ── Constructeur visuel d'organigramme (mode Simple) ─────────────────
+function FlowBuilder({ flow, onAddNode, onSetNode, onDelNode, onAddEdge, onSetEdge, onDelEdge }: {
+  flow: Flow;
+  onAddNode: () => void; onSetNode: (id: string, patch: Partial<FNode>) => void; onDelNode: (id: string) => void;
+  onAddEdge: () => void; onSetEdge: (i: number, patch: Partial<FEdge>) => void; onDelEdge: (i: number) => void;
+}) {
+  const nodeName = (id: string) => { const n = flow.nodes.find((x) => x.id === id); return n ? (n.label.trim() || id) : id; };
+  const selectCls = "h-9 rounded-lg border border-white/10 bg-white/5 px-2 text-sm text-white outline-none focus:border-brand-400";
+  const inputCls = "h-9 w-full rounded-lg border border-white/10 bg-white/5 px-3 text-sm text-white outline-none placeholder:text-white/30 focus:border-brand-400";
+  return (
+    <div className="flex min-h-0 flex-1 flex-col overflow-y-auto p-4">
+      {/* Étapes */}
+      <div className="mb-2 flex items-center justify-between">
+        <p className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wider text-muted"><Boxes className="size-3.5" /> Étapes</p>
+        <span className="text-[11px] text-muted">{flow.nodes.length}</span>
+      </div>
+      <div className="space-y-2">
+        {flow.nodes.map((n) => (
+          <div key={n.id} className="rounded-xl border border-white/10 bg-white/[0.03] p-2">
+            <div className="flex items-center gap-2">
+              <span className="grid size-7 shrink-0 place-items-center rounded-md bg-brand-500/20 text-[11px] font-bold text-brand-200">{n.id}</span>
+              <input value={n.label} onChange={(e) => onSetNode(n.id, { label: e.target.value })} placeholder="Nom de l'étape" className={inputCls} />
+              <button onClick={() => onDelNode(n.id)} title="Supprimer" className="grid size-8 shrink-0 place-items-center rounded-lg text-muted hover:bg-red-500/10 hover:text-red-400"><Trash2 className="size-4" /></button>
+            </div>
+            <div className="mt-2 flex items-center gap-2 pl-9">
+              <span className="text-[11px] text-muted">Forme</span>
+              <select value={n.shape} onChange={(e) => onSetNode(n.id, { shape: e.target.value as FShape })} className={`${selectCls} flex-1`}>
+                {SHAPES.map((s) => <option key={s.k} value={s.k} className="bg-[#0f1017]">{s.l}</option>)}
+              </select>
+            </div>
+          </div>
+        ))}
+      </div>
+      <button onClick={onAddNode} className="mt-2 flex w-full items-center justify-center gap-1.5 rounded-lg border border-dashed border-white/15 py-2.5 text-sm text-white/80 hover:border-brand-400/50 hover:bg-white/[0.03] hover:text-white">
+        <Plus className="size-4" /> Ajouter une étape
+      </button>
+
+      {/* Liens */}
+      <div className="mb-2 mt-6 flex items-center justify-between border-t border-white/10 pt-4">
+        <p className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wider text-muted"><Waypoints className="size-3.5" /> Liens</p>
+        <span className="text-[11px] text-muted">{flow.edges.length}</span>
+      </div>
+      {flow.nodes.length < 2 ? (
+        <p className="rounded-lg border border-white/10 bg-white/[0.02] px-3 py-2.5 text-xs leading-snug text-muted">Ajoutez au moins deux étapes pour pouvoir les relier par des flèches.</p>
+      ) : (
+        <>
+          <div className="space-y-2">
+            {flow.edges.map((e, i) => (
+              <div key={i} className="rounded-xl border border-white/10 bg-white/[0.03] p-2">
+                <div className="flex items-center gap-1.5">
+                  <select value={e.from} onChange={(ev) => onSetEdge(i, { from: ev.target.value })} className={`${selectCls} min-w-0 flex-1`}>
+                    {flow.nodes.map((n) => <option key={n.id} value={n.id} className="bg-[#0f1017]">{nodeName(n.id)}</option>)}
+                  </select>
+                  <ArrowRight className="size-4 shrink-0 text-brand-300" />
+                  <select value={e.to} onChange={(ev) => onSetEdge(i, { to: ev.target.value })} className={`${selectCls} min-w-0 flex-1`}>
+                    {flow.nodes.map((n) => <option key={n.id} value={n.id} className="bg-[#0f1017]">{nodeName(n.id)}</option>)}
+                  </select>
+                  <button onClick={() => onDelEdge(i)} title="Supprimer" className="grid size-8 shrink-0 place-items-center rounded-lg text-muted hover:bg-red-500/10 hover:text-red-400"><Trash2 className="size-4" /></button>
+                </div>
+                <input value={e.label} onChange={(ev) => onSetEdge(i, { label: ev.target.value })} placeholder="Étiquette de la flèche (facultatif)" className={`${inputCls} mt-2`} />
+              </div>
+            ))}
+          </div>
+          <button onClick={onAddEdge} className="mt-2 flex w-full items-center justify-center gap-1.5 rounded-lg border border-dashed border-white/15 py-2.5 text-sm text-white/80 hover:border-brand-400/50 hover:bg-white/[0.03] hover:text-white">
+            <Plus className="size-4" /> Ajouter un lien
+          </button>
+        </>
+      )}
+      <p className="mt-4 text-[11px] leading-snug text-muted/70">Astuce : passez en mode « Code » pour un contrôle avancé (styles, sous-graphes, autres types de diagrammes).</p>
     </div>
   );
 }
