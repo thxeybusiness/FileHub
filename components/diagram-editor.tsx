@@ -1,13 +1,154 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import Link from "next/link";
-import { ArrowLeft, Check, Loader2, ChevronRight, Home, Workflow, AlertTriangle } from "lucide-react";
+import {
+  ArrowLeft, ArrowRight, ArrowUp, ArrowDown, Check, Loader2, Workflow, AlertTriangle,
+  Maximize2, Sparkles, LayoutTemplate, Shapes, ChevronDown, Palette, Download, ImageIcon,
+  Copy, Eye, Code2, ZoomIn, ZoomOut, Maximize, X, ArrowLeftRight, Boxes, Waypoints,
+  Table2, Calendar, PieChart, Network, Route, GitBranch, LayoutGrid, Clock,
+  type LucideIcon,
+} from "lucide-react";
 import { api } from "@/lib/api";
 import { AiAssistant } from "./ai-assistant";
 
 type Crumb = { id: string; name: string };
 type SaveState = "saved" | "saving" | "idle" | "error";
+
+// ── Modèles de départ (un par type de diagramme Mermaid) ─────────────
+type Template = { key: string; label: string; icon: LucideIcon; code: string };
+const TEMPLATES: Template[] = [
+  { key: "flow", label: "Organigramme", icon: Workflow, code: `graph TD
+  A[Début] --> B{Condition ?}
+  B -->|Oui| C[Traitement]
+  B -->|Non| D[Autre voie]
+  C --> E[Fin]
+  D --> E` },
+  { key: "sequence", label: "Séquence", icon: ArrowLeftRight, code: `sequenceDiagram
+  actor U as Utilisateur
+  participant S as Serveur
+  participant DB as Base de données
+  U->>S: Requête
+  S->>DB: Lecture
+  DB-->>S: Résultat
+  S-->>U: Réponse` },
+  { key: "class", label: "Classes", icon: Boxes, code: `classDiagram
+  class Animal {
+    +String nom
+    +manger()
+  }
+  class Chien {
+    +aboyer()
+  }
+  Animal <|-- Chien` },
+  { key: "state", label: "États", icon: Waypoints, code: `stateDiagram-v2
+  [*] --> Inactif
+  Inactif --> Actif : démarrer
+  Actif --> Inactif : arrêter
+  Actif --> [*]` },
+  { key: "er", label: "Entité-relation", icon: Table2, code: `erDiagram
+  CLIENT ||--o{ COMMANDE : passe
+  COMMANDE ||--|{ LIGNE : contient
+  PRODUIT ||--o{ LIGNE : figure` },
+  { key: "gantt", label: "Gantt", icon: Calendar, code: `gantt
+  title Planning
+  dateFormat YYYY-MM-DD
+  section Conception
+  Cadrage      :a1, 2024-01-01, 7d
+  Maquettes    :after a1, 5d
+  section Développement
+  Intégration  :2024-01-15, 10d` },
+  { key: "pie", label: "Camembert", icon: PieChart, code: `pie showData title Répartition
+  "Produit A" : 45
+  "Produit B" : 30
+  "Produit C" : 25` },
+  { key: "mindmap", label: "Carte mentale", icon: Network, code: `mindmap
+  root((FileHub))
+    Documents
+      Texte
+      Feuilles
+    Partage
+      Liens
+      Espaces` },
+  { key: "journey", label: "Parcours", icon: Route, code: `journey
+  title Parcours utilisateur
+  section Découverte
+    Visite le site: 5: Visiteur
+    S'inscrit: 4: Visiteur
+  section Usage
+    Crée un document: 5: Client` },
+  { key: "git", label: "Git", icon: GitBranch, code: `gitGraph
+  commit
+  branch dev
+  checkout dev
+  commit
+  checkout main
+  merge dev` },
+  { key: "quadrant", label: "Quadrant", icon: LayoutGrid, code: `quadrantChart
+  title Priorisation
+  x-axis Faible --> Fort
+  y-axis Faible --> Fort
+  quadrant-1 Prioritaire
+  quadrant-2 À planifier
+  quadrant-3 À éviter
+  quadrant-4 Rapide
+  Projet A: [0.7, 0.8]
+  Projet B: [0.3, 0.4]` },
+  { key: "timeline", label: "Frise", icon: Clock, code: `timeline
+  title Historique
+  2022 : Lancement
+  2023 : Croissance : 10k utilisateurs
+  2024 : Expansion` },
+];
+
+// ── Éléments à insérer au curseur (surtout organigrammes) ────────────
+type Snip = { l: string; t: string };
+const SNIPPET_GROUPS: { label: string; items: Snip[] }[] = [
+  {
+    label: "Nœuds", items: [
+      { l: "Rectangle", t: "id[Texte]" },
+      { l: "Arrondi", t: "id(Texte)" },
+      { l: "Cercle", t: "id((Texte))" },
+      { l: "Losange", t: "id{Décision}" },
+      { l: "Hexagone", t: "id{{Texte}}" },
+      { l: "Parallélogramme", t: "id[/Texte/]" },
+      { l: "Cylindre", t: "id[(Données)]" },
+      { l: "Drapeau", t: "id>Texte]" },
+    ],
+  },
+  {
+    label: "Liens", items: [
+      { l: "Flèche", t: "A --> B" },
+      { l: "Ligne", t: "A --- B" },
+      { l: "Pointillé", t: "A -.-> B" },
+      { l: "Épais", t: "A ==> B" },
+      { l: "Étiquette", t: "A -->|texte| B" },
+    ],
+  },
+  {
+    label: "Conteneurs & notes", items: [
+      { l: "Sous-graphe", t: "subgraph Titre\n  A --> B\nend" },
+      { l: "Note (séquence)", t: "Note over A,B: remarque" },
+      { l: "Boucle (séquence)", t: "loop Chaque jour\n  A->>B: ping\nend" },
+    ],
+  },
+  {
+    label: "Style", items: [
+      { l: "Style d'un nœud", t: "style A fill:#5b8bff,stroke:#fff,color:#fff" },
+      { l: "Classe réutilisable", t: "classDef fort fill:#f97316,stroke:#fff,color:#fff;\nclass A,B fort" },
+    ],
+  },
+];
+
+const THEMES: { k: string; l: string }[] = [
+  { k: "dark", l: "Sombre" }, { k: "default", l: "Clair" }, { k: "forest", l: "Forêt" }, { k: "neutral", l: "Neutre" },
+];
+
+const DIRS: { k: string; i: LucideIcon; l: string }[] = [
+  { k: "TD", i: ArrowDown, l: "Vertical" }, { k: "LR", i: ArrowRight, l: "Horizontal" },
+  { k: "BT", i: ArrowUp, l: "Bas → haut" }, { k: "RL", i: ArrowLeft, l: "Droite → gauche" },
+];
 
 export function DiagramEditor({
   id, initialName, initialContent, backHref, crumbs,
@@ -23,9 +164,21 @@ export function DiagramEditor({
   const [save, setSave] = useState<SaveState>("saved");
   const [svg, setSvg] = useState("");
   const [renderError, setRenderError] = useState<string | null>(null);
+  const [theme, setTheme] = useState("dark");
+  const [zoom, setZoom] = useState(1);
+  const [pan, setPan] = useState({ x: 0, y: 0 });
+  const [menu, setMenu] = useState<null | "tpl" | "snip" | "theme" | "export">(null);
+  const [mobileView, setMobileView] = useState<"code" | "preview">("code");
+  const [present, setPresent] = useState(false);
+
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const mermaidRef = useRef<typeof import("mermaid").default | null>(null);
   const seq = useRef(0);
+  const codeRef = useRef<HTMLTextAreaElement>(null);
+  const gutterRef = useRef<HTMLDivElement>(null);
+  const previewRef = useRef<HTMLDivElement>(null);
+  const contentDim = useRef<{ w: number; h: number } | null>(null);
+  const panGesture = useRef<{ sx: number; sy: number; ox: number; oy: number } | null>(null);
 
   const persist = useCallback((patch: { content?: string; name?: string }) => {
     setSave("saving");
@@ -35,17 +188,14 @@ export function DiagramEditor({
     }, 600);
   }, [id]);
 
-  // Rendu Mermaid débouncé.
+  // ── Rendu Mermaid débouncé (ré-initialise selon le thème) ──────────
   useEffect(() => {
     const t = setTimeout(async () => {
       const src = code.trim();
       if (!src) { setSvg(""); setRenderError(null); return; }
       try {
-        if (!mermaidRef.current) {
-          const m = (await import("mermaid")).default;
-          m.initialize({ startOnLoad: false, theme: "dark", securityLevel: "strict", fontFamily: "inherit" });
-          mermaidRef.current = m;
-        }
+        if (!mermaidRef.current) mermaidRef.current = (await import("mermaid")).default;
+        mermaidRef.current.initialize({ startOnLoad: false, theme: theme as "dark", securityLevel: "strict", fontFamily: "inherit" });
         const n = ++seq.current;
         const { svg: out } = await mermaidRef.current.render(`mmd-${id}-${n}`, src);
         if (n === seq.current) { setSvg(out); setRenderError(null); }
@@ -54,61 +204,326 @@ export function DiagramEditor({
       }
     }, 350);
     return () => clearTimeout(t);
-  }, [code, id]);
+  }, [code, id, theme]);
+
+  // Ajuste automatiquement l'aperçu à chaque nouveau rendu.
+  useEffect(() => {
+    if (!svg) return;
+    const el = previewRef.current;
+    const m = svg.match(/viewBox="[-\d.]+ [-\d.]+ ([\d.]+) ([\d.]+)"/);
+    if (el && m) {
+      const w = Number(m[1]), h = Number(m[2]);
+      contentDim.current = { w, h };
+      const cw = el.clientWidth - 56, ch = el.clientHeight - 56;
+      const s = Math.min(cw / w, ch / h, 1.6);
+      setZoom(s > 0 && isFinite(s) ? s : 1);
+      setPan({ x: 0, y: 0 });
+    }
+  }, [svg]);
+
+  // Échap ferme les menus et le plein écran.
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") { setMenu(null); setPresent(false); } };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, []);
+
+  // Zoom molette (listener natif pour pouvoir preventDefault).
+  useEffect(() => {
+    const el = previewRef.current;
+    if (!el) return;
+    const onWheel = (e: WheelEvent) => {
+      e.preventDefault();
+      setZoom((z) => Math.min(4, Math.max(0.1, z * (e.deltaY < 0 ? 1.1 : 0.9))));
+    };
+    el.addEventListener("wheel", onWheel, { passive: false });
+    return () => el.removeEventListener("wheel", onWheel);
+  }, []);
 
   const onCode = (v: string) => { setCode(v); persist({ content: v }); };
   const onName = (v: string) => { setName(v); persist({ name: v.trim() || "Diagramme sans titre" }); };
 
+  const applyTemplate = (tpl: Template) => { setMenu(null); onCode(tpl.code); setMobileView("code"); };
+
+  const insertSnippet = (snippet: string) => {
+    setMenu(null);
+    const ta = codeRef.current;
+    if (!ta) { onCode(code + (code && !code.endsWith("\n") ? "\n" : "") + snippet); return; }
+    const s = ta.selectionStart, e = ta.selectionEnd;
+    const before = code.slice(0, s), after = code.slice(e);
+    const ins = (before.length && !before.endsWith("\n") ? "\n" : "") + snippet;
+    const next = before + ins + after;
+    onCode(next);
+    requestAnimationFrame(() => { const pos = (before + ins).length; ta.focus(); ta.setSelectionRange(pos, pos); });
+  };
+
+  // Direction (organigrammes uniquement).
+  const isFlowchart = /^\s*(graph|flowchart)\b/i.test(code);
+  const curDir = (code.match(/^\s*(?:graph|flowchart)\s+(TB|TD|BT|RL|LR)/i)?.[1] || "TD").toUpperCase();
+  const setDirection = (dir: string) => {
+    if (/^\s*(?:graph|flowchart)\s+(TB|TD|BT|RL|LR)/i.test(code)) {
+      onCode(code.replace(/^(\s*(?:graph|flowchart)\s+)(TB|TD|BT|RL|LR)/i, `$1${dir}`));
+    } else {
+      onCode(code.replace(/^(\s*(?:graph|flowchart))\b/i, `$1 ${dir}`));
+    }
+  };
+
+  const syncScroll = () => { if (gutterRef.current && codeRef.current) gutterRef.current.scrollTop = codeRef.current.scrollTop; };
+  const lineCount = useMemo(() => Math.max(1, code.split("\n").length), [code]);
+
+  // ── Pan (déplacement de l'aperçu) ──────────────────────────────────
+  const startPan = (e: React.PointerEvent) => {
+    if (e.button !== 0) return;
+    panGesture.current = { sx: e.clientX, sy: e.clientY, ox: pan.x, oy: pan.y };
+    const onMove = (ev: PointerEvent) => {
+      const g = panGesture.current; if (!g) return;
+      setPan({ x: g.ox + (ev.clientX - g.sx), y: g.oy + (ev.clientY - g.sy) });
+    };
+    const onUp = () => { panGesture.current = null; window.removeEventListener("pointermove", onMove); };
+    window.addEventListener("pointermove", onMove);
+    window.addEventListener("pointerup", onUp, { once: true });
+  };
+
+  const fit = () => {
+    const el = previewRef.current, d = contentDim.current;
+    if (!el || !d) { setZoom(1); setPan({ x: 0, y: 0 }); return; }
+    const s = Math.min((el.clientWidth - 56) / d.w, (el.clientHeight - 56) / d.h, 1.6);
+    setZoom(s > 0 && isFinite(s) ? s : 1); setPan({ x: 0, y: 0 });
+  };
+
+  // ── Export ─────────────────────────────────────────────────────────
+  const download = (href: string, ext: string) => {
+    const a = document.createElement("a"); a.href = href; a.download = `${(name || "diagramme").replace(/[^\w.-]+/g, "_")}.${ext}`; a.click();
+  };
+  const exportSvg = () => { setMenu(null); if (!svg) return; download(`data:image/svg+xml;charset=utf-8,${encodeURIComponent(svg)}`, "svg"); };
+  const copyCode = async () => { setMenu(null); try { await navigator.clipboard.writeText(code); } catch { /* ignore */ } };
+  const exportPng = async () => {
+    setMenu(null);
+    if (!svg) return;
+    const d = contentDim.current ?? { w: 1200, h: 800 };
+    const scale = 2;
+    const url = `data:image/svg+xml;charset=utf-8,${encodeURIComponent(svg)}`;
+    const img = new Image();
+    await new Promise((res, rej) => { img.onload = res; img.onerror = rej; img.src = url; });
+    const c = document.createElement("canvas");
+    c.width = Math.round(d.w * scale); c.height = Math.round(d.h * scale);
+    const ctx = c.getContext("2d")!;
+    ctx.fillStyle = theme === "dark" ? "#0b0e17" : "#ffffff";
+    ctx.fillRect(0, 0, c.width, c.height);
+    ctx.drawImage(img, 0, 0, c.width, c.height);
+    download(c.toDataURL("image/png"), "png");
+  };
+
+  const lightTheme = theme !== "dark";
+  const previewBg = lightTheme
+    ? "#f8fafc"
+    : "radial-gradient(circle at center, rgba(255,255,255,0.05), transparent 70%), #0a0d16";
+  const svgWrap = "[&_svg]:h-auto [&_svg]:max-w-none [&_svg]:select-none";
+
   return (
     <div className="flex h-full min-h-0 flex-col">
-      <header className="h-16 shrink-0 border-b border-white/10 bg-white/[0.03] backdrop-blur-xl px-4 sm:px-6 flex items-center gap-3">
-        <Link href={backHref} className="grid size-9 shrink-0 place-items-center rounded-lg text-muted hover:bg-white/5 hover:text-white transition" title="Retour">
-          <ArrowLeft className="size-5" />
-        </Link>
-        <div className="min-w-0 flex-1">
-          <div className="hidden sm:flex items-center gap-1 text-xs text-muted mb-0.5">
-            <Home className="size-3" />
-            {crumbs.map((c) => (<span key={c.id} className="flex items-center gap-1 min-w-0"><ChevronRight className="size-3 shrink-0" /><span className="truncate max-w-[140px]">{c.name}</span></span>))}
-          </div>
-          <div className="flex items-center gap-2">
-            <Workflow className="size-4 shrink-0 text-teal-400" />
-            <input value={name} onChange={(e) => onName(e.target.value)} className="min-w-0 flex-1 bg-transparent text-base font-semibold outline-none placeholder:text-white/30" placeholder="Diagramme sans titre" />
-          </div>
+      {/* En-tête */}
+      <header className="h-14 shrink-0 border-b border-white/10 bg-white/[0.03] backdrop-blur-xl px-3 sm:px-5 flex items-center gap-2 sm:gap-3">
+        <Link href={backHref} className="grid size-9 shrink-0 place-items-center rounded-lg text-muted hover:bg-white/5 hover:text-white transition" title="Retour"><ArrowLeft className="size-5" /></Link>
+        <Workflow className="size-4 shrink-0 text-teal-400" />
+        <input value={name} onChange={(e) => onName(e.target.value)} className="min-w-0 w-40 sm:w-64 bg-transparent text-sm font-semibold outline-none placeholder:text-white/30" placeholder="Diagramme sans titre" />
+        <div className="ml-auto flex items-center gap-1.5 text-xs text-muted">
+          {save === "saving" ? <Loader2 className="size-3.5 animate-spin" /> : save === "error" ? <span className="text-red-400">Erreur</span> : <Check className="size-3.5 text-emerald-400" />}
         </div>
-        <div className="flex items-center gap-1.5 text-xs text-muted">
-          {save === "saving" ? (<><Loader2 className="size-3.5 animate-spin" /> Enregistrement…</>) : save === "error" ? (<span className="text-red-400">Erreur</span>) : (<><Check className="size-3.5 text-emerald-400" /> Enregistré</>)}
-        </div>
+        <button onClick={() => setPresent(true)} className="flex h-9 items-center gap-1.5 rounded-lg bg-white/10 border border-white/15 px-3 text-sm font-medium text-white hover:bg-white/15" title="Plein écran"><Maximize2 className="size-4" /> <span className="hidden sm:inline">Plein écran</span></button>
         <AiAssistant
           kind="diagram" title="Assistant diagramme" accent="#14b8a6"
           getContext={() => code}
           onApplyText={(t) => onCode(t)}
           applyLabel="Remplacer le diagramme"
           placeholder="Ex. « flux d'une commande e-commerce »"
-          quickActions={[{ action: "generate", label: "Générer" }, { action: "fix", label: "Corriger la syntaxe" }]}
+          quickActions={[{ action: "generate", label: "Générer", icon: Sparkles }, { action: "fix", label: "Corriger la syntaxe" }]}
         />
       </header>
 
-      <div className="flex-1 min-h-0 grid lg:grid-cols-[minmax(280px,40%)_1fr]">
-        <textarea
-          value={code}
-          onChange={(e) => onCode(e.target.value)}
-          spellCheck={false}
-          placeholder={"graph TD\n  A[Début] --> B{Test}\n  B -->|oui| C[OK]\n  B -->|non| D[Fin]"}
-          className="h-full w-full resize-none bg-transparent px-5 py-6 font-mono text-[13px] leading-relaxed text-ink/90 outline-none placeholder:text-white/25"
-        />
-        <div className="relative min-h-0 overflow-auto border-l border-white/10 bg-white/[0.015] p-6">
+      {/* Barre d'outils */}
+      <div className="h-11 shrink-0 border-b border-white/10 bg-white/[0.02] px-3 sm:px-5 flex items-center gap-1.5 overflow-x-auto">
+        {/* Modèles */}
+        <Dropdown open={menu === "tpl"} onToggle={() => setMenu(menu === "tpl" ? null : "tpl")} onClose={() => setMenu(null)}
+          trigger={<><LayoutTemplate className="size-4" /> <span className="hidden sm:inline">Modèles</span> <ChevronDown className="size-3" /></>}>
+          <div className="grid w-64 grid-cols-2 gap-1">
+            {TEMPLATES.map((tpl) => (
+              <button key={tpl.key} onClick={() => applyTemplate(tpl)} className="flex items-center gap-2 rounded-lg px-2.5 py-2 text-sm text-white/85 hover:bg-white/5">
+                <tpl.icon className="size-4 shrink-0 text-teal-300" /> <span className="truncate">{tpl.label}</span>
+              </button>
+            ))}
+          </div>
+        </Dropdown>
+
+        {/* Éléments */}
+        <Dropdown open={menu === "snip"} onToggle={() => setMenu(menu === "snip" ? null : "snip")} onClose={() => setMenu(null)}
+          trigger={<><Shapes className="size-4" /> <span className="hidden sm:inline">Éléments</span> <ChevronDown className="size-3" /></>}>
+          <div className="max-h-[60vh] w-60 space-y-2 overflow-y-auto">
+            {SNIPPET_GROUPS.map((g) => (
+              <div key={g.label}>
+                <p className="mb-1 px-1 text-[10px] font-semibold uppercase tracking-wider text-muted/70">{g.label}</p>
+                <div className="grid grid-cols-2 gap-1">
+                  {g.items.map((it) => (
+                    <button key={it.l} onClick={() => insertSnippet(it.t)} title={it.t} className="truncate rounded-md px-2 py-1.5 text-left text-xs text-white/85 hover:bg-white/5">{it.l}</button>
+                  ))}
+                </div>
+              </div>
+            ))}
+          </div>
+        </Dropdown>
+
+        {/* Direction (organigrammes) */}
+        {isFlowchart && (
+          <>
+            <div className="mx-1 h-5 w-px bg-white/10" />
+            <div className="flex items-center gap-0.5 rounded-lg border border-white/10 bg-white/[0.03] p-0.5">
+              {DIRS.map((d) => {
+                const active = d.k === "TD" ? (curDir === "TD" || curDir === "TB") : curDir === d.k;
+                return (
+                  <button key={d.k} onClick={() => setDirection(d.k)} title={d.l} className={`grid size-7 place-items-center rounded-md transition ${active ? "bg-brand-500/25 text-white" : "text-muted hover:bg-white/5"}`}><d.i className="size-4" /></button>
+                );
+              })}
+            </div>
+          </>
+        )}
+
+        {/* Thème */}
+        <div className="mx-1 h-5 w-px bg-white/10" />
+        <Dropdown open={menu === "theme"} onToggle={() => setMenu(menu === "theme" ? null : "theme")} onClose={() => setMenu(null)}
+          trigger={<><Palette className="size-4" /> <span className="hidden sm:inline">{THEMES.find((t) => t.k === theme)?.l}</span> <ChevronDown className="size-3" /></>}>
+          <div className="w-36">
+            {THEMES.map((t) => (
+              <button key={t.k} onClick={() => { setTheme(t.k); setMenu(null); }} className={`flex w-full items-center gap-2 rounded-lg px-2.5 py-2 text-sm hover:bg-white/5 ${theme === t.k ? "text-white" : "text-white/70"}`}>
+                <span className="size-3 rounded-full border border-white/20" style={{ background: t.k === "dark" ? "#0a0d16" : t.k === "forest" ? "#1b4d3e" : t.k === "neutral" ? "#e5e7eb" : "#ffffff" }} /> {t.l}
+                {theme === t.k && <Check className="ml-auto size-3.5 text-teal-300" />}
+              </button>
+            ))}
+          </div>
+        </Dropdown>
+
+        <div className="ml-auto flex items-center gap-1.5">
+          {/* Bascule code / aperçu (mobile) */}
+          <div className="flex items-center gap-0.5 rounded-lg border border-white/10 bg-white/[0.03] p-0.5 lg:hidden">
+            <button onClick={() => setMobileView("code")} className={`grid size-7 place-items-center rounded-md ${mobileView === "code" ? "bg-brand-500/25 text-white" : "text-muted"}`} title="Code"><Code2 className="size-4" /></button>
+            <button onClick={() => setMobileView("preview")} className={`grid size-7 place-items-center rounded-md ${mobileView === "preview" ? "bg-brand-500/25 text-white" : "text-muted"}`} title="Aperçu"><Eye className="size-4" /></button>
+          </div>
+          {/* Export */}
+          <Dropdown align="right" open={menu === "export"} onToggle={() => setMenu(menu === "export" ? null : "export")} onClose={() => setMenu(null)}
+            trigger={<><Download className="size-4" /> <span className="hidden sm:inline">Exporter</span> <ChevronDown className="size-3" /></>}>
+            <div className="w-48">
+              <button onClick={exportPng} className="flex w-full items-center gap-2.5 rounded-lg px-2.5 py-2 text-sm text-white/85 hover:bg-white/5"><ImageIcon className="size-4 text-teal-300" /> Image PNG</button>
+              <button onClick={exportSvg} className="flex w-full items-center gap-2.5 rounded-lg px-2.5 py-2 text-sm text-white/85 hover:bg-white/5"><Download className="size-4 text-teal-300" /> Fichier SVG</button>
+              <button onClick={copyCode} className="flex w-full items-center gap-2.5 rounded-lg px-2.5 py-2 text-sm text-white/85 hover:bg-white/5"><Copy className="size-4 text-teal-300" /> Copier le code</button>
+            </div>
+          </Dropdown>
+        </div>
+      </div>
+
+      {/* Corps : éditeur + aperçu */}
+      <div className="flex flex-1 min-h-0">
+        {/* Éditeur de code */}
+        <div className={`${mobileView === "code" ? "flex" : "hidden"} lg:flex w-full lg:w-[38%] lg:min-w-[300px] lg:max-w-[560px] min-h-0 shrink-0 border-r border-white/10 bg-[#0b0d14]`}>
+          <div ref={gutterRef} className="select-none overflow-hidden py-4 pl-3 pr-2 text-right font-mono text-[13px] leading-[1.6] text-white/25">
+            {Array.from({ length: lineCount }, (_, i) => <div key={i}>{i + 1}</div>)}
+          </div>
+          <textarea
+            ref={codeRef}
+            value={code}
+            onChange={(e) => onCode(e.target.value)}
+            onScroll={syncScroll}
+            spellCheck={false}
+            placeholder={"graph TD\n  A[Début] --> B{Test}\n  B -->|oui| C[OK]\n  B -->|non| D[Fin]\n\n(ou choisissez un modèle ci-dessus)"}
+            className="h-full flex-1 resize-none bg-transparent py-4 pr-4 font-mono text-[13px] leading-[1.6] text-teal-50/90 outline-none placeholder:text-white/25"
+          />
+        </div>
+
+        {/* Aperçu zoomable */}
+        <div
+          ref={previewRef}
+          onPointerDown={startPan}
+          className={`${mobileView === "preview" ? "block" : "hidden"} lg:block relative min-h-0 flex-1 overflow-hidden ${panGesture.current ? "cursor-grabbing" : "cursor-grab"}`}
+          style={{ background: previewBg }}
+        >
           {renderError && (
-            <div className="absolute right-3 top-3 z-10 flex items-center gap-1.5 rounded-lg border border-amber-500/30 bg-amber-500/10 px-2.5 py-1.5 text-xs text-amber-300">
-              <AlertTriangle className="size-3.5" /> {renderError}
+            <div className="absolute left-1/2 top-3 z-20 flex -translate-x-1/2 items-center gap-1.5 rounded-lg border border-amber-500/30 bg-amber-500/15 px-3 py-1.5 text-xs text-amber-200 shadow-lg backdrop-blur">
+              <AlertTriangle className="size-3.5 shrink-0" /> {renderError}
             </div>
           )}
           {svg ? (
-            <div className="grid min-h-full place-items-center [&_svg]:max-w-full [&_svg]:h-auto" dangerouslySetInnerHTML={{ __html: svg }} />
+            <div className="absolute inset-0 grid place-items-center">
+              <div className={svgWrap} style={{ transform: `translate(${pan.x}px, ${pan.y}px) scale(${zoom})`, transformOrigin: "center center" }} dangerouslySetInnerHTML={{ __html: svg }} />
+            </div>
           ) : (
-            <div className="grid h-full place-items-center text-sm text-muted">Le diagramme s'affichera ici.</div>
+            <div className="grid h-full place-items-center px-6 text-center text-sm text-muted">
+              <div>
+                <Workflow className="mx-auto mb-3 size-8 text-white/15" />
+                Écrivez du code Mermaid ou choisissez un <span className="text-white/70">modèle</span> pour commencer.
+              </div>
+            </div>
+          )}
+
+          {/* Contrôles de zoom */}
+          {svg && (
+            <div className="pointer-events-auto absolute bottom-3 left-1/2 flex -translate-x-1/2 items-center gap-1 rounded-full border border-white/10 bg-[#0f1017]/90 px-1.5 py-1 text-xs text-muted backdrop-blur" onPointerDown={(e) => e.stopPropagation()}>
+              <button onClick={() => setZoom((z) => Math.max(0.1, z / 1.2))} className="grid size-7 place-items-center rounded-full hover:bg-white/10" title="Dézoomer"><ZoomOut className="size-4" /></button>
+              <button onClick={fit} className="px-1.5 tabular-nums hover:text-white" title="Ajuster">{Math.round(zoom * 100)}%</button>
+              <button onClick={() => setZoom((z) => Math.min(4, z * 1.2))} className="grid size-7 place-items-center rounded-full hover:bg-white/10" title="Zoomer"><ZoomIn className="size-4" /></button>
+              <div className="mx-0.5 h-4 w-px bg-white/10" />
+              <button onClick={fit} className="grid size-7 place-items-center rounded-full hover:bg-white/10" title="Ajuster à l'écran"><Maximize className="size-4" /></button>
+            </div>
           )}
         </div>
       </div>
+
+      {/* Plein écran */}
+      {present && (
+        <div className="fixed inset-0 z-[95] flex flex-col bg-black/95 backdrop-blur">
+          <button onClick={() => setPresent(false)} className="absolute right-4 top-4 z-10 grid size-10 place-items-center rounded-full bg-white/10 text-white hover:bg-white/20"><X className="size-5" /></button>
+          <div className="flex flex-1 items-center justify-center overflow-auto p-8" style={{ background: lightTheme ? "#f8fafc" : "transparent" }}>
+            {svg
+              ? <div className="[&_svg]:max-h-[88vh] [&_svg]:max-w-[94vw] [&_svg]:h-auto [&_svg]:w-auto" dangerouslySetInnerHTML={{ __html: svg }} />
+              : <p className="text-sm text-white/50">Rien à afficher.</p>}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ── Menu déroulant réutilisable ──────────────────────────────────────
+// Le panneau est rendu en portail (document.body) pour ne pas être rogné
+// par le défilement horizontal de la barre d'outils.
+function Dropdown({ open, onToggle, onClose, trigger, children, align = "left" }: {
+  open: boolean; onToggle: () => void; onClose: () => void; trigger: React.ReactNode; children: React.ReactNode; align?: "left" | "right";
+}) {
+  const btnRef = useRef<HTMLButtonElement>(null);
+  const [pos, setPos] = useState<{ top: number; left?: number; right?: number } | null>(null);
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => setMounted(true), []);
+  useEffect(() => {
+    if (!open) return;
+    const place = () => {
+      const b = btnRef.current;
+      if (!b) return;
+      const r = b.getBoundingClientRect();
+      setPos(align === "right"
+        ? { top: r.bottom + 6, right: Math.max(8, window.innerWidth - r.right) }
+        : { top: r.bottom + 6, left: r.left });
+    };
+    place();
+    window.addEventListener("resize", place);
+    return () => window.removeEventListener("resize", place);
+  }, [open, align]);
+  return (
+    <div className="relative shrink-0">
+      <button ref={btnRef} onClick={onToggle} className="flex h-8 items-center gap-1.5 rounded-lg border border-white/10 bg-white/5 px-2.5 text-sm text-white/85 hover:bg-white/10">{trigger}</button>
+      {open && mounted && pos && createPortal(
+        <>
+          <div className="fixed inset-0 z-[60]" onClick={onClose} />
+          <div className="fixed z-[61] max-h-[70vh] overflow-y-auto rounded-xl border border-white/10 bg-[#0f1017]/97 p-2 shadow-2xl backdrop-blur-xl" style={{ top: pos.top, left: pos.left, right: pos.right }} onClick={(e) => e.stopPropagation()}>{children}</div>
+        </>,
+        document.body,
+      )}
     </div>
   );
 }
