@@ -12,8 +12,9 @@ import {
 } from "lucide-react";
 import { api } from "@/lib/api";
 import { AiAssistant } from "./ai-assistant";
-import { useCollab } from "./use-collab";
+import { RealtimeEngine, type Actions } from "./realtime";
 import { CollabBar } from "./collab-bar";
+import type { Peer } from "./use-collab";
 
 type Crumb = { id: string; name: string };
 type SaveState = "saved" | "saving" | "idle" | "error";
@@ -694,30 +695,47 @@ export function DiagramEditor({
   const contentDim = useRef<{ w: number; h: number } | null>(null);
   const panGesture = useRef<{ sx: number; sy: number; ox: number; oy: number } | null>(null);
   const dirty = useRef(false);
+  const [peers, setPeers] = useState<Peer[]>([]);
+  const actions = useRef<Actions>({ markEditing: () => {}, syncVersion: () => {} });
 
-  const applyRemote = useCallback(async () => {
+  const applyRemoteString = useCallback((str: string) => {
+    setCode((prev) => {
+      if (prev === str) return prev;
+      const el = codeRef.current;
+      if (el && document.activeElement === el) {
+        const caret = el.selectionStart ?? 0;
+        const m = Math.min(prev.length, str.length);
+        let p = 0;
+        while (p < m && prev[p] === str[p]) p++;
+        const delta = str.length - prev.length;
+        const next = caret <= p ? caret : Math.max(p, caret + delta);
+        requestAnimationFrame(() => { try { el.setSelectionRange(next, next); } catch { /* ignore */ } });
+      }
+      return str;
+    });
+  }, []);
+  const fetchRemote = useCallback(async () => {
     if (dirty.current) return;
     try {
       const { content } = await api.getContent(id);
       if (dirty.current) return;
-      setCode(content);
+      applyRemoteString(content);
       setFlash(true);
       setTimeout(() => setFlash(false), 2500);
     } catch { /* ignore */ }
-  }, [id]);
-  const { peers, markEditing, syncVersion } = useCollab(id, shared, applyRemote);
+  }, [id, applyRemoteString]);
 
   const persist = useCallback((patch: { content?: string; name?: string }) => {
     setSave("saving");
     dirty.current = true;
-    markEditing();
+    actions.current.markEditing();
     if (timer.current) clearTimeout(timer.current);
     timer.current = setTimeout(() => {
       api.saveContent(id, patch)
-        .then((r) => { setSave("saved"); dirty.current = false; if (r?.updatedAt) syncVersion(r.updatedAt); })
+        .then((r) => { setSave("saved"); dirty.current = false; if (r?.updatedAt) actions.current.syncVersion(r.updatedAt); })
         .catch(() => setSave("error"));
     }, 600);
-  }, [id, markEditing, syncVersion]);
+  }, [id]);
 
   // ── Rendu Mermaid débouncé (ré-initialise selon le thème) ──────────
   useEffect(() => {
@@ -866,6 +884,7 @@ export function DiagramEditor({
 
   return (
     <div className="flex h-full min-h-0 flex-col">
+      <RealtimeEngine id={id} shared={shared} mode="text" content={code} onRemote={applyRemoteString} fetchRemote={fetchRemote} setPeers={setPeers} actions={actions} />
       {/* En-tête */}
       <header className="h-14 shrink-0 border-b border-white/10 bg-white/[0.03] backdrop-blur-xl px-3 sm:px-5 flex items-center gap-2 sm:gap-3">
         <Link href={backHref} className="grid size-9 shrink-0 place-items-center rounded-lg text-muted hover:bg-white/5 hover:text-white transition" title="Retour"><ArrowLeft className="size-5" /></Link>

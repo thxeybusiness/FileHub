@@ -6,8 +6,9 @@ import { marked } from "marked";
 import { ArrowLeft, Check, Loader2, ChevronRight, Home, StickyNote, Eye, Pencil, RefreshCw } from "lucide-react";
 import { api } from "@/lib/api";
 import { AiAssistant } from "./ai-assistant";
-import { useCollab } from "./use-collab";
+import { RealtimeEngine, type Actions } from "./realtime";
 import { CollabBar } from "./collab-bar";
+import type { Peer } from "./use-collab";
 
 type Crumb = { id: string; name: string };
 type SaveState = "saved" | "saving" | "idle" | "error";
@@ -29,30 +30,49 @@ export function NoteEditor({
   const [mobilePreview, setMobilePreview] = useState(false);
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const dirty = useRef(false);
+  const taRef = useRef<HTMLTextAreaElement | null>(null);
+  const [peers, setPeers] = useState<Peer[]>([]);
+  const actions = useRef<Actions>({ markEditing: () => {}, syncVersion: () => {} });
 
-  const applyRemote = useCallback(async () => {
+  // Applique un contenu distant en préservant au mieux la position du curseur.
+  const applyRemoteString = useCallback((str: string) => {
+    setContent((prev) => {
+      if (prev === str) return prev;
+      const el = taRef.current;
+      if (el && document.activeElement === el) {
+        const caret = el.selectionStart ?? 0;
+        const m = Math.min(prev.length, str.length);
+        let p = 0;
+        while (p < m && prev[p] === str[p]) p++;
+        const delta = str.length - prev.length;
+        const next = caret <= p ? caret : Math.max(p, caret + delta);
+        requestAnimationFrame(() => { try { el.setSelectionRange(next, next); } catch { /* ignore */ } });
+      }
+      return str;
+    });
+  }, []);
+  const fetchRemote = useCallback(async () => {
     if (dirty.current) return;
     try {
       const { content: remote } = await api.getContent(id);
       if (dirty.current) return;
-      setContent(remote);
+      applyRemoteString(remote);
       setFlash(true);
       setTimeout(() => setFlash(false), 2500);
     } catch { /* ignore */ }
-  }, [id]);
-  const { peers, markEditing, syncVersion } = useCollab(id, shared, applyRemote);
+  }, [id, applyRemoteString]);
 
   const persist = useCallback((patch: { content?: string; name?: string }) => {
     setSave("saving");
     dirty.current = true;
-    markEditing();
+    actions.current.markEditing();
     if (timer.current) clearTimeout(timer.current);
     timer.current = setTimeout(() => {
       api.saveContent(id, patch)
-        .then((r) => { setSave("saved"); dirty.current = false; if (r?.updatedAt) syncVersion(r.updatedAt); })
+        .then((r) => { setSave("saved"); dirty.current = false; if (r?.updatedAt) actions.current.syncVersion(r.updatedAt); })
         .catch(() => setSave("error"));
     }, 600);
-  }, [id, markEditing, syncVersion]);
+  }, [id]);
 
   const onContent = (v: string) => { setContent(v); persist({ content: v }); };
   const onName = (v: string) => { setName(v); persist({ name: v.trim() || "Note sans titre" }); };
@@ -63,6 +83,7 @@ export function NoteEditor({
 
   return (
     <div className="flex h-full min-h-0 flex-col">
+      <RealtimeEngine id={id} shared={shared} mode="text" content={content} onRemote={applyRemoteString} fetchRemote={fetchRemote} setPeers={setPeers} actions={actions} />
       <header className="h-16 shrink-0 border-b border-white/10 bg-white/[0.03] backdrop-blur-xl px-4 sm:px-6 flex items-center gap-3">
         <Link href={backHref} className="grid size-9 shrink-0 place-items-center rounded-lg text-muted hover:bg-white/5 hover:text-white transition" title="Retour">
           <ArrowLeft className="size-5" />
@@ -103,6 +124,7 @@ export function NoteEditor({
 
       <div className="flex-1 min-h-0 grid sm:grid-cols-2">
         <textarea
+          ref={taRef}
           value={content}
           onChange={(e) => onContent(e.target.value)}
           spellCheck

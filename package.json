@@ -13,6 +13,10 @@
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.110.0",
+    "@liveblocks/client": "^3.22.0",
+    "@liveblocks/node": "^3.22.0",
+    "@liveblocks/react": "^3.22.0",
+    "@liveblocks/yjs": "^3.22.0",
     "@prisma/client": "^6.19.3",
     "@univerjs/presets": "^0.25.1",
     "@univerjs/themes": "^0.25.1",
@@ -27,6 +31,7 @@
     "recharts": "^2.15.0",
     "stripe": "^22.3.0",
     "tailwind-merge": "^3.6.0",
+    "yjs": "^13.6.31",
     "zod": "^4.4.3"
   },
   "devDependencies": {

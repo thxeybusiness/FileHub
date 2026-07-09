@@ -1,12 +1,13 @@
 "use client";
 
-import { useCallback, useRef, useState } from "react";
+import { useCallback, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { ArrowLeft, Check, Loader2, ChevronRight, Home, KanbanSquare, Plus, X, ChevronLeft, RefreshCw } from "lucide-react";
 import { api } from "@/lib/api";
 import { AiAssistant } from "./ai-assistant";
-import { useCollab } from "./use-collab";
+import { RealtimeEngine, type Actions } from "./realtime";
 import { CollabBar } from "./collab-bar";
+import type { Peer } from "./use-collab";
 
 type Crumb = { id: string; name: string };
 type SaveState = "saved" | "saving" | "idle" | "error";
@@ -35,31 +36,34 @@ export function BoardEditor({
   const [flash, setFlash] = useState(false);
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const dirty = useRef(false);
+  const [peers, setPeers] = useState<Peer[]>([]);
+  const actions = useRef<Actions>({ markEditing: () => {}, syncVersion: () => {} });
 
-  // Récupère la version du document modifiée par un collaborateur.
-  const applyRemote = useCallback(async () => {
+  // Applique une version distante (chaîne JSON) — sans écraser une édition locale.
+  const applyRemoteString = useCallback((str: string) => {
     if (dirty.current) return;
-    try {
-      const { content } = await api.getContent(id);
-      if (dirty.current) return;
-      setBoard(parse(content));
-      setFlash(true);
-      setTimeout(() => setFlash(false), 2500);
-    } catch { /* ignore */ }
-  }, [id]);
-  const { peers, markEditing, syncVersion } = useCollab(id, shared, applyRemote);
+    setBoard(parse(str));
+    setFlash(true);
+    setTimeout(() => setFlash(false), 2500);
+  }, []);
+  const fetchRemote = useCallback(async () => {
+    if (dirty.current) return;
+    try { const { content } = await api.getContent(id); applyRemoteString(content); } catch { /* ignore */ }
+  }, [id, applyRemoteString]);
 
   const persist = useCallback((patch: { content?: string; name?: string }) => {
     setSave("saving");
     dirty.current = true;
-    markEditing();
+    actions.current.markEditing();
     if (timer.current) clearTimeout(timer.current);
     timer.current = setTimeout(() => {
       api.saveContent(id, patch)
-        .then((r) => { setSave("saved"); dirty.current = false; if (r?.updatedAt) syncVersion(r.updatedAt); })
+        .then((r) => { setSave("saved"); dirty.current = false; if (r?.updatedAt) actions.current.syncVersion(r.updatedAt); })
         .catch(() => setSave("error"));
     }, 500);
-  }, [id, markEditing, syncVersion]);
+  }, [id]);
+
+  const serialized = useMemo(() => JSON.stringify(board), [board]);
 
   const update = (mut: (b: Board) => Board) => {
     setBoard((prev) => {
@@ -101,6 +105,7 @@ export function BoardEditor({
 
   return (
     <div className="flex h-full min-h-0 flex-col">
+      <RealtimeEngine id={id} shared={shared} mode="blob" content={serialized} onRemote={applyRemoteString} fetchRemote={fetchRemote} setPeers={setPeers} actions={actions} />
       <header className="h-16 shrink-0 border-b border-white/10 bg-white/[0.03] backdrop-blur-xl px-4 sm:px-6 flex items-center gap-3">
         <Link href={backHref} className="grid size-9 shrink-0 place-items-center rounded-lg text-muted hover:bg-white/5 hover:text-white transition" title="Retour"><ArrowLeft className="size-5" /></Link>
         <div className="min-w-0 flex-1">
