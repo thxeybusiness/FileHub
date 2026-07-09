@@ -18,6 +18,7 @@ import {
   Sparkles,
   Crown,
   Gem,
+  Building2,
   X,
 } from "lucide-react";
 import { cn, formatBytes } from "@/lib/utils";
@@ -263,6 +264,10 @@ export function Sidebar({ initial }: { initial: Me }) {
                 <span className="inline-flex items-center gap-0.5 rounded-full bg-gradient-to-r from-[#f59e0b] to-[#f472b6] px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wide text-white shadow shadow-amber-500/30">
                   <Gem className="size-2.5" /> Fondateur
                 </span>
+              ) : me.plan === "business" ? (
+                <span className="inline-flex items-center gap-0.5 rounded-full bg-gradient-to-r from-[#f59e0b] to-[#f472b6] px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wide text-white shadow shadow-amber-500/30">
+                  <Building2 className="size-2.5" /> Business
+                </span>
               ) : me.plan === "premium" ? (
                 <span className="inline-flex items-center gap-0.5 rounded-full bg-gradient-to-r from-[#3b6dff] to-[#7b3bff] px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wide text-white shadow shadow-blue-500/30">
                   <Crown className="size-2.5" /> Pro
@@ -293,7 +298,7 @@ export function Sidebar({ initial }: { initial: Me }) {
           >
             <Gem className="size-3.5" /> Accès illimité à vie
           </Link>
-        ) : me.plan === "premium" ? (
+        ) : me.plan === "premium" || me.plan === "business" ? (
           <Link
             href="/drive/abonnement"
             className="mt-1 flex h-9 items-center justify-center gap-1.5 rounded-xl border border-white/10 text-xs font-medium text-white/80 hover:bg-white/5 transition"

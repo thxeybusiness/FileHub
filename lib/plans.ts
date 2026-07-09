@@ -1,7 +1,7 @@
 // Définition des paliers d'abonnement FileHub.
 // Le stockage est le principal levier ; la limite est appliquée à l'upload.
 
-export type PlanId = "free" | "premium";
+export type PlanId = "free" | "premium" | "business";
 
 export type Plan = {
   id: PlanId;
@@ -15,9 +15,11 @@ export type Plan = {
 };
 
 const GB = 1024 ** 3;
+const TB = 1024 ** 4;
 
 export const FREE_STORAGE = 1 * GB; // 1 Go
 export const PREMIUM_STORAGE = 250 * GB; // 250 Go
+export const BUSINESS_STORAGE = 2 * TB; // 2 To
 
 export const PLANS: Record<PlanId, Plan> = {
   free: {
@@ -50,10 +52,34 @@ export const PLANS: Record<PlanId, Plan> = {
       "Support prioritaire",
     ],
   },
+  business: {
+    id: "business",
+    name: "Business",
+    priceLabel: "24 € / mois",
+    priceMonthly: 24,
+    storage: BUSINESS_STORAGE,
+    storageLabel: "2 To",
+    features: [
+      "2 To de stockage",
+      "Tout ce qui est inclus dans Pro",
+      "Collaboration temps réel avancée",
+      "Espaces d'équipe & gestion des membres",
+      "Historique de versions étendu",
+      "Badge Business",
+      "Support prioritaire dédié",
+    ],
+  },
 };
 
 export function planStorage(plan: string): number {
-  return plan === "premium" ? PREMIUM_STORAGE : FREE_STORAGE;
+  if (plan === "business") return BUSINESS_STORAGE;
+  if (plan === "premium") return PREMIUM_STORAGE;
+  return FREE_STORAGE;
+}
+
+/** Vrai si le plan est une formule payante (Pro ou Business). */
+export function isPaidPlan(plan: string | null | undefined): boolean {
+  return plan === "premium" || plan === "business";
 }
 
 // ── Grade spécial « Fondateur » ────────────────────────────────────────────

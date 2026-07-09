@@ -106,7 +106,7 @@ export function Dashboard() {
                     </span>
                   )}
                 </p>
-                {!founder && stats.plan !== "premium" && (
+                {!founder && stats.plan !== "premium" && stats.plan !== "business" && (
                   <Link
                     href="/drive/abonnement"
                     className="inline-flex items-center gap-1.5 rounded-lg bg-gradient-to-r from-[#3b6dff] to-[#7b3bff] px-3 py-1.5 text-xs font-semibold text-white shadow-lg shadow-blue-500/25"

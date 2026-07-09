@@ -3,8 +3,8 @@
 import { useEffect, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import Link from "next/link";
-import { ArrowLeft, Check, Sparkles, Loader2, Crown, CreditCard, Home, Gem } from "lucide-react";
-import { PLANS, type PlanId } from "@/lib/plans";
+import { ArrowLeft, Check, Sparkles, Loader2, Crown, CreditCard, Home, Gem, Building2 } from "lucide-react";
+import { PLANS, type PlanId, isPaidPlan } from "@/lib/plans";
 import { api } from "@/lib/api";
 import { cn } from "@/lib/utils";
 
@@ -27,11 +27,11 @@ export function BillingPlans({ currentPlan, planStatus, renewsAt, hasSubscriptio
     else if (params.get("canceled")) setBanner("canceled");
   }, [params]);
 
-  const upgrade = async () => {
+  const upgrade = async (plan: "premium" | "business") => {
     setBusy("checkout");
     setError(null);
     try {
-      const { url } = await api.startCheckout();
+      const { url } = await api.startCheckout(plan);
       if (url) window.location.href = url;
       else setError("Paiement indisponible pour le moment.");
     } catch (e) {
@@ -54,7 +54,8 @@ export function BillingPlans({ currentPlan, planStatus, renewsAt, hasSubscriptio
     }
   };
 
-  const isPremium = currentPlan === "premium";
+  const isPaid = isPaidPlan(currentPlan);
+  const planRank: Record<string, number> = { free: 0, premium: 1, business: 2 };
 
   return (
     <div className="flex h-full min-h-0 flex-col">
@@ -108,11 +109,11 @@ export function BillingPlans({ currentPlan, planStatus, renewsAt, hasSubscriptio
             </div>
           </div>
         ) : (
-        <div className="mx-auto w-full max-w-3xl">
+        <div className="mx-auto w-full max-w-5xl">
           {banner === "success" && (
             <div className="mb-6 flex items-center gap-3 rounded-2xl border border-emerald-400/30 bg-emerald-500/10 px-4 py-3 text-sm animate-in">
               <Check className="size-5 text-emerald-400 shrink-0" />
-              <span>Bienvenue chez Pro ! Votre stockage a été augmenté à 250 Go.</span>
+              <span>Bienvenue ! Votre abonnement est actif et votre stockage a été augmenté.</span>
             </div>
           )}
           {banner === "canceled" && (
@@ -129,21 +130,26 @@ export function BillingPlans({ currentPlan, planStatus, renewsAt, hasSubscriptio
           <div className="text-center mb-8">
             <h2 className="text-2xl font-bold">Choisissez votre formule</h2>
             <p className="text-muted mt-1">
-              Passez à Pro pour 250 Go de stockage et des espaces illimités.
+              De 250 Go avec Pro à 2 To avec Business — passez à la vitesse supérieure.
             </p>
           </div>
 
-          <div className="grid gap-4 sm:grid-cols-2">
+          <div className="grid gap-4 sm:grid-cols-3">
             {(Object.values(PLANS)).map((plan) => {
               const active = currentPlan === plan.id;
+              const isBusiness = plan.id === "business";
+              // Formule payante déjà atteinte (ex. déjà Business quand on regarde Pro).
+              const owned = isPaid && planRank[currentPlan] >= planRank[plan.id];
               return (
                 <div
                   key={plan.id}
                   className={cn(
                     "relative flex flex-col rounded-3xl border p-6 transition",
-                    plan.highlight
-                      ? "border-brand-400/40 bg-gradient-to-b from-[#3b6dff]/10 to-transparent"
-                      : "border-white/10 bg-white/[0.03]",
+                    isBusiness
+                      ? "border-amber-400/40 bg-gradient-to-b from-[#f59e0b]/10 to-transparent"
+                      : plan.highlight
+                        ? "border-brand-400/40 bg-gradient-to-b from-[#3b6dff]/10 to-transparent"
+                        : "border-white/10 bg-white/[0.03]",
                   )}
                 >
                   {plan.highlight && (
@@ -151,8 +157,15 @@ export function BillingPlans({ currentPlan, planStatus, renewsAt, hasSubscriptio
                       Recommandé
                     </span>
                   )}
+                  {isBusiness && (
+                    <span className="absolute -top-3 left-6 rounded-full bg-gradient-to-r from-[#f59e0b] to-[#f472b6] px-3 py-1 text-[11px] font-semibold text-white shadow-lg shadow-amber-500/30">
+                      Le plus complet
+                    </span>
+                  )}
                   <div className="flex items-center gap-2">
-                    {plan.id === "premium" ? (
+                    {plan.id === "business" ? (
+                      <Building2 className="size-5 text-amber-300" />
+                    ) : plan.id === "premium" ? (
                       <Sparkles className="size-5 text-brand-300" />
                     ) : (
                       <Home className="size-5 text-muted" />
@@ -172,7 +185,7 @@ export function BillingPlans({ currentPlan, planStatus, renewsAt, hasSubscriptio
                   <ul className="mt-5 space-y-2.5 flex-1">
                     {plan.features.map((f) => (
                       <li key={f} className="flex items-start gap-2.5 text-sm">
-                        <Check className="size-4 shrink-0 mt-0.5 text-emerald-400" />
+                        <Check className={cn("size-4 shrink-0 mt-0.5", isBusiness ? "text-amber-300" : "text-emerald-400")} />
                         <span className="text-white/85">{f}</span>
                       </li>
                     ))}
@@ -181,7 +194,7 @@ export function BillingPlans({ currentPlan, planStatus, renewsAt, hasSubscriptio
                   <div className="mt-6">
                     {plan.id === "free" ? (
                       <div className="h-11 grid place-items-center rounded-xl border border-white/10 text-sm text-muted">
-                        {isPremium ? "Inclus dans Pro" : "Votre formule actuelle"}
+                        {isPaid ? "Inclus" : "Votre formule actuelle"}
                       </div>
                     ) : active ? (
                       <button
@@ -192,18 +205,29 @@ export function BillingPlans({ currentPlan, planStatus, renewsAt, hasSubscriptio
                         {busy === "portal" ? <Loader2 className="size-4 animate-spin" /> : <CreditCard className="size-4" />}
                         Gérer mon abonnement
                       </button>
+                    ) : owned ? (
+                      <div className="h-11 grid place-items-center rounded-xl border border-white/10 text-sm text-muted">
+                        Inclus dans {PLANS[currentPlan].name}
+                      </div>
                     ) : (
                       <button
-                        onClick={upgrade}
+                        onClick={() => upgrade(isBusiness ? "business" : "premium")}
                         disabled={busy !== null}
-                        className="group relative h-11 w-full overflow-hidden rounded-xl bg-gradient-to-r from-[#3b6dff] to-[#7b3bff] text-sm font-semibold text-white shadow-lg shadow-blue-500/25 transition hover:shadow-blue-500/40 flex items-center justify-center gap-2 disabled:opacity-60"
+                        className={cn(
+                          "group relative h-11 w-full overflow-hidden rounded-xl text-sm font-semibold text-white shadow-lg transition flex items-center justify-center gap-2 disabled:opacity-60",
+                          isBusiness
+                            ? "bg-gradient-to-r from-[#f59e0b] to-[#f472b6] shadow-amber-500/25 hover:shadow-amber-500/40"
+                            : "bg-gradient-to-r from-[#3b6dff] to-[#7b3bff] shadow-blue-500/25 hover:shadow-blue-500/40",
+                        )}
                       >
                         {busy === "checkout" ? (
                           <Loader2 className="size-4 animate-spin" />
+                        ) : isBusiness ? (
+                          <Building2 className="size-4" />
                         ) : (
                           <Sparkles className="size-4" />
                         )}
-                        Passer à Pro
+                        Passer à {plan.name}
                         <span className="absolute inset-0 -translate-x-full bg-gradient-to-r from-transparent via-white/25 to-transparent" style={{ animation: "shine 3.5s ease-in-out infinite" }} />
                       </button>
                     )}
@@ -213,7 +237,7 @@ export function BillingPlans({ currentPlan, planStatus, renewsAt, hasSubscriptio
             })}
           </div>
 
-          {isPremium && (
+          {isPaid && (
             <p className="mt-6 text-center text-xs text-muted">
               {planStatus === "active"
                 ? renewsAt

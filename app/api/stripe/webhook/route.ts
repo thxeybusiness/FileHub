@@ -1,8 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import type Stripe from "stripe";
 import { prisma } from "@/lib/prisma";
-import { getStripe, webhookSecret } from "@/lib/stripe";
-import { FREE_STORAGE, PREMIUM_STORAGE, isActive } from "@/lib/plans";
+import { getStripe, webhookSecret, planForPriceId } from "@/lib/stripe";
+import { FREE_STORAGE, planStorage, isActive } from "@/lib/plans";
 
 export const runtime = "nodejs";
 
@@ -73,7 +73,13 @@ async function syncSubscription(stripe: Stripe, sub: Stripe.Subscription) {
   }
   if (!userId) return;
 
-  const premium = isActive(sub.status);
+  const active = isActive(sub.status);
+  // Détermine le plan payant à partir du prix de l'abonnement (Pro ou Business),
+  // avec repli sur la metadata si le prix n'est pas reconnu.
+  const priceId = sub.items.data[0]?.price?.id;
+  const metaPlan = sub.metadata?.plan === "business" ? "business" : undefined;
+  const paidPlan = metaPlan ?? planForPriceId(priceId);
+  const plan = active ? paidPlan : "free";
   // La fin de période est sur l'abonnement (anciennes API) ou sur l'item
   // (API récentes) : on lit l'un ou l'autre sans dépendre du typage exact.
   const rawSub = sub as unknown as { current_period_end?: number };
@@ -83,12 +89,12 @@ async function syncSubscription(stripe: Stripe, sub: Stripe.Subscription) {
   await prisma.user.update({
     where: { id: userId },
     data: {
-      plan: premium ? "premium" : "free",
+      plan,
       planStatus: sub.status,
       stripeCustomerId: customerId,
       stripeSubscriptionId: sub.status === "canceled" ? null : sub.id,
       planRenewsAt: periodEnd ? new Date(periodEnd * 1000) : null,
-      storageLimit: BigInt(premium ? PREMIUM_STORAGE : FREE_STORAGE),
+      storageLimit: BigInt(active ? planStorage(plan) : FREE_STORAGE),
     },
   });
 }

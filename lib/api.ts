@@ -217,8 +217,12 @@ export const api = {
   },
 
   // ── Abonnement (Stripe) ──
-  startCheckout() {
-    return req<{ url: string | null }>("/api/billing/checkout", { method: "POST" });
+  startCheckout(plan: "premium" | "business" = "premium") {
+    return req<{ url: string | null }>("/api/billing/checkout", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ plan }),
+    });
   },
   openBillingPortal() {
     return req<{ url: string }>("/api/billing/portal", { method: "POST" });

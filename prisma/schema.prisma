@@ -24,7 +24,7 @@ model User {
   createdAt    DateTime @default(now())
 
   // Abonnement (Stripe)
-  plan                 String    @default("free") // "free" | "premium"
+  plan                 String    @default("free") // "free" | "premium" | "business"
   planStatus           String? // statut de l'abonnement Stripe (active, past_due, canceled…)
   planRenewsAt         DateTime? // fin de la période en cours
   stripeCustomerId     String?   @unique
