@@ -21,3 +21,5 @@ declare global {
 
 export const LIVE_ENABLED = process.env.NEXT_PUBLIC_LIVEBLOCKS_ENABLED === "1";
 export const roomId = (nodeId: string) => `filehub:node:${nodeId}`;
+
+// Déclenche le build de production.
