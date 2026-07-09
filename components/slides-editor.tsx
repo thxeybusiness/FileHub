@@ -26,6 +26,8 @@ import {
 } from "lucide-react";
 import { api } from "@/lib/api";
 import { AiAssistant } from "./ai-assistant";
+import { useCollab } from "./use-collab";
+import { CollabBar } from "./collab-bar";
 
 type Crumb = { id: string; name: string };
 type SaveState = "saved" | "saving" | "idle" | "error";
@@ -607,9 +609,9 @@ const TEXT_PRESETS: { k: string; l: string; size: number; weight: number; w: num
 ];
 
 export function SlidesEditor({
-  id, initialName, initialContent, backHref, crumbs,
+  id, initialName, initialContent, backHref, crumbs, shared = false,
 }: {
-  id: string; initialName: string; initialContent: string; backHref: string; crumbs: Crumb[];
+  id: string; initialName: string; initialContent: string; backHref: string; crumbs: Crumb[]; shared?: boolean;
 }) {
   const [name, setName] = useState(initialName);
   const [deck, setDeck] = useState<Deck>(() => migrate(initialContent));
@@ -618,6 +620,7 @@ export function SlidesEditor({
   const [editing, setEditing] = useState<string | null>(null);
   const [present, setPresent] = useState<number | null>(null);
   const [save, setSave] = useState<SaveState>("saved");
+  const [flash, setFlash] = useState(false);
   const [scale, setScale] = useState(0.6);
   const [shapeMenu, setShapeMenu] = useState(false);
   const [textMenu, setTextMenu] = useState(false);
@@ -641,13 +644,31 @@ export function SlidesEditor({
   const pal = paletteFor(slide.bg);
   const lockedCount = slide.els.filter((e) => e.locked).length;
 
+  const dirty = useRef(false);
+  const applyRemote = useCallback(async () => {
+    if (dirty.current) return;
+    try {
+      const { content } = await api.getContent(id);
+      if (dirty.current) return;
+      setDeck(migrate(content));
+      setSel(null); setEditing(null);
+      setFlash(true);
+      setTimeout(() => setFlash(false), 2500);
+    } catch { /* ignore */ }
+  }, [id]);
+  const { peers, markEditing, syncVersion } = useCollab(id, shared, applyRemote);
+
   const persist = useCallback((content: string, patch?: { name?: string }) => {
     setSave("saving");
+    dirty.current = true;
+    markEditing();
     if (timer.current) clearTimeout(timer.current);
     timer.current = setTimeout(() => {
-      api.saveContent(id, { content, ...patch }).then(() => setSave("saved")).catch(() => setSave("error"));
+      api.saveContent(id, { content, ...patch })
+        .then((r) => { setSave("saved"); dirty.current = false; if (r?.updatedAt) syncVersion(r.updatedAt); })
+        .catch(() => setSave("error"));
     }, 500);
-  }, [id]);
+  }, [id, markEditing, syncVersion]);
 
   const commit = useCallback(() => { persist(JSON.stringify(deckRef.current)); }, [persist]);
   const pushHistory = () => { past.current.push(JSON.stringify(deckRef.current)); if (past.current.length > 60) past.current.shift(); future.current = []; };
@@ -892,8 +913,9 @@ export function SlidesEditor({
           <button onClick={undo} className="grid size-8 place-items-center rounded-lg text-muted hover:bg-white/5 hover:text-white" title="Annuler (⌘Z)"><Undo2 className="size-4" /></button>
           <button onClick={redo} className="grid size-8 place-items-center rounded-lg text-muted hover:bg-white/5 hover:text-white" title="Rétablir (⌘⇧Z)"><Redo2 className="size-4" /></button>
         </div>
-        <div className="ml-auto flex items-center gap-1.5 text-xs text-muted">
-          {save === "saving" ? <Loader2 className="size-3.5 animate-spin" /> : save === "error" ? <span className="text-red-400">Erreur</span> : <Check className="size-3.5 text-emerald-400" />}
+        <div className="ml-auto"><CollabBar peers={peers} /></div>
+        <div className="flex items-center gap-1.5 text-xs text-muted">
+          {flash ? <span className="flex items-center gap-1 text-cyan-300"><RefreshCw className="size-3.5" /> <span className="hidden sm:inline">Mis à jour</span></span> : save === "saving" ? <Loader2 className="size-3.5 animate-spin" /> : save === "error" ? <span className="text-red-400">Erreur</span> : <Check className="size-3.5 text-emerald-400" />}
         </div>
         <button onClick={() => setPresent(cur)} className="flex h-9 items-center gap-1.5 rounded-lg bg-white/10 border border-white/15 px-3 text-sm font-medium text-white hover:bg-white/15"><Play className="size-4" /> <span className="hidden sm:inline">Présenter</span></button>
         <AiAssistant

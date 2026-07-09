@@ -7,11 +7,13 @@ import {
   ArrowLeft, ArrowRight, ArrowUp, ArrowDown, Check, Loader2, Workflow, AlertTriangle,
   Maximize2, Sparkles, LayoutTemplate, Shapes, ChevronDown, Palette, Download, ImageIcon,
   Copy, Eye, Code2, ZoomIn, ZoomOut, Maximize, X, ArrowLeftRight, Boxes, Waypoints,
-  Table2, Calendar, PieChart, Network, Route, GitBranch, LayoutGrid, Clock, Plus, Trash2,
+  Table2, Calendar, PieChart, Network, Route, GitBranch, LayoutGrid, Clock, Plus, Trash2, RefreshCw,
   type LucideIcon,
 } from "lucide-react";
 import { api } from "@/lib/api";
 import { AiAssistant } from "./ai-assistant";
+import { useCollab } from "./use-collab";
+import { CollabBar } from "./collab-bar";
 
 type Crumb = { id: string; name: string };
 type SaveState = "saved" | "saving" | "idle" | "error";
@@ -660,17 +662,19 @@ function detectKind(code: string): string | null {
 }
 
 export function DiagramEditor({
-  id, initialName, initialContent, backHref, crumbs,
+  id, initialName, initialContent, backHref, crumbs, shared = false,
 }: {
   id: string;
   initialName: string;
   initialContent: string;
   backHref: string;
   crumbs: Crumb[];
+  shared?: boolean;
 }) {
   const [name, setName] = useState(initialName);
   const [code, setCode] = useState(initialContent);
   const [save, setSave] = useState<SaveState>("saved");
+  const [flash, setFlash] = useState(false);
   const [svg, setSvg] = useState("");
   const [renderError, setRenderError] = useState<string | null>(null);
   const [theme, setTheme] = useState("filehub");
@@ -689,14 +693,31 @@ export function DiagramEditor({
   const previewRef = useRef<HTMLDivElement>(null);
   const contentDim = useRef<{ w: number; h: number } | null>(null);
   const panGesture = useRef<{ sx: number; sy: number; ox: number; oy: number } | null>(null);
+  const dirty = useRef(false);
+
+  const applyRemote = useCallback(async () => {
+    if (dirty.current) return;
+    try {
+      const { content } = await api.getContent(id);
+      if (dirty.current) return;
+      setCode(content);
+      setFlash(true);
+      setTimeout(() => setFlash(false), 2500);
+    } catch { /* ignore */ }
+  }, [id]);
+  const { peers, markEditing, syncVersion } = useCollab(id, shared, applyRemote);
 
   const persist = useCallback((patch: { content?: string; name?: string }) => {
     setSave("saving");
+    dirty.current = true;
+    markEditing();
     if (timer.current) clearTimeout(timer.current);
     timer.current = setTimeout(() => {
-      api.saveContent(id, patch).then(() => setSave("saved")).catch(() => setSave("error"));
+      api.saveContent(id, patch)
+        .then((r) => { setSave("saved"); dirty.current = false; if (r?.updatedAt) syncVersion(r.updatedAt); })
+        .catch(() => setSave("error"));
     }, 600);
-  }, [id]);
+  }, [id, markEditing, syncVersion]);
 
   // ── Rendu Mermaid débouncé (ré-initialise selon le thème) ──────────
   useEffect(() => {
@@ -850,8 +871,11 @@ export function DiagramEditor({
         <Link href={backHref} className="grid size-9 shrink-0 place-items-center rounded-lg text-muted hover:bg-white/5 hover:text-white transition" title="Retour"><ArrowLeft className="size-5" /></Link>
         <Workflow className="size-4 shrink-0 text-teal-400" />
         <input value={name} onChange={(e) => onName(e.target.value)} className="min-w-0 w-40 sm:w-64 bg-transparent text-sm font-semibold outline-none placeholder:text-white/30" placeholder="Diagramme sans titre" />
-        <div className="ml-auto flex items-center gap-1.5 text-xs text-muted">
-          {save === "saving" ? <Loader2 className="size-3.5 animate-spin" /> : save === "error" ? <span className="text-red-400">Erreur</span> : <Check className="size-3.5 text-emerald-400" />}
+        <div className="ml-auto flex items-center gap-2">
+          <CollabBar peers={peers} />
+          <div className="flex items-center gap-1.5 text-xs text-muted">
+            {flash ? <span className="flex items-center gap-1 text-cyan-300"><RefreshCw className="size-3.5" /> <span className="hidden sm:inline">Mis à jour</span></span> : save === "saving" ? <Loader2 className="size-3.5 animate-spin" /> : save === "error" ? <span className="text-red-400">Erreur</span> : <Check className="size-3.5 text-emerald-400" />}
+          </div>
         </div>
         <button onClick={() => setPresent(true)} className="flex h-9 items-center gap-1.5 rounded-lg bg-white/10 border border-white/15 px-3 text-sm font-medium text-white hover:bg-white/15" title="Plein écran"><Maximize2 className="size-4" /> <span className="hidden sm:inline">Plein écran</span></button>
         <AiAssistant

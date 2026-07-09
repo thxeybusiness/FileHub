@@ -27,6 +27,7 @@ export default async function Page({ params }: { params: Promise<{ id: string }>
       initialContent={node.content ?? ""}
       backHref={nodeBackHref(node.spaceId, node.parentId)}
       crumbs={crumbs}
+      shared={node.spaceId != null}
     />
   );
 }

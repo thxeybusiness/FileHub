@@ -2,9 +2,11 @@
 
 import { useCallback, useRef, useState } from "react";
 import Link from "next/link";
-import { ArrowLeft, Check, Loader2, ChevronRight, Home, KanbanSquare, Plus, X, ChevronLeft } from "lucide-react";
+import { ArrowLeft, Check, Loader2, ChevronRight, Home, KanbanSquare, Plus, X, ChevronLeft, RefreshCw } from "lucide-react";
 import { api } from "@/lib/api";
 import { AiAssistant } from "./ai-assistant";
+import { useCollab } from "./use-collab";
+import { CollabBar } from "./collab-bar";
 
 type Crumb = { id: string; name: string };
 type SaveState = "saved" | "saving" | "idle" | "error";
@@ -23,22 +25,41 @@ function parse(content: string): Board {
 }
 
 export function BoardEditor({
-  id, initialName, initialContent, backHref, crumbs,
+  id, initialName, initialContent, backHref, crumbs, shared = false,
 }: {
-  id: string; initialName: string; initialContent: string; backHref: string; crumbs: Crumb[];
+  id: string; initialName: string; initialContent: string; backHref: string; crumbs: Crumb[]; shared?: boolean;
 }) {
   const [name, setName] = useState(initialName);
   const [board, setBoard] = useState<Board>(() => parse(initialContent));
   const [save, setSave] = useState<SaveState>("saved");
+  const [flash, setFlash] = useState(false);
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const dirty = useRef(false);
+
+  // Récupère la version du document modifiée par un collaborateur.
+  const applyRemote = useCallback(async () => {
+    if (dirty.current) return;
+    try {
+      const { content } = await api.getContent(id);
+      if (dirty.current) return;
+      setBoard(parse(content));
+      setFlash(true);
+      setTimeout(() => setFlash(false), 2500);
+    } catch { /* ignore */ }
+  }, [id]);
+  const { peers, markEditing, syncVersion } = useCollab(id, shared, applyRemote);
 
   const persist = useCallback((patch: { content?: string; name?: string }) => {
     setSave("saving");
+    dirty.current = true;
+    markEditing();
     if (timer.current) clearTimeout(timer.current);
     timer.current = setTimeout(() => {
-      api.saveContent(id, patch).then(() => setSave("saved")).catch(() => setSave("error"));
+      api.saveContent(id, patch)
+        .then((r) => { setSave("saved"); dirty.current = false; if (r?.updatedAt) syncVersion(r.updatedAt); })
+        .catch(() => setSave("error"));
     }, 500);
-  }, [id]);
+  }, [id, markEditing, syncVersion]);
 
   const update = (mut: (b: Board) => Board) => {
     setBoard((prev) => {
@@ -92,8 +113,9 @@ export function BoardEditor({
             <input value={name} onChange={(e) => onName(e.target.value)} className="min-w-0 flex-1 bg-transparent text-base font-semibold outline-none placeholder:text-white/30" placeholder="Tableau sans titre" />
           </div>
         </div>
+        <CollabBar peers={peers} />
         <div className="flex items-center gap-1.5 text-xs text-muted">
-          {save === "saving" ? (<><Loader2 className="size-3.5 animate-spin" /> Enregistrement…</>) : save === "error" ? (<span className="text-red-400">Erreur</span>) : (<><Check className="size-3.5 text-emerald-400" /> Enregistré</>)}
+          {flash ? (<span className="flex items-center gap-1.5 text-cyan-300"><RefreshCw className="size-3.5" /> Mis à jour</span>) : save === "saving" ? (<><Loader2 className="size-3.5 animate-spin" /> Enregistrement…</>) : save === "error" ? (<span className="text-red-400">Erreur</span>) : (<><Check className="size-3.5 text-emerald-400" /> Enregistré</>)}
         </div>
         <AiAssistant
           kind="board" title="Assistant tâches" accent="#f97316"

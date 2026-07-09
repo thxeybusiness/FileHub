@@ -146,6 +146,13 @@ export const api = {
   saveContent(id: string, patch: { content?: string; name?: string }) {
     return req<{ ok: boolean; updatedAt: string }>(`/api/content/${id}`, jsonInit("PUT", patch));
   },
+  // Heartbeat de collaboration temps réel (présence + version du document).
+  collab(id: string, body: { editing?: boolean; leave?: boolean }) {
+    return req<{ updatedAt?: string; peers?: { userId: string; name: string; color: string; editing: boolean }[] }>(
+      `/api/collab/${id}`,
+      jsonInit("POST", body),
+    );
+  },
 
   // ── Espaces communs ──
   listSpaces() {

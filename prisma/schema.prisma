@@ -193,3 +193,19 @@ model Share {
   @@index([nodeId])
   @@map("filehub_share")
 }
+
+// Présence en temps réel : qui est actuellement dans un document (espaces
+// communs). Rafraîchie par heartbeat ; les entrées obsolètes sont purgées.
+model Presence {
+  id        String   @id @default(cuid())
+  nodeId    String
+  userId    String
+  name      String
+  color     String
+  editing   Boolean  @default(false)
+  updatedAt DateTime @updatedAt
+
+  @@unique([nodeId, userId])
+  @@index([nodeId])
+  @@map("filehub_presence")
+}
