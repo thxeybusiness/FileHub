@@ -28,7 +28,6 @@ import {
   Users,
   Brush,
   Presentation,
-  KanbanSquare,
   FolderKanban,
   StickyNote,
   Workflow,
@@ -221,7 +220,7 @@ export function DriveExplorer({
   };
 
   const createTyped = async (type: "note" | "diagram" | "board" | "slides" | "project") => {
-    const label = { note: "Note sans titre", diagram: "Diagramme sans titre", board: "Tableau sans titre", slides: "Présentation sans titre", project: "Projet sans titre" }[type];
+    const label = { note: "Note sans titre", diagram: "Diagramme sans titre", board: "Tableau kanban", slides: "Présentation sans titre", project: "Tableau sans titre" }[type];
     const { node } = await api.createNode(type, label, folderId, spaceId);
     router.push(`/drive/${type}/${node.id}`);
   };
@@ -463,8 +462,7 @@ export function DriveExplorer({
                           { icon: Table2, tint: "#10b981", label: "Feuille de calcul", desc: "Tableur complet", fn: createSheet },
                           { icon: BarChart3, tint: "#f59e0b", label: "Graphique", desc: "Choisir un type", expandable: true },
                           { icon: Presentation, tint: "#fb7185", label: "Présentation", desc: "Diaporama + IA", fn: () => createTyped("slides") },
-                          { icon: KanbanSquare, tint: "#f97316", label: "Tableau kanban", desc: "Tâches en colonnes", fn: () => createTyped("board") },
-                          { icon: FolderKanban, tint: "#8b5cf6", label: "Projet", desc: "Base de tâches multi-vues", fn: () => createTyped("project") },
+                          { icon: FolderKanban, tint: "#8b5cf6", label: "Tableau", desc: "Base de tâches multi-vues", fn: () => createTyped("project") },
                           { icon: StickyNote, tint: "#eab308", label: "Note", desc: "Markdown rapide", fn: () => createTyped("note") },
                           { icon: Workflow, tint: "#14b8a6", label: "Diagramme", desc: "Schéma Mermaid", fn: () => createTyped("diagram") },
                           { icon: Brush, tint: "#ec4899", label: "Dessin", desc: "Tablette graphique", fn: createDraw },

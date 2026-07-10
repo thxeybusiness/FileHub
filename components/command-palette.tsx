@@ -6,7 +6,7 @@ import { useRouter } from "next/navigation";
 import {
   Search, HardDrive, Sparkles, LayoutDashboard, Clock, Star, Trash2, Crown,
   FileText, Table2, BarChart3, Brush, FolderPlus, CornerDownLeft, ArrowUp, ArrowDown,
-  Presentation, KanbanSquare, FolderKanban, StickyNote, Workflow,
+  Presentation, FolderKanban, StickyNote, Workflow,
   type LucideIcon,
 } from "lucide-react";
 import { api } from "@/lib/api";
@@ -84,7 +84,7 @@ export function CommandPalette() {
     }
     const labels: Record<string, string> = {
       doc: "Document sans titre", sheet: "Feuille sans titre", chart: "Graphique sans titre", draw: "Dessin sans titre",
-      note: "Note sans titre", diagram: "Diagramme sans titre", board: "Tableau sans titre", slides: "Présentation sans titre", project: "Projet sans titre",
+      note: "Note sans titre", diagram: "Diagramme sans titre", board: "Tableau kanban", slides: "Présentation sans titre", project: "Tableau sans titre",
     };
     if (type === "note" || type === "diagram" || type === "board" || type === "slides" || type === "project") {
       const { node } = await api.createNode(type, labels[type], null, null);
@@ -112,8 +112,7 @@ export function CommandPalette() {
       { id: "new-chart", label: "Nouveau graphique", icon: BarChart3, run: () => create("chart") },
       { id: "new-draw", label: "Nouveau dessin", icon: Brush, run: () => create("draw") },
       { id: "new-slides", label: "Nouvelle présentation", icon: Presentation, run: () => create("slides") },
-      { id: "new-board", label: "Nouveau tableau kanban", icon: KanbanSquare, run: () => create("board") },
-      { id: "new-project", label: "Nouveau projet", icon: FolderKanban, run: () => create("project") },
+      { id: "new-project", label: "Nouveau tableau", icon: FolderKanban, run: () => create("project") },
       { id: "new-note", label: "Nouvelle note", icon: StickyNote, run: () => create("note") },
       { id: "new-diagram", label: "Nouveau diagramme", icon: Workflow, run: () => create("diagram") },
       { id: "new-folder", label: "Nouveau dossier", icon: FolderPlus, run: () => create("folder") },

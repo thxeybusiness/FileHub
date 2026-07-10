@@ -35,8 +35,8 @@ const TYPE_META: Record<string, { label: string; icon: typeof FileIcon; tint: st
   chart: { label: "Graphiques", icon: BarChart3, tint: "text-violet-300 bg-violet-500/10" },
   draw: { label: "Dessins", icon: Pencil, tint: "text-pink-300 bg-pink-500/10" },
   slides: { label: "Présentations", icon: Presentation, tint: "text-rose-300 bg-rose-500/10" },
-  board: { label: "Tableaux", icon: KanbanSquare, tint: "text-orange-300 bg-orange-500/10" },
-  project: { label: "Projets", icon: FolderKanban, tint: "text-violet-300 bg-violet-500/10" },
+  board: { label: "Kanban", icon: KanbanSquare, tint: "text-orange-300 bg-orange-500/10" },
+  project: { label: "Tableaux", icon: FolderKanban, tint: "text-violet-300 bg-violet-500/10" },
   note: { label: "Notes", icon: StickyNote, tint: "text-yellow-300 bg-yellow-500/10" },
   diagram: { label: "Diagrammes", icon: Workflow, tint: "text-teal-300 bg-teal-500/10" },
 };

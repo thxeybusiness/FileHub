@@ -399,7 +399,7 @@ export function ProjectEditor({
           </div>
           <div className="flex items-center gap-2">
             <FolderKanban className="size-4 shrink-0" style={{ color: ACCENT }} />
-            <input value={name} onChange={(e) => onName(e.target.value)} className="min-w-0 flex-1 bg-transparent text-base font-semibold outline-none placeholder:text-white/30" placeholder="Projet sans titre" />
+            <input value={name} onChange={(e) => onName(e.target.value)} className="min-w-0 flex-1 bg-transparent text-base font-semibold outline-none placeholder:text-white/30" placeholder="Tableau sans titre" />
           </div>
         </div>
         <CollabBar peers={peers} />
@@ -407,10 +407,10 @@ export function ProjectEditor({
           {flash ? (<span className="flex items-center gap-1.5 text-cyan-300"><RefreshCw className="size-3.5" /> Mis à jour</span>) : save === "saving" ? (<><Loader2 className="size-3.5 animate-spin" /> …</>) : save === "error" ? (<span className="text-red-400">Erreur</span>) : (<><Check className="size-3.5 text-emerald-400" /> Enregistré</>)}
         </div>
         <AiAssistant
-          kind="project" title="Assistant projet" accent={ACCENT}
+          kind="project" title="Assistant tableau" accent={ACCENT}
           onApplyData={(data) => applyAiTasks(data)}
           placeholder="Ex. « plan de lancement d'une application mobile »"
-          quickActions={[{ action: "generate", label: "Générer un plan de projet" }]}
+          quickActions={[{ action: "generate", label: "Générer un plan de tâches" }]}
         />
       </header>
 
