@@ -29,6 +29,7 @@ import {
   Brush,
   Presentation,
   KanbanSquare,
+  FolderKanban,
   StickyNote,
   Workflow,
   Sparkles,
@@ -188,7 +189,7 @@ export function DriveExplorer({
     else if (n.type === "sheet") router.push(`/drive/sheet/${n.id}`);
     else if (n.type === "chart") router.push(`/drive/chart/${n.id}`);
     else if (n.type === "draw") router.push(`/drive/draw/${n.id}`);
-    else if (n.type === "note" || n.type === "diagram" || n.type === "board" || n.type === "slides")
+    else if (n.type === "note" || n.type === "diagram" || n.type === "board" || n.type === "slides" || n.type === "project")
       router.push(`/drive/${n.type}/${n.id}`);
     else setPreview(n);
   };
@@ -219,8 +220,8 @@ export function DriveExplorer({
     router.push(`/drive/draw/${node.id}`);
   };
 
-  const createTyped = async (type: "note" | "diagram" | "board" | "slides") => {
-    const label = { note: "Note sans titre", diagram: "Diagramme sans titre", board: "Tableau sans titre", slides: "Présentation sans titre" }[type];
+  const createTyped = async (type: "note" | "diagram" | "board" | "slides" | "project") => {
+    const label = { note: "Note sans titre", diagram: "Diagramme sans titre", board: "Tableau sans titre", slides: "Présentation sans titre", project: "Projet sans titre" }[type];
     const { node } = await api.createNode(type, label, folderId, spaceId);
     router.push(`/drive/${type}/${node.id}`);
   };
@@ -463,6 +464,7 @@ export function DriveExplorer({
                           { icon: BarChart3, tint: "#f59e0b", label: "Graphique", desc: "Choisir un type", expandable: true },
                           { icon: Presentation, tint: "#fb7185", label: "Présentation", desc: "Diaporama + IA", fn: () => createTyped("slides") },
                           { icon: KanbanSquare, tint: "#f97316", label: "Tableau kanban", desc: "Tâches en colonnes", fn: () => createTyped("board") },
+                          { icon: FolderKanban, tint: "#8b5cf6", label: "Projet", desc: "Base de tâches multi-vues", fn: () => createTyped("project") },
                           { icon: StickyNote, tint: "#eab308", label: "Note", desc: "Markdown rapide", fn: () => createTyped("note") },
                           { icon: Workflow, tint: "#14b8a6", label: "Diagramme", desc: "Schéma Mermaid", fn: () => createTyped("diagram") },
                           { icon: Brush, tint: "#ec4899", label: "Dessin", desc: "Tablette graphique", fn: createDraw },

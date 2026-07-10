@@ -134,7 +134,7 @@ export const api = {
   },
 
   // ── Types génériques (note, diagram, board, slides) ──
-  createNode(type: "note" | "diagram" | "board" | "slides", name: string, parentId: string | null, spaceId?: string | null) {
+  createNode(type: "note" | "diagram" | "board" | "slides" | "project", name: string, parentId: string | null, spaceId?: string | null) {
     return req<{ node: SerializedNode }>(
       "/api/nodes",
       jsonInit("POST", { name, parentId, type, spaceId: spaceId ?? null }),
@@ -187,7 +187,7 @@ export const api = {
     return req<{ reply: string }>("/api/ai/chat", jsonInit("POST", { messages }));
   },
   ai(payload: {
-    kind: "doc" | "sheet" | "chart" | "draw" | "note" | "diagram" | "board" | "slides";
+    kind: "doc" | "sheet" | "chart" | "draw" | "note" | "diagram" | "board" | "slides" | "project";
     action: string;
     text?: string;
     instruction?: string;

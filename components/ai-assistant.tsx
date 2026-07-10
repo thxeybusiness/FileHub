@@ -19,7 +19,7 @@ export function AiAssistant({
   placeholder = "Demandez ce que vous voulez…",
   accent = "#7b3bff",
 }: {
-  kind: "doc" | "sheet" | "chart" | "draw" | "note" | "diagram" | "board" | "slides";
+  kind: "doc" | "sheet" | "chart" | "draw" | "note" | "diagram" | "board" | "slides" | "project";
   title?: string;
   quickActions: QuickAction[];
   getContext?: () => string;

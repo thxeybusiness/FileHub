@@ -23,6 +23,46 @@ const DEFAULT_BOARD = JSON.stringify({
 const DEFAULT_SLIDES = JSON.stringify({
   slides: [{ title: "Titre de la présentation", bullets: ["Premier point", "Deuxième point"] }],
 });
+// Projet : base de données de tâches (champs typés + lignes + vues).
+const DEFAULT_PROJECT = JSON.stringify({
+  fields: [
+    { id: "f_task", name: "Tâche", type: "text", primary: true, width: 280 },
+    {
+      id: "f_status", name: "Statut", type: "status", width: 150,
+      options: [
+        { id: "s_todo", name: "À faire", color: "#64748b" },
+        { id: "s_doing", name: "En cours", color: "#3b6dff" },
+        { id: "s_block", name: "Bloqué", color: "#ef4444" },
+        { id: "s_done", name: "Terminé", color: "#22c55e" },
+      ],
+    },
+    { id: "f_prio", name: "Priorité", type: "priority", width: 130 },
+    { id: "f_assignee", name: "Responsable", type: "person", width: 160 },
+    { id: "f_start", name: "Début", type: "date", width: 130 },
+    { id: "f_due", name: "Échéance", type: "date", width: 130 },
+    { id: "f_progress", name: "Avancement", type: "progress", width: 150 },
+    {
+      id: "f_tags", name: "Étiquettes", type: "tags", width: 200,
+      options: [
+        { id: "t_design", name: "Design", color: "#ec4899" },
+        { id: "t_dev", name: "Dev", color: "#3b6dff" },
+        { id: "t_research", name: "Recherche", color: "#a78bff" },
+        { id: "t_ops", name: "Ops", color: "#22d3ee" },
+      ],
+    },
+  ],
+  rows: [
+    { id: "r1", notes: "", checklist: [], cells: { f_task: "Cadrer le projet", f_status: "s_doing", f_prio: "high", f_assignee: "", f_progress: 40, f_tags: ["t_research"] } },
+    { id: "r2", notes: "", checklist: [], cells: { f_task: "Maquettes de l'interface", f_status: "s_todo", f_prio: "medium", f_assignee: "", f_progress: 0, f_tags: ["t_design"] } },
+    { id: "r3", notes: "", checklist: [], cells: { f_task: "Mise en place technique", f_status: "s_todo", f_prio: "medium", f_assignee: "", f_progress: 0, f_tags: ["t_dev"] } },
+  ],
+  views: [
+    { id: "v_table", name: "Table", type: "table" },
+    { id: "v_board", name: "Tableau", type: "board", groupBy: "f_status" },
+    { id: "v_cal", name: "Calendrier", type: "calendar", dateField: "f_due" },
+    { id: "v_time", name: "Chronologie", type: "timeline", startField: "f_start", endField: "f_due" },
+  ],
+});
 
 // GET /api/nodes?parent=<id|root>&view=my|starred|trash|recent&q=<search>&space=<id>
 export async function GET(req: NextRequest) {
@@ -57,7 +97,7 @@ export async function GET(req: NextRequest) {
     where.trashed = true;
   } else if (view === "recent") {
     where.trashed = false;
-    where.type = { in: ["file", "doc", "sheet", "chart", "draw", "note", "diagram", "board", "slides"] };
+    where.type = { in: ["file", "doc", "sheet", "chart", "draw", "note", "diagram", "board", "slides", "project"] };
   } else {
     where.trashed = false;
     where.parentId = parent && parent !== "root" ? parent : null;
@@ -116,7 +156,7 @@ const createSchema = z.object({
   parentId: z.string().nullable().optional(),
   color: z.string().optional(),
   type: z
-    .enum(["folder", "doc", "sheet", "chart", "draw", "note", "diagram", "board", "slides"])
+    .enum(["folder", "doc", "sheet", "chart", "draw", "note", "diagram", "board", "slides", "project"])
     .optional(),
   spaceId: z.string().nullable().optional(),
 });
@@ -169,6 +209,9 @@ export async function POST(req: NextRequest) {
         : {}),
       ...(type === "slides"
         ? { content: DEFAULT_SLIDES, mimeType: "application/vnd.filehub.slides" }
+        : {}),
+      ...(type === "project"
+        ? { content: DEFAULT_PROJECT, mimeType: "application/vnd.filehub.project" }
         : {}),
     },
     include: { _count: { select: { children: true } } },

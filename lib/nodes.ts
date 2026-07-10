@@ -4,7 +4,7 @@ export type SerializedNode = {
   id: string;
   parentId: string | null;
   name: string;
-  type: "folder" | "file" | "doc" | "sheet" | "chart" | "draw" | "note" | "diagram" | "board" | "slides";
+  type: "folder" | "file" | "doc" | "sheet" | "chart" | "draw" | "note" | "diagram" | "board" | "slides" | "project";
   color: string | null;
   mimeType: string | null;
   size: number;
@@ -35,7 +35,7 @@ export function serializeNode(n: NodeRow): SerializedNode {
     id: n.id,
     parentId: n.parentId,
     name: n.name,
-    type: n.type as "folder" | "file" | "doc" | "sheet" | "chart" | "draw" | "note" | "diagram" | "board" | "slides",
+    type: n.type as "folder" | "file" | "doc" | "sheet" | "chart" | "draw" | "note" | "diagram" | "board" | "slides" | "project",
     color: n.color,
     mimeType: n.mimeType,
     size: Number(n.size),

@@ -7,7 +7,7 @@ export const runtime = "nodejs";
 export const maxDuration = 60;
 
 const schema = z.object({
-  kind: z.enum(["doc", "sheet", "chart", "draw", "note", "diagram", "board", "slides"]),
+  kind: z.enum(["doc", "sheet", "chart", "draw", "note", "diagram", "board", "slides", "project"]),
   action: z.string().min(1).max(40),
   text: z.string().max(40000).optional(), // contenu / sélection / données
   instruction: z.string().max(2000).optional(), // demande libre de l'utilisateur
@@ -163,6 +163,33 @@ const SLIDES_SCHEMA = {
   required: ["slides"],
 };
 
+// ── Projet (liste de tâches structurée) ──────────────────────────────
+const PROJECT_SYSTEM = `Tu planifies un projet pour FileHub sous forme de liste de tâches.
+Chaque tâche a un titre concret et actionnable, un statut (À faire / En cours / Terminé),
+une priorité (urgent, high, medium, low), et éventuellement des étiquettes courtes.
+Propose 6 à 14 tâches couvrant l'ensemble du projet, du cadrage à la livraison.`;
+const PROJECT_SCHEMA = {
+  type: "object",
+  additionalProperties: false,
+  properties: {
+    tasks: {
+      type: "array",
+      items: {
+        type: "object",
+        additionalProperties: false,
+        properties: {
+          title: { type: "string" },
+          status: { type: "string", enum: ["todo", "doing", "done"] },
+          priority: { type: "string", enum: ["urgent", "high", "medium", "low"] },
+          tags: { type: "array", items: { type: "string" } },
+        },
+        required: ["title", "status", "priority"],
+      },
+    },
+  },
+  required: ["tasks"],
+};
+
 export async function POST(req: NextRequest) {
   const userId = await getUserId();
   if (!userId) return NextResponse.json({ error: "Non autorisé" }, { status: 401 });
@@ -203,6 +230,15 @@ export async function POST(req: NextRequest) {
         system: SLIDES_SYSTEM,
         user: `${instruction || "Crée une présentation pertinente."}${text ? `\n\nContexte :\n${text}` : ""}`,
         schema: SLIDES_SCHEMA,
+        maxTokens: 3000,
+      });
+      return NextResponse.json({ data });
+    }
+    if (kind === "project") {
+      const data = await completeJson({
+        system: PROJECT_SYSTEM,
+        user: `${instruction || "Planifie un projet pertinent en tâches."}${text ? `\n\nContexte :\n${text}` : ""}`,
+        schema: PROJECT_SCHEMA,
         maxTokens: 3000,
       });
       return NextResponse.json({ data });
