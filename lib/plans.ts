@@ -18,7 +18,7 @@ const GB = 1024 ** 3;
 const TB = 1024 ** 4;
 
 export const FREE_STORAGE = 1 * GB; // 1 Go
-export const PREMIUM_STORAGE = 250 * GB; // 250 Go
+export const PREMIUM_STORAGE = 50 * GB; // 50 Go
 export const BUSINESS_STORAGE = 2 * TB; // 2 To
 export const TEAM_STORAGE = 5 * GB; // 5 Go (grade offert)
 
@@ -64,14 +64,15 @@ export const PLANS: Record<PlanId, Plan> = {
     priceLabel: "9 € / mois",
     priceMonthly: 9,
     storage: PREMIUM_STORAGE,
-    storageLabel: "250 Go",
+    storageLabel: "50 Go",
     highlight: true,
     features: [
-      "250 Go de stockage",
-      "Espaces partagés illimités",
+      "50 Go de stockage",
+      "5 espaces partagés",
       "Tous les éditeurs sans limite",
       "Badge Pro",
       "Support prioritaire",
+      "2 utilisations IA / jour",
     ],
   },
   business: {
@@ -102,9 +103,22 @@ export function planStorage(plan: string): number {
 
 /** Nombre d'espaces partagés qu'un plan autorise à créer (Infinity = illimité). */
 export function spaceLimit(plan: string): number {
-  if (plan === "founder" || plan === "premium" || plan === "business") return Infinity;
+  if (plan === "founder" || plan === "business") return Infinity;
+  if (plan === "premium") return 5;
   if (plan === "team") return 3;
   return 1; // Basic
+}
+
+/** Nombre d'utilisations de l'IA par jour selon le grade (Infinity = illimité). */
+export function aiDailyLimit(plan: string): number {
+  if (plan === "founder") return Infinity;
+  if (plan === "premium") return 2;
+  return 0; // Basic, Team, Business : pas d'accès IA
+}
+
+/** Vrai si le grade a un accès (même limité) à l'IA. */
+export function hasAiAccess(plan: string): boolean {
+  return aiDailyLimit(plan) > 0;
 }
 
 /** Vrai si le plan est une formule payante (Pro ou Business). */

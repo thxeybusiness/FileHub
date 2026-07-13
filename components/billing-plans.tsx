@@ -157,7 +157,7 @@ export function BillingPlans({ currentPlan, planStatus, renewsAt, hasSubscriptio
           <div className="text-center mb-8">
             <h2 className="text-2xl font-bold">Choisissez votre formule</h2>
             <p className="text-muted mt-1">
-              De 250 Go avec Pro à 2 To avec Business — passez à la vitesse supérieure.
+              De 50 Go avec Pro à 2 To avec Business — passez à la vitesse supérieure.
             </p>
           </div>
 

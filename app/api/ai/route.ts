@@ -1,7 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { getUserId } from "@/lib/auth";
-import { callerIsFounder } from "@/lib/founder";
+import { prisma } from "@/lib/prisma";
+import { isFounder, aiDailyLimit } from "@/lib/plans";
+import { aiUsageToday, incrementAiUsage } from "@/lib/ai-quota";
 import { aiConfigured, completeText, completeJson } from "@/lib/ai";
 
 export const runtime = "nodejs";
@@ -195,17 +197,24 @@ export async function POST(req: NextRequest) {
   const userId = await getUserId();
   if (!userId) return NextResponse.json({ error: "Non autorisé" }, { status: 401 });
 
-  // L'assistant IA est réservé au compte Fondateur.
-  if (!(await callerIsFounder(userId))) {
-    return NextResponse.json({ error: "L'assistant IA est réservé au grade Fondateur." }, { status: 403 });
-  }
-
   if (!aiConfigured()) {
     return NextResponse.json(
       { error: "L'assistant IA n'est pas encore activé. Ajoutez la clé ANTHROPIC_API_KEY sur Vercel." },
       { status: 503 },
     );
   }
+
+  // Contrôle d'accès + quota quotidien selon le grade.
+  const me = await prisma.user.findUnique({ where: { id: userId }, select: { email: true, plan: true } });
+  const plan = isFounder(me?.email) ? "founder" : me?.plan ?? "free";
+  const limit = aiDailyLimit(plan);
+  if (limit <= 0) {
+    return NextResponse.json({ error: "L'assistant IA n'est pas inclus dans votre grade." }, { status: 403 });
+  }
+  if (Number.isFinite(limit) && (await aiUsageToday(userId)) >= limit) {
+    return NextResponse.json({ error: `Quota IA du jour atteint (${limit}/jour). Réessayez demain.` }, { status: 429 });
+  }
+  const charge = async () => { if (Number.isFinite(limit)) await incrementAiUsage(userId); };
 
   const body = await req.json().catch(() => null);
   const parsed = schema.safeParse(body);
@@ -220,6 +229,7 @@ export async function POST(req: NextRequest) {
         schema: CHART_SCHEMA,
         maxTokens: 2000,
       });
+      await charge();
       return NextResponse.json({ chart });
     }
     if (kind === "board") {
@@ -229,6 +239,7 @@ export async function POST(req: NextRequest) {
         schema: BOARD_SCHEMA,
         maxTokens: 2500,
       });
+      await charge();
       return NextResponse.json({ data });
     }
     if (kind === "slides") {
@@ -238,6 +249,7 @@ export async function POST(req: NextRequest) {
         schema: SLIDES_SCHEMA,
         maxTokens: 3000,
       });
+      await charge();
       return NextResponse.json({ data });
     }
     if (kind === "project") {
@@ -247,6 +259,7 @@ export async function POST(req: NextRequest) {
         schema: PROJECT_SCHEMA,
         maxTokens: 3000,
       });
+      await charge();
       return NextResponse.json({ data });
     }
 
@@ -267,6 +280,7 @@ export async function POST(req: NextRequest) {
       maxTokens: kind === "doc" ? 6000 : 2500,
       effort: "low",
     });
+    await charge();
     return NextResponse.json({ result });
   } catch (err) {
     const raw = err instanceof Error ? err.message : String(err);

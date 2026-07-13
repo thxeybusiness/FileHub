@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { Sparkles, X, Loader2, Send, Check, Copy, CornerDownLeft, type LucideIcon } from "lucide-react";
 import { api, type AiChart } from "@/lib/api";
+import { hasAiAccess } from "@/lib/plans";
 
 export type QuickAction = { action: string; label: string; icon?: LucideIcon };
 
@@ -40,7 +41,7 @@ export function AiAssistant({
   const [applied, setApplied] = useState(false);
   const [copied, setCopied] = useState(false);
   const [mounted, setMounted] = useState(false);
-  // L'assistant IA est réservé au compte Fondateur : masqué pour les autres.
+  // L'IA n'est visible que pour les grades qui y ont accès (Pro, Fondateur).
   const [allowed, setAllowed] = useState(false);
   const panelRef = useRef<HTMLDivElement>(null);
 
@@ -49,7 +50,7 @@ export function AiAssistant({
     let live = true;
     fetch("/api/me")
       .then((r) => (r.ok ? r.json() : null))
-      .then((d) => { if (live) setAllowed(d?.plan === "founder"); })
+      .then((d) => { if (live) setAllowed(hasAiAccess(d?.plan ?? "free")); })
       .catch(() => { if (live) setAllowed(false); });
     return () => { live = false; };
   }, []);

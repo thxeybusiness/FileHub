@@ -1,7 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { getUserId } from "@/lib/auth";
-import { callerIsFounder } from "@/lib/founder";
+import { prisma } from "@/lib/prisma";
+import { isFounder, aiDailyLimit } from "@/lib/plans";
+import { aiUsageToday, incrementAiUsage } from "@/lib/ai-quota";
 import { aiConfigured, completeChat, type ChatMessage } from "@/lib/ai";
 import { buildDriveContext } from "@/lib/drive-context";
 
@@ -34,16 +36,22 @@ export async function POST(req: NextRequest) {
   const userId = await getUserId();
   if (!userId) return NextResponse.json({ error: "Non autorisé" }, { status: 401 });
 
-  // L'assistant IA est réservé au compte Fondateur.
-  if (!(await callerIsFounder(userId))) {
-    return NextResponse.json({ error: "L'assistant IA est réservé au grade Fondateur." }, { status: 403 });
-  }
-
   if (!aiConfigured()) {
     return NextResponse.json(
       { error: "L'assistant IA n'est pas encore activé. Ajoutez la clé ANTHROPIC_API_KEY sur Vercel." },
       { status: 503 },
     );
+  }
+
+  // Contrôle d'accès + quota quotidien selon le grade.
+  const meRow = await prisma.user.findUnique({ where: { id: userId }, select: { email: true, plan: true } });
+  const plan = isFounder(meRow?.email) ? "founder" : meRow?.plan ?? "free";
+  const limit = aiDailyLimit(plan);
+  if (limit <= 0) {
+    return NextResponse.json({ error: "L'assistant IA n'est pas inclus dans votre grade." }, { status: 403 });
+  }
+  if (Number.isFinite(limit) && (await aiUsageToday(userId)) >= limit) {
+    return NextResponse.json({ error: `Quota IA du jour atteint (${limit}/jour). Réessayez demain.` }, { status: 429 });
   }
 
   const body = await req.json().catch(() => null);
@@ -56,6 +64,7 @@ export async function POST(req: NextRequest) {
   try {
     const context = await buildDriveContext(userId, lastUser?.content ?? "");
     const reply = await completeChat({ system: SYSTEM(context), messages });
+    if (Number.isFinite(limit)) await incrementAiUsage(userId);
     return NextResponse.json({ reply });
   } catch (err) {
     const raw = err instanceof Error ? err.message : String(err);

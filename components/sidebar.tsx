@@ -23,6 +23,7 @@ import {
   X,
 } from "lucide-react";
 import { cn, formatBytes } from "@/lib/utils";
+import { hasAiAccess } from "@/lib/plans";
 import { useRouter } from "next/navigation";
 import { api, notifyRefresh, type SpaceSummary } from "@/lib/api";
 import { NameDialog } from "./name-dialog";
@@ -144,7 +145,7 @@ export function Sidebar({ initial }: { initial: Me }) {
       </div>
 
       <nav className="flex-1 px-3 py-4 space-y-1">
-        {NAV.filter((item) => isFounder || item.href !== "/drive/assistant").map((item) => {
+        {NAV.filter((item) => item.href !== "/drive/assistant" || hasAiAccess(me.plan ?? "free")).map((item) => {
           const active = item.exact
             ? pathname === item.href
             : pathname.startsWith(item.href);
