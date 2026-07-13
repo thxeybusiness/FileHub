@@ -55,6 +55,7 @@ export const PLANS: Record<PlanId, Plan> = {
       "Documents, feuilles, graphiques, dessins",
       "1 espace partagé",
       "Partage par lien",
+      "Aucun accès à l'IA",
     ],
   },
   premium: {
