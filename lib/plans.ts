@@ -10,7 +10,7 @@ export type Plan = {
   name: string;
   priceLabel: string; // affichage ("0 €", "9 € / mois")
   priceMonthly: number; // en euros / mois
-  priceYearly?: number; // en euros / an (facturation annuelle = 12 × mensuel)
+  priceYearly?: number; // en euros / an (facturation annuelle)
   storage: number; // octets
   storageLabel: string;
   features: string[];
@@ -67,7 +67,7 @@ export const PLANS: Record<PlanId, Plan> = {
     name: "Pro",
     priceLabel: "9 € / mois",
     priceMonthly: 9,
-    priceYearly: 108, // 12 mois (9 € × 12)
+    priceYearly: 96, // annuel : équivalent 8 €/mois
     storage: PREMIUM_STORAGE,
     storageLabel: "50 Go",
     highlight: true,
@@ -85,7 +85,7 @@ export const PLANS: Record<PlanId, Plan> = {
     name: "Business",
     priceLabel: "24 € / mois",
     priceMonthly: 24,
-    priceYearly: 288, // 12 mois (24 € × 12)
+    priceYearly: 264, // annuel : équivalent 22 €/mois
     storage: BUSINESS_STORAGE,
     storageLabel: "500 Go",
     features: [
