@@ -135,7 +135,7 @@ export function Sidebar({ initial }: { initial: Me }) {
           <Cloud className="size-5 text-white" />
         </span>
         <span className="text-lg font-bold tracking-tight">
-          File<span className="text-white/50">'</span>Hub
+          FileHub
         </span>
         <button
           onClick={() => setMobileOpen(false)}

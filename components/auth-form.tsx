@@ -73,7 +73,7 @@ export function AuthForm({ mode }: { mode: "login" | "signup" }) {
             <Cloud className="size-5" />
           </span>
           <span className="text-lg">
-            File<span className="text-white/60">'</span>Hub
+            FileHub
           </span>
         </Link>
         <Link
