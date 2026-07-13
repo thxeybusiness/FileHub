@@ -8,12 +8,13 @@ import {
   ArrowLeft, Check, Loader2, KanbanSquare, Plus, X, RefreshCw, Search, Filter, Tag,
   Trash2, Calendar, Flag, GripVertical, MoreHorizontal, Copy, ListChecks, ChevronDown,
   Palette, AlignLeft, CircleDot, CalendarClock, Layers, List, CalendarDays, ArrowUpDown,
-  Archive, ChevronLeft, ChevronRight, Timer, RotateCcw, Eye, EyeOff, Minimize2,
+  Archive, ChevronLeft, ChevronRight, Timer, RotateCcw, Eye, EyeOff, Minimize2, History,
 } from "lucide-react";
 import { api } from "@/lib/api";
 import { AiAssistant } from "./ai-assistant";
 import { RealtimeEngine, type Actions } from "./realtime";
 import { CollabBar } from "./collab-bar";
+import { VersionHistory } from "./version-history";
 import type { Peer } from "./use-collab";
 
 type Crumb = { id: string; name: string };
@@ -169,6 +170,7 @@ export function BoardEditor({
   const dropColRef = useRef<string | null>(null);
   const moved = useRef(false);
   const [peers, setPeers] = useState<Peer[]>([]);
+  const [histOpen, setHistOpen] = useState(false);
   const actions = useRef<Actions>({ markEditing: () => {}, syncVersion: () => {} });
 
   const applyRemoteString = useCallback((str: string) => {
@@ -315,6 +317,7 @@ export function BoardEditor({
   return (
     <div className="flex h-full min-h-0 flex-col select-none">
       <RealtimeEngine id={id} shared={shared} mode="blob" content={serialized} onRemote={applyRemoteString} fetchRemote={fetchRemote} setPeers={setPeers} actions={actions} />
+      <VersionHistory id={id} open={histOpen} onClose={() => setHistOpen(false)} onRestore={applyRemoteString} />
 
       {/* En-tête */}
       <header className="h-14 shrink-0 border-b border-white/10 bg-white/[0.03] backdrop-blur-xl px-3 sm:px-5 flex items-center gap-2 sm:gap-3">
@@ -327,7 +330,10 @@ export function BoardEditor({
             <button key={k} onClick={() => setView(k)} title={l} className={`flex items-center gap-1.5 rounded-md px-2 py-1 text-xs transition ${view === k ? "bg-brand-500/25 text-white" : "text-muted hover:bg-white/5"}`}><I className="size-3.5" /> <span className="hidden md:inline">{l}</span></button>
           ))}
         </div>
-        <div className="ml-auto"><CollabBar peers={peers} /></div>
+        <button onClick={() => setHistOpen(true)} title="Historique des versions" className="ml-auto grid size-9 place-items-center rounded-lg text-muted hover:bg-white/5 hover:text-white transition">
+          <History className="size-5" />
+        </button>
+        <div><CollabBar peers={peers} /></div>
         <div className="flex items-center gap-1.5 text-xs text-muted">
           {flash ? <span className="flex items-center gap-1 text-cyan-300"><RefreshCw className="size-3.5" /> <span className="hidden sm:inline">Mis à jour</span></span> : save === "saving" ? <Loader2 className="size-3.5 animate-spin" /> : save === "error" ? <span className="text-red-400">Erreur</span> : <Check className="size-3.5 text-emerald-400" />}
         </div>

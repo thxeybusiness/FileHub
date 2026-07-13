@@ -20,6 +20,7 @@ import {
   Gem,
   Building2,
   ShieldCheck,
+  Settings,
   X,
 } from "lucide-react";
 import { cn, formatBytes } from "@/lib/utils";
@@ -46,6 +47,7 @@ const NAV = [
   { href: "/drive/starred", label: "Favoris", icon: Star },
   { href: "/drive/activite", label: "Activité", icon: ActivityIcon },
   { href: "/drive/trash", label: "Corbeille", icon: Trash2 },
+  { href: "/drive/settings", label: "Paramètres", icon: Settings },
 ];
 
 export function Sidebar({ initial }: { initial: Me }) {

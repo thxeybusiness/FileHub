@@ -242,6 +242,25 @@ export const api = {
   revokeTeam(recipientId: string) {
     return req<{ ok: boolean }>("/api/billing/team", jsonInit("DELETE", { recipientId }));
   },
+  // ── Compte ──
+  updateProfile(patch: { name?: string; username?: string }) {
+    return req<{ ok: boolean; user: { name: string | null; username: string | null; email: string } }>(
+      "/api/account/profile",
+      jsonInit("POST", patch),
+    );
+  },
+  changePassword(current: string, next: string) {
+    return req<{ ok: boolean }>("/api/account/password", jsonInit("POST", { current, next }));
+  },
+  // ── Historique de versions (documents) ──
+  listVersions(id: string) {
+    return req<{ versions: { id: string; authorName: string | null; size: number; createdAt: string }[] }>(
+      `/api/content/${id}/versions`,
+    );
+  },
+  restoreVersion(id: string, versionId: string) {
+    return req<{ content: string; updatedAt: string }>(`/api/content/${id}/versions`, jsonInit("POST", { versionId }));
+  },
   // ── Admin Fondateur : attribuer un grade ──
   adminSetPlan(email: string, plan: "free" | "team" | "premium" | "business") {
     return req<{ ok: boolean; previousPlan: string; user: { email: string; name: string | null; plan: string } }>(

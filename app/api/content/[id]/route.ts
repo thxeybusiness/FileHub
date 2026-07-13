@@ -3,6 +3,7 @@ import { z } from "zod";
 import { getUserId } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { getMemberSpaceIds, nodeAccessWhere, canWriteSpace } from "@/lib/spaces";
+import { snapshotVersion } from "@/lib/doc-versions";
 
 export const runtime = "nodejs";
 
@@ -66,5 +67,12 @@ export async function PUT(
   if (parsed.data.name !== undefined) data.name = parsed.data.name;
 
   const updated = await prisma.node.update({ where: { id }, data, select: { updatedAt: true } });
+
+  // Snapshot d'historique (best-effort, throttlé) quand le contenu change.
+  if (parsed.data.content !== undefined) {
+    const author = await prisma.user.findUnique({ where: { id: userId }, select: { name: true, email: true } });
+    void snapshotVersion(id, author?.name || author?.email?.split("@")[0] || null, parsed.data.content);
+  }
+
   return NextResponse.json({ ok: true, updatedAt: updated.updatedAt.toISOString() });
 }
