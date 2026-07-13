@@ -115,7 +115,7 @@ export function BillingPlans({ currentPlan, planStatus, renewsAt, hasSubscriptio
               >
                 <Gift className="size-4 shrink-0 text-amber-300" />
                 <span className="flex-1 text-sm text-white/90">
-                  Offrez le grade <span className="font-semibold text-amber-200">Partner</span> à 2 proches
+                  Offrez le grade <span className="font-semibold text-amber-200">Team</span> à 2 proches
                 </span>
                 <span className="shrink-0 rounded-full border border-amber-400/40 px-2 py-0.5 text-[11px] font-semibold text-amber-200">
                   En savoir +
@@ -148,7 +148,7 @@ export function BillingPlans({ currentPlan, planStatus, renewsAt, hasSubscriptio
             >
               <Gift className="size-5 shrink-0 text-amber-300" />
               <span className="flex-1">
-                Vous bénéficiez du grade <span className="font-semibold text-amber-200">Partner</span> (offert) : 5 Go de stockage et 3 espaces partagés.
+                Vous bénéficiez du grade <span className="font-semibold text-amber-200">Team</span> (offert) : 5 Go de stockage et 3 espaces partagés.
               </span>
               <span className="shrink-0 rounded-full border border-amber-400/40 px-2 py-0.5 text-[11px] font-semibold text-amber-200">En savoir +</span>
             </button>
@@ -225,7 +225,7 @@ export function BillingPlans({ currentPlan, planStatus, renewsAt, hasSubscriptio
                     >
                       <Gift className="size-4 shrink-0 text-amber-300" />
                       <span className="flex-1 text-sm text-white/90">
-                        Offrez le grade <span className="font-semibold text-amber-200">Partner</span> à 2 proches
+                        Offrez le grade <span className="font-semibold text-amber-200">Team</span> à 2 proches
                       </span>
                       <span className="shrink-0 rounded-full border border-amber-400/40 px-2 py-0.5 text-[11px] font-semibold text-amber-200">
                         En savoir +
@@ -236,7 +236,7 @@ export function BillingPlans({ currentPlan, planStatus, renewsAt, hasSubscriptio
                   <div className="mt-6">
                     {plan.id === "free" ? (
                       <div className="h-11 grid place-items-center rounded-xl border border-white/10 text-sm text-muted">
-                        {currentPlan === "team" ? "Inclus dans Partner" : isPaid ? "Inclus" : "Votre formule actuelle"}
+                        {currentPlan === "team" ? "Inclus dans Team" : isPaid ? "Inclus" : "Votre formule actuelle"}
                       </div>
                     ) : active ? (
                       <button

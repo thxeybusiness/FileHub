@@ -7,7 +7,7 @@ import { api } from "@/lib/api";
 
 const PLAN_OPTIONS: { id: "free" | "team" | "premium" | "business"; label: string; icon: typeof Home }[] = [
   { id: "free", label: "Basic", icon: Home },
-  { id: "team", label: "Partner", icon: Users },
+  { id: "team", label: "Team", icon: Users },
   { id: "premium", label: "Pro", icon: Crown },
   { id: "business", label: "Business", icon: Building2 },
 ];
