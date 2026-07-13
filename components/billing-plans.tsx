@@ -3,13 +3,14 @@
 import { useEffect, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import Link from "next/link";
-import { ArrowLeft, Check, Sparkles, Loader2, Crown, CreditCard, Home, Gem, Building2 } from "lucide-react";
+import { ArrowLeft, Check, Sparkles, Loader2, Crown, CreditCard, Home, Gem, Building2, Gift } from "lucide-react";
 import { PLANS, type PlanId, isPaidPlan } from "@/lib/plans";
 import { api } from "@/lib/api";
 import { cn } from "@/lib/utils";
+import { TeamGradeModal } from "./team-grade-modal";
 
 type Props = {
-  currentPlan: PlanId;
+  currentPlan: string;
   planStatus: string | null;
   renewsAt: string | null;
   hasSubscription: boolean;
@@ -21,6 +22,7 @@ export function BillingPlans({ currentPlan, planStatus, renewsAt, hasSubscriptio
   const [busy, setBusy] = useState<null | "checkout" | "portal">(null);
   const [error, setError] = useState<string | null>(null);
   const [banner, setBanner] = useState<null | "success" | "canceled">(null);
+  const [teamOpen, setTeamOpen] = useState(false);
 
   useEffect(() => {
     if (params.get("success")) setBanner("success");
@@ -106,6 +108,19 @@ export function BillingPlans({ currentPlan, planStatus, renewsAt, hasSubscriptio
               <span className="mt-7 inline-flex items-center gap-1.5 rounded-full border border-amber-400/30 bg-white/5 px-3 py-1 text-xs font-semibold text-amber-200">
                 <Gem className="size-3.5" /> Aucun paiement — à vie
               </span>
+
+              <button
+                onClick={() => setTeamOpen(true)}
+                className="mt-5 flex w-full items-center gap-2 rounded-xl border border-amber-400/30 bg-amber-500/10 px-3 py-2.5 text-left transition hover:bg-amber-500/15"
+              >
+                <Gift className="size-4 shrink-0 text-amber-300" />
+                <span className="flex-1 text-sm text-white/90">
+                  Offrez le grade <span className="font-semibold text-amber-200">Team</span> à 2 proches
+                </span>
+                <span className="shrink-0 rounded-full border border-amber-400/40 px-2 py-0.5 text-[11px] font-semibold text-amber-200">
+                  En savoir +
+                </span>
+              </button>
             </div>
           </div>
         ) : (
@@ -125,6 +140,18 @@ export function BillingPlans({ currentPlan, planStatus, renewsAt, hasSubscriptio
             <div className="mb-6 rounded-2xl border border-red-400/30 bg-red-500/10 px-4 py-3 text-sm text-red-200 animate-in">
               {error}
             </div>
+          )}
+          {currentPlan === "team" && (
+            <button
+              onClick={() => setTeamOpen(true)}
+              className="mb-6 flex w-full items-center gap-3 rounded-2xl border border-amber-400/30 bg-amber-500/10 px-4 py-3 text-left text-sm animate-in transition hover:bg-amber-500/15"
+            >
+              <Gift className="size-5 shrink-0 text-amber-300" />
+              <span className="flex-1">
+                Vous bénéficiez du grade <span className="font-semibold text-amber-200">Team</span> (offert) : 5 Go de stockage et 3 espaces partagés.
+              </span>
+              <span className="shrink-0 rounded-full border border-amber-400/40 px-2 py-0.5 text-[11px] font-semibold text-amber-200">En savoir +</span>
+            </button>
           )}
 
           <div className="text-center mb-8">
@@ -191,10 +218,25 @@ export function BillingPlans({ currentPlan, planStatus, renewsAt, hasSubscriptio
                     ))}
                   </ul>
 
+                  {isBusiness && (
+                    <button
+                      onClick={() => setTeamOpen(true)}
+                      className="mt-3 flex w-full items-center gap-2 rounded-xl border border-amber-400/30 bg-amber-500/10 px-3 py-2 text-left transition hover:bg-amber-500/15"
+                    >
+                      <Gift className="size-4 shrink-0 text-amber-300" />
+                      <span className="flex-1 text-sm text-white/90">
+                        Offrez le grade <span className="font-semibold text-amber-200">Team</span> à 2 proches
+                      </span>
+                      <span className="shrink-0 rounded-full border border-amber-400/40 px-2 py-0.5 text-[11px] font-semibold text-amber-200">
+                        En savoir +
+                      </span>
+                    </button>
+                  )}
+
                   <div className="mt-6">
                     {plan.id === "free" ? (
                       <div className="h-11 grid place-items-center rounded-xl border border-white/10 text-sm text-muted">
-                        {isPaid ? "Inclus" : "Votre formule actuelle"}
+                        {currentPlan === "team" ? "Inclus dans Team" : isPaid ? "Inclus" : "Votre formule actuelle"}
                       </div>
                     ) : active ? (
                       <button
@@ -207,7 +249,7 @@ export function BillingPlans({ currentPlan, planStatus, renewsAt, hasSubscriptio
                       </button>
                     ) : owned ? (
                       <div className="h-11 grid place-items-center rounded-xl border border-white/10 text-sm text-muted">
-                        Inclus dans {PLANS[currentPlan].name}
+                        Inclus dans {PLANS[currentPlan as PlanId]?.name ?? "votre grade"}
                       </div>
                     ) : (
                       <button
@@ -255,6 +297,8 @@ export function BillingPlans({ currentPlan, planStatus, renewsAt, hasSubscriptio
         </div>
         )}
       </div>
+
+      <TeamGradeModal open={teamOpen} onClose={() => setTeamOpen(false)} />
     </div>
   );
 }

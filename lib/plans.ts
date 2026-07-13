@@ -20,6 +20,27 @@ const TB = 1024 ** 4;
 export const FREE_STORAGE = 1 * GB; // 1 Go
 export const PREMIUM_STORAGE = 250 * GB; // 250 Go
 export const BUSINESS_STORAGE = 2 * TB; // 2 To
+export const TEAM_STORAGE = 5 * GB; // 5 Go (grade offert)
+
+// Nombre maximum de grades « Team » qu'un membre Business peut offrir.
+export const MAX_TEAM_GIFTS = 2;
+
+// Grade « Team » : non achetable, offert par un membre Business. Comme Basic,
+// mais avec 5 Go de stockage et jusqu'à 3 espaces partagés.
+export const TEAM_PLAN = {
+  id: "team" as const,
+  name: "Team",
+  storage: TEAM_STORAGE,
+  storageLabel: "5 Go",
+  spaces: 3,
+  features: [
+    "5 Go de stockage",
+    "Jusqu'à 3 espaces partagés",
+    "Documents, feuilles, graphiques, dessins",
+    "Partage par lien",
+    "Grade offert (non achetable)",
+  ],
+};
 
 export const PLANS: Record<PlanId, Plan> = {
   free: {
@@ -74,12 +95,25 @@ export const PLANS: Record<PlanId, Plan> = {
 export function planStorage(plan: string): number {
   if (plan === "business") return BUSINESS_STORAGE;
   if (plan === "premium") return PREMIUM_STORAGE;
+  if (plan === "team") return TEAM_STORAGE;
   return FREE_STORAGE;
+}
+
+/** Nombre d'espaces partagés qu'un plan autorise à créer (Infinity = illimité). */
+export function spaceLimit(plan: string): number {
+  if (plan === "founder" || plan === "premium" || plan === "business") return Infinity;
+  if (plan === "team") return 3;
+  return 1; // Basic
 }
 
 /** Vrai si le plan est une formule payante (Pro ou Business). */
 export function isPaidPlan(plan: string | null | undefined): boolean {
   return plan === "premium" || plan === "business";
+}
+
+/** Vrai si le membre peut offrir le grade Team (Business ou Fondateur). */
+export function canGiftTeam(plan: string | null | undefined, email?: string | null): boolean {
+  return plan === "business" || isFounder(email);
 }
 
 // ── Grade spécial « Fondateur » ────────────────────────────────────────────

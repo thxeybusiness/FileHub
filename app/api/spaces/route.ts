@@ -3,6 +3,7 @@ import { z } from "zod";
 import { getUserId } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { notify } from "@/lib/notifications";
+import { spaceLimit, effectivePlan } from "@/lib/plans";
 
 export const runtime = "nodejs";
 
@@ -48,6 +49,24 @@ export async function POST(req: NextRequest) {
   const body = await req.json().catch(() => null);
   const parsed = createSchema.safeParse(body);
   if (!parsed.success) return NextResponse.json({ error: "Nom invalide" }, { status: 400 });
+
+  // Limite d'espaces partagés selon le grade (Basic : 1, Team : 3, Pro/Business : illimité).
+  const me = await prisma.user.findUnique({ where: { id: userId }, select: { email: true, plan: true } });
+  const limit = spaceLimit(effectivePlan(me?.email, me?.plan ?? "free"));
+  if (Number.isFinite(limit)) {
+    const owned = await prisma.space.count({ where: { ownerId: userId } });
+    if (owned >= limit) {
+      return NextResponse.json(
+        {
+          error:
+            limit === 1
+              ? "Votre grade Basic permet 1 espace partagé. Passez à un grade supérieur pour en créer davantage."
+              : `Votre grade permet ${limit} espaces partagés. Vous avez atteint cette limite.`,
+        },
+        { status: 403 },
+      );
+    }
+  }
 
   const space = await prisma.space.create({
     data: {

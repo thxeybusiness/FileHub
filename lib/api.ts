@@ -227,6 +227,21 @@ export const api = {
   openBillingPortal() {
     return req<{ url: string }>("/api/billing/portal", { method: "POST" });
   },
+  // ── Grade Team (offert par les membres Business) ──
+  teamGifts() {
+    return req<{ canGift: boolean; max: number; used: number; gifts: { id: string; email: string; name: string | null }[] }>(
+      "/api/billing/team",
+    );
+  },
+  giftTeam(email: string) {
+    return req<{ ok: boolean; recipient: { id: string; email: string; name: string | null } }>(
+      "/api/billing/team",
+      jsonInit("POST", { email }),
+    );
+  },
+  revokeTeam(recipientId: string) {
+    return req<{ ok: boolean }>("/api/billing/team", jsonInit("DELETE", { recipientId }));
+  },
 
   saveChart(id: string, patch: { content?: unknown; name?: string }) {
     return req<{ ok: boolean; updatedAt: string }>(`/api/charts/${id}`, jsonInit("PUT", patch));
