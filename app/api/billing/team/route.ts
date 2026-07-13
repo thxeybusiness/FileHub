@@ -45,7 +45,7 @@ export async function POST(req: NextRequest) {
   const me = await loadCaller(userId);
   if (!me) return NextResponse.json({ error: "Non autorisé" }, { status: 401 });
   if (!canGiftTeam(me.plan, me.email)) {
-    return NextResponse.json({ error: "Le grade Team ne peut être offert que par un membre Business." }, { status: 403 });
+    return NextResponse.json({ error: "Le grade Partner ne peut être offert que par un membre Business." }, { status: 403 });
   }
 
   const body = await req.json().catch(() => null);
@@ -56,14 +56,14 @@ export async function POST(req: NextRequest) {
   // Quota : 2 grades maximum par membre Business.
   const used = await prisma.user.count({ where: { plan: "team", planStatus: giftTag(userId) } });
   if (used >= MAX_TEAM_GIFTS) {
-    return NextResponse.json({ error: `Vous avez déjà offert ${MAX_TEAM_GIFTS} grades Team.` }, { status: 400 });
+    return NextResponse.json({ error: `Vous avez déjà offert ${MAX_TEAM_GIFTS} grades Partner.` }, { status: 400 });
   }
 
   const recipient = await prisma.user.findUnique({ where: { email }, select: { id: true, email: true, name: true, plan: true, planStatus: true } });
   if (!recipient) return NextResponse.json({ error: "Aucun compte FileHub avec cet e-mail." }, { status: 404 });
   if (recipient.id === userId) return NextResponse.json({ error: "Vous ne pouvez pas vous offrir le grade à vous-même." }, { status: 400 });
   if (recipient.plan === "team") {
-    return NextResponse.json({ error: "Cette personne bénéficie déjà d'un grade Team." }, { status: 400 });
+    return NextResponse.json({ error: "Cette personne bénéficie déjà d'un grade Partner." }, { status: 400 });
   }
   if (recipient.plan !== "free") {
     return NextResponse.json({ error: "Cette personne a déjà un grade supérieur (Pro/Business)." }, { status: 400 });
@@ -76,8 +76,8 @@ export async function POST(req: NextRequest) {
 
   await notify(recipient.id, {
     type: "team_gift",
-    title: "Vous avez reçu le grade Team 🎁",
-    body: `${me.name || me.email} vous offre le grade Team : 5 Go de stockage et 3 espaces partagés.`,
+    title: "Vous avez reçu le grade Partner 🎁",
+    body: `${me.name || me.email} vous offre le grade Partner : 5 Go de stockage et 3 espaces partagés.`,
   });
 
   return NextResponse.json({ ok: true, recipient: { id: recipient.id, email: recipient.email, name: recipient.name } });

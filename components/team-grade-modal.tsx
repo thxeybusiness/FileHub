@@ -55,7 +55,7 @@ export function TeamGradeModal({ open, onClose }: { open: boolean; onClose: () =
       const { recipient } = await api.giftTeam(e);
       setGifts((g) => [...g, recipient]);
       setEmail("");
-      setOk(`Grade Team offert à ${recipient.name || recipient.email}.`);
+      setOk(`Grade Partner offert à ${recipient.name || recipient.email}.`);
     } catch (err) {
       setError((err as Error).message);
     } finally {
@@ -106,7 +106,7 @@ export function TeamGradeModal({ open, onClose }: { open: boolean; onClose: () =
 
         <div className="max-h-[70vh] overflow-auto p-5">
           <p className="text-sm text-muted">
-            Un membre <span className="font-semibold text-amber-200">Business</span> peut offrir le grade Team à
+            Un membre <span className="font-semibold text-amber-200">Business</span> peut offrir le grade Partner à
             <span className="font-semibold text-white"> {max} personnes</span>. Il reprend le grade Basic, avec plus d&apos;espace.
           </p>
 
@@ -139,7 +139,7 @@ export function TeamGradeModal({ open, onClose }: { open: boolean; onClose: () =
             ) : canGift ? (
               <>
                 <div className="mb-2 flex items-center justify-between">
-                  <span className="text-sm font-semibold">Offrir le grade Team</span>
+                  <span className="text-sm font-semibold">Offrir le grade Partner</span>
                   <span className="rounded-full border border-amber-400/30 bg-amber-500/10 px-2 py-0.5 text-[11px] font-semibold text-amber-200">{gifts.length}/{max} offerts</span>
                 </div>
 
@@ -163,7 +163,7 @@ export function TeamGradeModal({ open, onClose }: { open: boolean; onClose: () =
                     </button>
                   </div>
                 ) : (
-                  <p className="rounded-xl border border-white/10 bg-white/[0.03] px-3 py-2 text-xs text-muted">Vous avez offert tous vos grades Team.</p>
+                  <p className="rounded-xl border border-white/10 bg-white/[0.03] px-3 py-2 text-xs text-muted">Vous avez offert tous vos grades Partner.</p>
                 )}
 
                 {error && <p className="mt-2 rounded-lg border border-red-400/30 bg-red-500/10 px-3 py-2 text-xs text-red-200">{error}</p>}

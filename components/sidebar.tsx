@@ -276,7 +276,7 @@ export function Sidebar({ initial }: { initial: Me }) {
                 </span>
               ) : me.plan === "team" ? (
                 <span className="inline-flex items-center gap-0.5 rounded-full bg-gradient-to-r from-[#f59e0b] to-[#f472b6] px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wide text-white shadow shadow-amber-500/30">
-                  <Users className="size-2.5" /> Team
+                  <Users className="size-2.5" /> Partner
                 </span>
               ) : (
                 <span className="rounded-full border border-white/15 bg-white/5 px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-wide text-muted">

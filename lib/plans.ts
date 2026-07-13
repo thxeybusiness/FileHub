@@ -19,17 +19,18 @@ const TB = 1024 ** 4;
 
 export const FREE_STORAGE = 1 * GB; // 1 Go
 export const PREMIUM_STORAGE = 50 * GB; // 50 Go
-export const BUSINESS_STORAGE = 2 * TB; // 2 To
+export const BUSINESS_STORAGE = 500 * GB; // 500 Go
 export const TEAM_STORAGE = 5 * GB; // 5 Go (grade offert)
 
-// Nombre maximum de grades « Team » qu'un membre Business peut offrir.
+// Nombre maximum de grades « Partner » qu'un membre Business peut offrir.
 export const MAX_TEAM_GIFTS = 2;
 
-// Grade « Team » : non achetable, offert par un membre Business. Comme Basic,
+// Grade « Partner » : non achetable, offert par un membre Business. Comme Basic,
 // mais avec 5 Go de stockage et jusqu'à 3 espaces partagés.
+// (Identifiant interne conservé « team » pour éviter toute migration.)
 export const TEAM_PLAN = {
   id: "team" as const,
-  name: "Team",
+  name: "Partner",
   storage: TEAM_STORAGE,
   storageLabel: "5 Go",
   spaces: 3,
@@ -81,15 +82,16 @@ export const PLANS: Record<PlanId, Plan> = {
     priceLabel: "24 € / mois",
     priceMonthly: 24,
     storage: BUSINESS_STORAGE,
-    storageLabel: "2 To",
+    storageLabel: "500 Go",
     features: [
-      "2 To de stockage",
-      "Tout ce qui est inclus dans Pro",
+      "500 Go de stockage",
+      "Tout le forfait Pro",
       "Collaboration temps réel avancée",
-      "Espaces d'équipe & gestion des membres",
-      "Historique de versions étendu",
+      "Espaces communs illimités",
       "Badge Business",
+      "2 abonnements Partner offerts",
       "Support prioritaire dédié",
+      "5 utilisations IA / jour",
     ],
   },
 };
@@ -112,8 +114,9 @@ export function spaceLimit(plan: string): number {
 /** Nombre d'utilisations de l'IA par jour selon le grade (Infinity = illimité). */
 export function aiDailyLimit(plan: string): number {
   if (plan === "founder") return Infinity;
+  if (plan === "business") return 5;
   if (plan === "premium") return 2;
-  return 0; // Basic, Team, Business : pas d'accès IA
+  return 0; // Basic, Partner : pas d'accès IA
 }
 
 /** Vrai si le grade a un accès (même limité) à l'IA. */
