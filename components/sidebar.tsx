@@ -19,6 +19,7 @@ import {
   Crown,
   Gem,
   Building2,
+  ShieldCheck,
   X,
 } from "lucide-react";
 import { cn, formatBytes } from "@/lib/utils";
@@ -316,6 +317,14 @@ export function Sidebar({ initial }: { initial: Me }) {
           >
             <Sparkles className="size-3.5" /> Passer à Pro
             <span className="absolute inset-0 -translate-x-full bg-gradient-to-r from-transparent via-white/25 to-transparent" style={{ animation: "shine 3.5s ease-in-out infinite" }} />
+          </Link>
+        )}
+        {isFounder && (
+          <Link
+            href="/drive/admin"
+            className="mt-1 flex h-9 items-center justify-center gap-1.5 rounded-xl border border-white/10 text-xs font-medium text-white/70 transition hover:bg-white/5 hover:text-white"
+          >
+            <ShieldCheck className="size-3.5 text-amber-300" /> Admin — grades
           </Link>
         )}
       </div>

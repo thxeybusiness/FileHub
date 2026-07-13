@@ -242,6 +242,13 @@ export const api = {
   revokeTeam(recipientId: string) {
     return req<{ ok: boolean }>("/api/billing/team", jsonInit("DELETE", { recipientId }));
   },
+  // ── Admin Fondateur : attribuer un grade ──
+  adminSetPlan(email: string, plan: "free" | "team" | "premium" | "business") {
+    return req<{ ok: boolean; previousPlan: string; user: { email: string; name: string | null; plan: string } }>(
+      "/api/admin/set-plan",
+      jsonInit("POST", { email, plan }),
+    );
+  },
 
   saveChart(id: string, patch: { content?: unknown; name?: string }) {
     return req<{ ok: boolean; updatedAt: string }>(`/api/charts/${id}`, jsonInit("PUT", patch));
