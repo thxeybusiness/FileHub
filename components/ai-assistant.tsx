@@ -40,9 +40,19 @@ export function AiAssistant({
   const [applied, setApplied] = useState(false);
   const [copied, setCopied] = useState(false);
   const [mounted, setMounted] = useState(false);
+  // L'assistant IA est réservé au compte Fondateur : masqué pour les autres.
+  const [allowed, setAllowed] = useState(false);
   const panelRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => setMounted(true), []);
+  useEffect(() => {
+    let live = true;
+    fetch("/api/me")
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d) => { if (live) setAllowed(d?.plan === "founder"); })
+      .catch(() => { if (live) setAllowed(false); });
+    return () => { live = false; };
+  }, []);
   useEffect(() => {
     if (!open) return;
     const onKey = (e: KeyboardEvent) => e.key === "Escape" && setOpen(false);
@@ -253,6 +263,9 @@ export function AiAssistant({
           document.body,
         )
       : null;
+
+  // Masqué pour tous les grades sauf Fondateur.
+  if (!allowed) return null;
 
   return (
     <>

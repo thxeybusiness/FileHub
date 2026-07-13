@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { getUserId } from "@/lib/auth";
+import { callerIsFounder } from "@/lib/founder";
 import { aiConfigured, completeChat, type ChatMessage } from "@/lib/ai";
 import { buildDriveContext } from "@/lib/drive-context";
 
@@ -32,6 +33,11 @@ ${context}
 export async function POST(req: NextRequest) {
   const userId = await getUserId();
   if (!userId) return NextResponse.json({ error: "Non autorisé" }, { status: 401 });
+
+  // L'assistant IA est réservé au compte Fondateur.
+  if (!(await callerIsFounder(userId))) {
+    return NextResponse.json({ error: "L'assistant IA est réservé au grade Fondateur." }, { status: 403 });
+  }
 
   if (!aiConfigured()) {
     return NextResponse.json(

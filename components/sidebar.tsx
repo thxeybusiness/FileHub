@@ -144,7 +144,7 @@ export function Sidebar({ initial }: { initial: Me }) {
       </div>
 
       <nav className="flex-1 px-3 py-4 space-y-1">
-        {NAV.map((item) => {
+        {NAV.filter((item) => isFounder || item.href !== "/drive/assistant").map((item) => {
           const active = item.exact
             ? pathname === item.href
             : pathname.startsWith(item.href);

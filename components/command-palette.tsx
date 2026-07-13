@@ -22,10 +22,16 @@ export function CommandPalette() {
   const [results, setResults] = useState<SerializedNode[]>([]);
   const [active, setActive] = useState(0);
   const [mounted, setMounted] = useState(false);
+  const [founder, setFounder] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
   const listRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => setMounted(true), []);
+  useEffect(() => {
+    let live = true;
+    fetch("/api/me").then((r) => (r.ok ? r.json() : null)).then((d) => { if (live) setFounder(d?.plan === "founder"); }).catch(() => {});
+    return () => { live = false; };
+  }, []);
 
   // Raccourci ⌘K / Ctrl+K (et ouverture via un événement global).
   useEffect(() => {
@@ -99,7 +105,7 @@ export function CommandPalette() {
   const commands = useMemo<Cmd[]>(() => {
     const nav: Cmd[] = [
       { id: "nav-drive", label: "Mon Drive", icon: HardDrive, run: () => go("/drive") },
-      { id: "nav-assistant", label: "Assistant IA", hint: "Discuter avec mes fichiers", icon: Sparkles, run: () => go("/drive/assistant") },
+      ...(founder ? [{ id: "nav-assistant", label: "Assistant IA", hint: "Discuter avec mes fichiers", icon: Sparkles, run: () => go("/drive/assistant") }] : []),
       { id: "nav-dash", label: "Tableau de bord", icon: LayoutDashboard, run: () => go("/drive/tableau-de-bord") },
       { id: "nav-recent", label: "Récents", icon: Clock, run: () => go("/drive/recent") },
       { id: "nav-star", label: "Favoris", icon: Star, run: () => go("/drive/starred") },
@@ -120,7 +126,7 @@ export function CommandPalette() {
     const q = query.trim().toLowerCase();
     const filter = (c: Cmd) => !q || c.label.toLowerCase().includes(q);
     return [...nav.filter(filter), ...actions.filter(filter)];
-  }, [query]);
+  }, [query, founder]);
 
   // Fusionne commandes + fichiers en une liste plate pour la navigation clavier.
   const items = useMemo(() => {
