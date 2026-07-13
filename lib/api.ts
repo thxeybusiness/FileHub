@@ -261,6 +261,21 @@ export const api = {
   restoreVersion(id: string, versionId: string) {
     return req<{ content: string; updatedAt: string }>(`/api/content/${id}/versions`, jsonInit("POST", { versionId }));
   },
+  // ── Commentaires ──
+  listComments(id: string) {
+    return req<{ comments: { id: string; authorId: string; authorName: string | null; body: string; createdAt: string }[]; me: string }>(
+      `/api/content/${id}/comments`,
+    );
+  },
+  addComment(id: string, body: string) {
+    return req<{ comment: { id: string; authorId: string; authorName: string | null; body: string; createdAt: string } }>(
+      `/api/content/${id}/comments`,
+      jsonInit("POST", { body }),
+    );
+  },
+  deleteComment(id: string, commentId: string) {
+    return req<{ ok: boolean }>(`/api/content/${id}/comments`, jsonInit("DELETE", { commentId }));
+  },
   // ── Admin Fondateur : attribuer un grade ──
   adminSetPlan(email: string, plan: "free" | "team" | "premium" | "business") {
     return req<{ ok: boolean; previousPlan: string; user: { email: string; name: string | null; plan: string } }>(

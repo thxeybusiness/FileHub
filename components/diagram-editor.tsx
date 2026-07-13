@@ -9,6 +9,7 @@ import {
   Copy, Eye, Code2, ZoomIn, ZoomOut, Maximize, X, ArrowLeftRight, Boxes, Waypoints,
   Table2, Calendar, PieChart, Network, Route, GitBranch, LayoutGrid, Clock, Plus, Trash2, RefreshCw,
   History,
+  MessageSquare,
   type LucideIcon,
 } from "lucide-react";
 import { api } from "@/lib/api";
@@ -16,6 +17,9 @@ import { AiAssistant } from "./ai-assistant";
 import { RealtimeEngine, type Actions } from "./realtime";
 import { CollabBar } from "./collab-bar";
 import { VersionHistory } from "./version-history";
+import { CommentsPanel } from "./comments-panel";
+import { ExportButton } from "./export-button";
+import { svgToPng, serializeSvg, downloadBlob, downloadText, safeFilename } from "@/lib/export-doc";
 import type { Peer } from "./use-collab";
 
 type Crumb = { id: string; name: string };
@@ -699,6 +703,7 @@ export function DiagramEditor({
   const dirty = useRef(false);
   const [peers, setPeers] = useState<Peer[]>([]);
   const [histOpen, setHistOpen] = useState(false);
+  const [comOpen, setComOpen] = useState(false);
   const actions = useRef<Actions>({ markEditing: () => {}, syncVersion: () => {} });
 
   const applyRemoteString = useCallback((str: string) => {
@@ -889,12 +894,20 @@ export function DiagramEditor({
     <div className="flex h-full min-h-0 flex-col">
       <RealtimeEngine id={id} shared={shared} mode="text" content={code} onRemote={applyRemoteString} fetchRemote={fetchRemote} setPeers={setPeers} actions={actions} />
       <VersionHistory id={id} open={histOpen} onClose={() => setHistOpen(false)} onRestore={applyRemoteString} />
+      <CommentsPanel id={id} open={comOpen} onClose={() => setComOpen(false)} />
       {/* En-tête */}
       <header className="h-14 shrink-0 border-b border-white/10 bg-white/[0.03] backdrop-blur-xl px-3 sm:px-5 flex items-center gap-2 sm:gap-3">
         <Link href={backHref} className="grid size-9 shrink-0 place-items-center rounded-lg text-muted hover:bg-white/5 hover:text-white transition" title="Retour"><ArrowLeft className="size-5" /></Link>
         <Workflow className="size-4 shrink-0 text-teal-400" />
         <input value={name} onChange={(e) => onName(e.target.value)} className="min-w-0 w-40 sm:w-64 bg-transparent text-sm font-semibold outline-none placeholder:text-white/30" placeholder="Diagramme sans titre" />
         <div className="ml-auto flex items-center gap-2">
+          <ExportButton items={[
+            { label: "Image PNG", onClick: async () => { const svg = previewRef.current?.querySelector("svg"); if (svg) downloadBlob(safeFilename(name) + ".png", await svgToPng(svg as SVGSVGElement)); } },
+            { label: "Vecteur SVG", onClick: () => { const svg = previewRef.current?.querySelector("svg"); if (svg) downloadText(safeFilename(name) + ".svg", serializeSvg(svg as SVGSVGElement), "image/svg+xml"); } },
+          ]} />
+          <button onClick={() => setComOpen(true)} title="Commentaires" className="grid size-9 place-items-center rounded-lg text-muted hover:bg-white/5 hover:text-white transition">
+            <MessageSquare className="size-5" />
+          </button>
           <button onClick={() => setHistOpen(true)} title="Historique des versions" className="grid size-9 place-items-center rounded-lg text-muted hover:bg-white/5 hover:text-white transition">
             <History className="size-5" />
           </button>

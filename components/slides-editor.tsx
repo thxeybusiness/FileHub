@@ -21,7 +21,7 @@ import {
   Laptop, Smartphone, Globe, Wifi, Database, Server, Code, Cpu, ShieldCheck, KeyRound,
   Search, Settings, Zap, Link2, Sun, Moon, Flame, Leaf, Coffee, MapPin, Calendar, Clock,
   CheckCircle2, XCircle, AlertTriangle, Info, Bookmark, Flag, Eye, Puzzle, Palette,
-  Pencil, Wrench, GraduationCap, BookOpen, FileText, Folder, History,
+  Pencil, Wrench, GraduationCap, BookOpen, FileText, Folder, History, MessageSquare,
   type LucideIcon,
 } from "lucide-react";
 import { api } from "@/lib/api";
@@ -29,6 +29,9 @@ import { AiAssistant } from "./ai-assistant";
 import { RealtimeEngine, type Actions } from "./realtime";
 import { CollabBar } from "./collab-bar";
 import { VersionHistory } from "./version-history";
+import { CommentsPanel } from "./comments-panel";
+import { ExportButton } from "./export-button";
+import { downloadText, safeFilename } from "@/lib/export-doc";
 import type { Peer } from "./use-collab";
 
 type Crumb = { id: string; name: string };
@@ -649,6 +652,7 @@ export function SlidesEditor({
   const dirty = useRef(false);
   const [peers, setPeers] = useState<Peer[]>([]);
   const [histOpen, setHistOpen] = useState(false);
+  const [comOpen, setComOpen] = useState(false);
   const actions = useRef<Actions>({ markEditing: () => {}, syncVersion: () => {} });
 
   const applyRemoteString = useCallback((str: string) => {
@@ -912,6 +916,7 @@ export function SlidesEditor({
     <div className="flex h-full min-h-0 flex-col">
       <RealtimeEngine id={id} shared={shared} mode="blob" content={serializedDeck} onRemote={applyRemoteString} fetchRemote={fetchRemote} setPeers={setPeers} actions={actions} />
       <VersionHistory id={id} open={histOpen} onClose={() => setHistOpen(false)} onRestore={applyRemoteString} />
+      <CommentsPanel id={id} open={comOpen} onClose={() => setComOpen(false)} />
       {/* En-tête */}
       <header className="h-14 shrink-0 border-b border-white/10 bg-white/[0.03] backdrop-blur-xl px-3 sm:px-5 flex items-center gap-2 sm:gap-3">
         <Link href={backHref} className="grid size-9 shrink-0 place-items-center rounded-lg text-muted hover:bg-white/5 hover:text-white transition" title="Retour"><ArrowLeft className="size-5" /></Link>
@@ -921,7 +926,13 @@ export function SlidesEditor({
           <button onClick={undo} className="grid size-8 place-items-center rounded-lg text-muted hover:bg-white/5 hover:text-white" title="Annuler (⌘Z)"><Undo2 className="size-4" /></button>
           <button onClick={redo} className="grid size-8 place-items-center rounded-lg text-muted hover:bg-white/5 hover:text-white" title="Rétablir (⌘⇧Z)"><Redo2 className="size-4" /></button>
         </div>
-        <button onClick={() => setHistOpen(true)} title="Historique des versions" className="ml-auto grid size-9 place-items-center rounded-lg text-muted hover:bg-white/5 hover:text-white transition">
+        <div className="ml-auto flex items-center gap-1">
+          <ExportButton items={[{ label: "Données (.json)", onClick: () => downloadText(safeFilename(name) + ".json", serializedDeck, "application/json") }]} />
+        </div>
+        <button onClick={() => setComOpen(true)} title="Commentaires" className="grid size-9 place-items-center rounded-lg text-muted hover:bg-white/5 hover:text-white transition">
+          <MessageSquare className="size-5" />
+        </button>
+        <button onClick={() => setHistOpen(true)} title="Historique des versions" className="grid size-9 place-items-center rounded-lg text-muted hover:bg-white/5 hover:text-white transition">
           <History className="size-5" />
         </button>
         <div><CollabBar peers={peers} /></div>

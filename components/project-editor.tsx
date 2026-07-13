@@ -9,13 +9,16 @@ import {
   GripVertical, MoreHorizontal, Copy, ChevronDown, ChevronRight, ChevronLeft, Home,
   Table2, KanbanSquare, CalendarDays, GanttChartSquare, LayoutGrid, ArrowUpDown, Layers,
   Type, CircleDot, Tag, User, Calendar, Hash, Flag, CheckSquare, Percent, Star, Link2,
-  Eye, EyeOff, Settings2, ListChecks, AlignLeft, SlidersHorizontal, Palette, History,
+  Eye, EyeOff, Settings2, ListChecks, AlignLeft, SlidersHorizontal, Palette, History, MessageSquare,
 } from "lucide-react";
 import { api } from "@/lib/api";
 import { AiAssistant } from "./ai-assistant";
 import { RealtimeEngine, type Actions } from "./realtime";
 import { CollabBar } from "./collab-bar";
 import { VersionHistory } from "./version-history";
+import { CommentsPanel } from "./comments-panel";
+import { ExportButton } from "./export-button";
+import { downloadText, safeFilename } from "@/lib/export-doc";
 import type { Peer } from "./use-collab";
 
 /* ───────────────────────── Types ───────────────────────── */
@@ -263,6 +266,7 @@ export function ProjectEditor({
 
   const [peers, setPeers] = useState<Peer[]>([]);
   const [histOpen, setHistOpen] = useState(false);
+  const [comOpen, setComOpen] = useState(false);
   const actions = useRef<Actions>({ markEditing: () => {}, syncVersion: () => {} });
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const dirty = useRef(false);
@@ -389,6 +393,7 @@ export function ProjectEditor({
     <div className="flex h-full min-h-0 flex-col">
       <RealtimeEngine id={id} shared={shared} mode="blob" content={serialize(proj)} onRemote={applyRemote} fetchRemote={fetchRemote} setPeers={setPeers} actions={actions} />
       <VersionHistory id={id} open={histOpen} onClose={() => setHistOpen(false)} onRestore={applyRemote} />
+      <CommentsPanel id={id} open={comOpen} onClose={() => setComOpen(false)} />
 
       {/* Header */}
       <header className="h-16 shrink-0 border-b border-white/10 bg-white/[0.03] backdrop-blur-xl px-4 sm:px-6 flex items-center gap-3">
@@ -405,6 +410,10 @@ export function ProjectEditor({
             <input value={name} onChange={(e) => onName(e.target.value)} className="min-w-0 flex-1 bg-transparent text-base font-semibold outline-none placeholder:text-white/30" placeholder="Tableau sans titre" />
           </div>
         </div>
+        <ExportButton items={[{ label: "Données (.json)", onClick: () => downloadText(safeFilename(name) + ".json", serialize(proj), "application/json") }]} />
+        <button onClick={() => setComOpen(true)} title="Commentaires" className="grid size-9 place-items-center rounded-lg text-muted hover:bg-white/5 hover:text-white transition">
+          <MessageSquare className="size-5" />
+        </button>
         <button onClick={() => setHistOpen(true)} title="Historique des versions" className="grid size-9 place-items-center rounded-lg text-muted hover:bg-white/5 hover:text-white transition">
           <History className="size-5" />
         </button>

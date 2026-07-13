@@ -3,12 +3,15 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { marked } from "marked";
-import { ArrowLeft, Check, Loader2, ChevronRight, Home, StickyNote, Eye, Pencil, RefreshCw, History } from "lucide-react";
+import { ArrowLeft, Check, Loader2, ChevronRight, Home, StickyNote, Eye, Pencil, RefreshCw, History, MessageSquare } from "lucide-react";
 import { api } from "@/lib/api";
 import { AiAssistant } from "./ai-assistant";
 import { RealtimeEngine, type Actions } from "./realtime";
 import { CollabBar } from "./collab-bar";
 import { VersionHistory } from "./version-history";
+import { CommentsPanel } from "./comments-panel";
+import { ExportButton } from "./export-button";
+import { openPrintWindow, downloadText, safeFilename } from "@/lib/export-doc";
 import type { Peer } from "./use-collab";
 
 type Crumb = { id: string; name: string };
@@ -34,6 +37,7 @@ export function NoteEditor({
   const taRef = useRef<HTMLTextAreaElement | null>(null);
   const [peers, setPeers] = useState<Peer[]>([]);
   const [histOpen, setHistOpen] = useState(false);
+  const [comOpen, setComOpen] = useState(false);
   const actions = useRef<Actions>({ markEditing: () => {}, syncVersion: () => {} });
 
   // Applique un contenu distant en préservant au mieux la position du curseur.
@@ -87,6 +91,7 @@ export function NoteEditor({
     <div className="flex h-full min-h-0 flex-col">
       <RealtimeEngine id={id} shared={shared} mode="text" content={content} onRemote={applyRemoteString} fetchRemote={fetchRemote} setPeers={setPeers} actions={actions} />
       <VersionHistory id={id} open={histOpen} onClose={() => setHistOpen(false)} onRestore={applyRemoteString} />
+      <CommentsPanel id={id} open={comOpen} onClose={() => setComOpen(false)} />
       <header className="h-16 shrink-0 border-b border-white/10 bg-white/[0.03] backdrop-blur-xl px-4 sm:px-6 flex items-center gap-3">
         <Link href={backHref} className="grid size-9 shrink-0 place-items-center rounded-lg text-muted hover:bg-white/5 hover:text-white transition" title="Retour">
           <ArrowLeft className="size-5" />
@@ -103,6 +108,13 @@ export function NoteEditor({
             <input value={name} onChange={(e) => onName(e.target.value)} className="min-w-0 flex-1 bg-transparent text-base font-semibold outline-none placeholder:text-white/30" placeholder="Note sans titre" />
           </div>
         </div>
+        <ExportButton items={[
+          { label: "PDF (imprimable)", onClick: () => openPrintWindow(name || "Note", html) },
+          { label: "Markdown (.md)", onClick: () => downloadText(safeFilename(name) + ".md", content, "text/markdown") },
+        ]} />
+        <button onClick={() => setComOpen(true)} title="Commentaires" className="grid size-9 place-items-center rounded-lg text-muted hover:bg-white/5 hover:text-white transition">
+          <MessageSquare className="size-5" />
+        </button>
         <button onClick={() => setHistOpen(true)} title="Historique des versions" className="grid size-9 place-items-center rounded-lg text-muted hover:bg-white/5 hover:text-white transition">
           <History className="size-5" />
         </button>
