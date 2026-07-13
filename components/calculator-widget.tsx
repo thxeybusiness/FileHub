@@ -107,6 +107,19 @@ export function CalculatorWidget() {
     setOverwrite(true);
   }, [expBase, expPow, current]);
 
+  // Un seul widget flottant ouvert à la fois : quand un autre s'ouvre, on ferme.
+  useEffect(() => {
+    const onOther = (e: Event) => {
+      if ((e as CustomEvent).detail !== "calc") setOpen(false);
+    };
+    window.addEventListener("filehub:widget-open", onOther);
+    return () => window.removeEventListener("filehub:widget-open", onOther);
+  }, []);
+  const toggle = () => {
+    if (!open) window.dispatchEvent(new CustomEvent("filehub:widget-open", { detail: "calc" }));
+    setOpen((v) => !v);
+  };
+
   // Support clavier quand la calculatrice est ouverte.
   useEffect(() => {
     if (!open) return;
@@ -136,7 +149,7 @@ export function CalculatorWidget() {
     <>
       {/* Bouton flottant */}
       <button
-        onClick={() => setOpen((v) => !v)}
+        onClick={toggle}
         title="Calculatrice"
         className={cn(
           "fixed bottom-6 right-6 z-[60] grid size-12 place-items-center rounded-2xl border border-white/10 shadow-xl shadow-black/40 backdrop-blur-xl transition hover:scale-105",

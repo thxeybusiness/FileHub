@@ -34,6 +34,19 @@ export function ScratchpadWidget() {
     }
   }, [text, loaded]);
 
+  // Un seul widget flottant ouvert à la fois : quand un autre s'ouvre, on ferme.
+  useEffect(() => {
+    const onOther = (e: Event) => {
+      if ((e as CustomEvent).detail !== "scratch") setOpen(false);
+    };
+    window.addEventListener("filehub:widget-open", onOther);
+    return () => window.removeEventListener("filehub:widget-open", onOther);
+  }, []);
+  const toggle = () => {
+    if (!open) window.dispatchEvent(new CustomEvent("filehub:widget-open", { detail: "scratch" }));
+    setOpen((v) => !v);
+  };
+
   // Escape ferme le panneau, focus à l'ouverture.
   useEffect(() => {
     if (!open) return;
@@ -73,7 +86,7 @@ export function ScratchpadWidget() {
     <>
       {/* Bouton flottant (à gauche de la calculatrice) */}
       <button
-        onClick={() => setOpen((v) => !v)}
+        onClick={toggle}
         title="Brouillon"
         className={cn(
           "fixed bottom-6 right-[5.25rem] z-[60] grid size-12 place-items-center rounded-2xl border border-white/10 shadow-xl shadow-black/40 backdrop-blur-xl transition hover:scale-105",
