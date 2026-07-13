@@ -11,20 +11,27 @@ export async function POST(req: NextRequest) {
   const userId = await getUserId();
   if (!userId) return NextResponse.json({ error: "Non autorisé" }, { status: 401 });
 
-  // Plan demandé : "premium" (Pro) par défaut, ou "business".
+  // Plan demandé : "premium" (Pro) par défaut, ou "business". Cycle : mois/an.
   let plan = "premium";
+  let interval: "month" | "year" = "month";
   try {
-    const body = (await req.json().catch(() => null)) as { plan?: string } | null;
+    const body = (await req.json().catch(() => null)) as { plan?: string; interval?: string } | null;
     if (body?.plan === "business") plan = "business";
+    if (body?.interval === "year") interval = "year";
   } catch {
-    /* corps vide → Pro par défaut */
+    /* corps vide → Pro mensuel par défaut */
   }
 
   const stripe = getStripe();
-  const priceId = priceIdForPlan(plan);
+  const priceId = priceIdForPlan(plan, interval);
   if (!stripe || !priceId || !stripeConfigured()) {
     return NextResponse.json(
-      { error: "Le paiement n'est pas encore configuré. Réessayez bientôt." },
+      {
+        error:
+          interval === "year"
+            ? "La facturation annuelle n'est pas encore configurée. Choisissez le mensuel ou réessayez bientôt."
+            : "Le paiement n'est pas encore configuré. Réessayez bientôt.",
+      },
       { status: 503 },
     );
   }
@@ -60,8 +67,8 @@ export async function POST(req: NextRequest) {
     line_items: [{ price: priceId, quantity: 1 }],
     allow_promotion_codes: true,
     client_reference_id: user.id,
-    metadata: { userId: user.id, plan },
-    subscription_data: { metadata: { userId: user.id, plan } },
+    metadata: { userId: user.id, plan, interval },
+    subscription_data: { metadata: { userId: user.id, plan, interval } },
     success_url: `${base}/drive/abonnement?success=1`,
     cancel_url: `${base}/drive/abonnement?canceled=1`,
   });

@@ -12,25 +12,29 @@ export function getStripe(): Stripe | null {
   return cached;
 }
 
-/** Identifiant du prix Premium (récurrent) créé dans le tableau de bord Stripe. */
+// Identifiants de prix Stripe : mensuels et annuels (facturation annuelle).
 export function premiumPriceId(): string | undefined {
   return process.env.STRIPE_PREMIUM_PRICE_ID;
 }
-
-/** Identifiant du prix Business (récurrent) créé dans le tableau de bord Stripe. */
+export function premiumPriceIdYearly(): string | undefined {
+  return process.env.STRIPE_PREMIUM_PRICE_ID_YEARLY;
+}
 export function businessPriceId(): string | undefined {
   return process.env.STRIPE_BUSINESS_PRICE_ID;
 }
-
-/** Renvoie l'identifiant de prix Stripe pour un plan payant donné. */
-export function priceIdForPlan(plan: string): string | undefined {
-  if (plan === "business") return businessPriceId();
-  return premiumPriceId();
+export function businessPriceIdYearly(): string | undefined {
+  return process.env.STRIPE_BUSINESS_PRICE_ID_YEARLY;
 }
 
-/** Mappe un identifiant de prix Stripe vers un plan FileHub. */
+/** Renvoie l'identifiant de prix Stripe pour un plan payant + un cycle. */
+export function priceIdForPlan(plan: string, interval: "month" | "year" = "month"): string | undefined {
+  if (plan === "business") return interval === "year" ? businessPriceIdYearly() : businessPriceId();
+  return interval === "year" ? premiumPriceIdYearly() : premiumPriceId();
+}
+
+/** Mappe un identifiant de prix Stripe vers un plan FileHub (mensuel ou annuel). */
 export function planForPriceId(priceId: string | null | undefined): "premium" | "business" {
-  if (priceId && businessPriceId() && priceId === businessPriceId()) return "business";
+  if (priceId && (priceId === businessPriceId() || priceId === businessPriceIdYearly())) return "business";
   return "premium";
 }
 

@@ -9,6 +9,9 @@ import { api } from "@/lib/api";
 import { cn } from "@/lib/utils";
 import { TeamGradeModal } from "./team-grade-modal";
 
+const euro = (n: number) =>
+  n.toLocaleString("fr-FR", { minimumFractionDigits: Number.isInteger(n) ? 0 : 2, maximumFractionDigits: 2 }) + " €";
+
 type Props = {
   currentPlan: string;
   planStatus: string | null;
@@ -23,6 +26,7 @@ export function BillingPlans({ currentPlan, planStatus, renewsAt, hasSubscriptio
   const [error, setError] = useState<string | null>(null);
   const [banner, setBanner] = useState<null | "success" | "canceled">(null);
   const [teamOpen, setTeamOpen] = useState(false);
+  const [interval, setInterval] = useState<"month" | "year">("month");
 
   useEffect(() => {
     if (params.get("success")) setBanner("success");
@@ -33,7 +37,7 @@ export function BillingPlans({ currentPlan, planStatus, renewsAt, hasSubscriptio
     setBusy("checkout");
     setError(null);
     try {
-      const { url } = await api.startCheckout(plan);
+      const { url } = await api.startCheckout(plan, interval);
       if (url) window.location.href = url;
       else setError("Paiement indisponible pour le moment.");
     } catch (e) {
@@ -154,11 +158,29 @@ export function BillingPlans({ currentPlan, planStatus, renewsAt, hasSubscriptio
             </button>
           )}
 
-          <div className="text-center mb-8">
+          <div className="text-center mb-6">
             <h2 className="text-2xl font-bold">Choisissez votre formule</h2>
             <p className="text-muted mt-1">
               De 50 Go avec Pro à 500 Go avec Business — passez à la vitesse supérieure.
             </p>
+          </div>
+
+          {/* Bascule mensuel / annuel */}
+          <div className="mb-8 flex justify-center">
+            <div className="inline-flex rounded-full border border-white/10 bg-white/5 p-1">
+              <button
+                onClick={() => setInterval("month")}
+                className={cn("rounded-full px-4 py-1.5 text-sm font-medium transition", interval === "month" ? "bg-white/10 text-white shadow" : "text-muted hover:text-white")}
+              >
+                Mensuel
+              </button>
+              <button
+                onClick={() => setInterval("year")}
+                className={cn("rounded-full px-4 py-1.5 text-sm font-medium transition", interval === "year" ? "bg-white/10 text-white shadow" : "text-muted hover:text-white")}
+              >
+                Annuel
+              </button>
+            </div>
           </div>
 
           <div className="grid gap-4 sm:grid-cols-3">
@@ -204,8 +226,23 @@ export function BillingPlans({ currentPlan, planStatus, renewsAt, hasSubscriptio
                       </span>
                     )}
                   </div>
-                  <div className="mt-3 flex items-baseline gap-1">
-                    <span className="text-3xl font-bold">{plan.priceLabel}</span>
+                  <div className="mt-3 min-h-[3.25rem]">
+                    {plan.priceMonthly === 0 ? (
+                      <span className="text-3xl font-bold">0 €</span>
+                    ) : interval === "year" && plan.priceYearly ? (
+                      <>
+                        <div className="flex items-baseline gap-1">
+                          <span className="text-3xl font-bold">{euro(plan.priceYearly)}</span>
+                          <span className="text-sm text-muted">/ an</span>
+                        </div>
+                        <p className="mt-0.5 text-xs text-muted">soit {euro(plan.priceYearly / 12)} / mois</p>
+                      </>
+                    ) : (
+                      <div className="flex items-baseline gap-1">
+                        <span className="text-3xl font-bold">{euro(plan.priceMonthly)}</span>
+                        <span className="text-sm text-muted">/ mois</span>
+                      </div>
+                    )}
                   </div>
                   <p className="mt-1 text-sm text-muted">{plan.storageLabel} de stockage</p>
 

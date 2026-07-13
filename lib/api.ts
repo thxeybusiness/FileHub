@@ -217,11 +217,11 @@ export const api = {
   },
 
   // ── Abonnement (Stripe) ──
-  startCheckout(plan: "premium" | "business" = "premium") {
+  startCheckout(plan: "premium" | "business" = "premium", interval: "month" | "year" = "month") {
     return req<{ url: string | null }>("/api/billing/checkout", {
       method: "POST",
       headers: { "content-type": "application/json" },
-      body: JSON.stringify({ plan }),
+      body: JSON.stringify({ plan, interval }),
     });
   },
   openBillingPortal() {
