@@ -59,11 +59,16 @@ export function DocEditor({
   const nameTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Injecte le contenu initial une seule fois (non contrôlé, pour ne pas
-  // casser la position du curseur pendant la frappe).
+  // casser la position du curseur pendant la frappe). On répare au passage les
+  // styles collés qui cassent le thème sombre (fond blanc / texte invisible),
+  // et on réenregistre si un nettoyage a eu lieu.
   useEffect(() => {
     if (editorRef.current) {
-      editorRef.current.innerHTML = initialContent || "";
+      const raw = initialContent || "";
+      const cleaned = repairForDarkTheme(raw);
+      editorRef.current.innerHTML = cleaned;
       countWords();
+      if (cleaned !== raw && cleaned.trim()) persist({ content: cleaned });
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -93,6 +98,22 @@ export function DocEditor({
       persist({ content: editorRef.current?.innerHTML ?? "" });
     }, 700);
   }, [persist, countWords]);
+
+  // Collage propre : on retire les styles importés (couleurs, fonds, classes…)
+  // pour rester dans le thème de l'éditeur et éviter le « tout blanc ».
+  const onPaste = useCallback(
+    (e: React.ClipboardEvent<HTMLDivElement>) => {
+      e.preventDefault();
+      const cd = e.clipboardData;
+      const html = cd.getData("text/html");
+      const inserted = html
+        ? sanitizePasteHtml(html)
+        : escapeHtml(cd.getData("text/plain")).replace(/\r?\n/g, "<br>");
+      document.execCommand("insertHTML", false, inserted);
+      scheduleContentSave();
+    },
+    [scheduleContentSave],
+  );
 
   const onNameChange = (v: string) => {
     setName(v);
@@ -270,6 +291,7 @@ export function DocEditor({
             contentEditable
             suppressContentEditableWarning
             onInput={scheduleContentSave}
+            onPaste={onPaste}
             spellCheck
             className="doc-surface min-h-[120vh] px-8 py-10 sm:px-14 sm:py-14 outline-none text-[15px] leading-relaxed text-ink/90"
             data-placeholder="Commencez à écrire…"
@@ -347,4 +369,90 @@ function ColorBtn({ onPick }: { onPick: (c: string) => void }) {
 
 function escapeHtml(s: string) {
   return s.replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c] as string));
+}
+
+/* ── Nettoyage du contenu collé / réparation du thème sombre ─────────────── */
+
+function parseColor(str: string): [number, number, number] | null {
+  const s = str.trim().toLowerCase();
+  if (s === "white" || s === "#fff" || s === "#ffffff") return [255, 255, 255];
+  if (s === "black" || s === "#000" || s === "#000000") return [0, 0, 0];
+  let m = s.match(/^#([0-9a-f]{3})$/);
+  if (m) return [parseInt(m[1][0] + m[1][0], 16), parseInt(m[1][1] + m[1][1], 16), parseInt(m[1][2] + m[1][2], 16)];
+  m = s.match(/^#([0-9a-f]{6})$/);
+  if (m) return [parseInt(m[1].slice(0, 2), 16), parseInt(m[1].slice(2, 4), 16), parseInt(m[1].slice(4, 6), 16)];
+  m = s.match(/rgba?\(([^)]+)\)/);
+  if (m) {
+    const p = m[1].split(",").map((x) => parseFloat(x));
+    if (p.length >= 3 && p.every((n) => !isNaN(n))) return [p[0], p[1], p[2]];
+  }
+  return null;
+}
+
+// Couleur « à problème » sur fond sombre : quasi blanche (invisible car ~ fond
+// clair collé) ou quasi noire (invisible sur notre fond sombre).
+function isProblemColor(str: string): boolean {
+  const rgb = parseColor(str);
+  if (!rgb) return false;
+  const lum = (0.2126 * rgb[0] + 0.7152 * rgb[1] + 0.0722 * rgb[2]) / 255;
+  return lum > 0.82 || lum < 0.18;
+}
+
+// Répare un HTML existant : retire les fonds et neutralise les couleurs de
+// texte invisibles, tout en conservant les couleurs volontaires (bleu, etc.).
+function repairForDarkTheme(html: string): string {
+  if (!html || typeof DOMParser === "undefined") return html;
+  const doc = new DOMParser().parseFromString(html, "text/html");
+  doc.body.querySelectorAll<HTMLElement>("*").forEach((el) => {
+    if (el.style) {
+      el.style.removeProperty("background");
+      el.style.removeProperty("background-color");
+      const c = el.style.color;
+      if (c && isProblemColor(c)) el.style.removeProperty("color");
+      if (!el.getAttribute("style")) el.removeAttribute("style");
+    }
+    el.removeAttribute("bgcolor");
+  });
+  return doc.body.innerHTML;
+}
+
+// Nettoie le contenu collé : ne garde que des balises de structure et supprime
+// tous les styles/classes/couleurs importés.
+const PASTE_ALLOWED = new Set([
+  "A", "B", "STRONG", "I", "EM", "U", "S", "STRIKE", "DEL", "MARK",
+  "H1", "H2", "H3", "H4", "P", "BR", "UL", "OL", "LI", "BLOCKQUOTE",
+  "SPAN", "DIV", "PRE", "CODE", "HR",
+]);
+
+function sanitizePasteHtml(html: string): string {
+  if (typeof DOMParser === "undefined") return escapeHtml(html);
+  const doc = new DOMParser().parseFromString(html, "text/html");
+  const walk = (node: Node) => {
+    for (const child of Array.from(node.childNodes)) {
+      if (child.nodeType === Node.ELEMENT_NODE) {
+        const el = child as HTMLElement;
+        const tag = el.tagName;
+        if (tag === "SCRIPT" || tag === "STYLE" || tag === "META" || tag === "LINK") {
+          el.remove();
+          continue;
+        }
+        walk(el);
+        if (!PASTE_ALLOWED.has(tag)) {
+          const parent = el.parentNode;
+          if (parent) {
+            while (el.firstChild) parent.insertBefore(el.firstChild, el);
+            parent.removeChild(el);
+          }
+        } else {
+          const href = tag === "A" ? el.getAttribute("href") : null;
+          for (const attr of Array.from(el.attributes)) el.removeAttribute(attr.name);
+          if (href && /^(https?:|mailto:|\/)/i.test(href)) el.setAttribute("href", href);
+        }
+      } else if (child.nodeType === Node.COMMENT_NODE) {
+        child.parentNode?.removeChild(child);
+      }
+    }
+  };
+  walk(doc.body);
+  return doc.body.innerHTML;
 }
