@@ -5,6 +5,7 @@ import { createPortal } from "react-dom";
 import { Sparkles, X, Loader2, Send, Check, Copy, CornerDownLeft, type LucideIcon } from "lucide-react";
 import { api, type AiChart } from "@/lib/api";
 import { hasAiAccess } from "@/lib/plans";
+import { sanitizeRichHtml } from "@/lib/sanitize-html";
 
 export type QuickAction = { action: string; label: string; icon?: LucideIcon };
 
@@ -108,7 +109,7 @@ export function AiAssistant({
     if (textResult == null) return;
     // Copie le texte sans balises HTML.
     const tmp = document.createElement("div");
-    tmp.innerHTML = textResult;
+    tmp.innerHTML = sanitizeRichHtml(textResult);
     await navigator.clipboard.writeText(tmp.innerText || textResult).catch(() => {});
     setCopied(true);
     setTimeout(() => setCopied(false), 1500);
@@ -199,7 +200,7 @@ export function AiAssistant({
                   <div className="mt-4">
                     <div
                       className="ai-result max-h-56 overflow-y-auto rounded-xl border border-white/10 bg-white/[0.03] px-3 py-2.5 text-sm leading-relaxed text-white/90"
-                      dangerouslySetInnerHTML={{ __html: textResult }}
+                      dangerouslySetInnerHTML={{ __html: sanitizeRichHtml(textResult) }}
                     />
                     <div className="mt-2 flex gap-2">
                       {onApplyText && (

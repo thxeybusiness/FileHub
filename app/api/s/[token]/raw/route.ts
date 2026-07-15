@@ -70,12 +70,19 @@ export async function GET(
     return NextResponse.json({ error: "Fichier manquant" }, { status: 404 });
   }
 
+  const mime = node.mimeType || "application/octet-stream";
+  // Types « actifs » (HTML/SVG/XML) toujours téléchargés : un fichier partagé
+  // ne doit jamais s'exécuter sur l'origine filehub.business.
+  const forceDownload = /^(text\/html|application\/xhtml\+xml|image\/svg\+xml|application\/xml|text\/xml)/i.test(mime);
+  // Le téléchargement forcé reste soumis à l'autorisation de téléchargement du lien.
+  const asAttachment = forceDownload || wantsDownload;
   const filename = encodeURIComponent(node.name);
   return new NextResponse(new Uint8Array(buffer), {
     headers: {
-      "Content-Type": node.mimeType || "application/octet-stream",
-      "Content-Disposition": `${wantsDownload ? "attachment" : "inline"}; filename*=UTF-8''${filename}`,
+      "Content-Type": mime,
+      "Content-Disposition": `${asAttachment ? "attachment" : "inline"}; filename*=UTF-8''${filename}`,
       "Cache-Control": "private, max-age=600",
+      "X-Content-Type-Options": "nosniff",
     },
   });
 }

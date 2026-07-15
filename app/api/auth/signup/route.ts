@@ -3,6 +3,7 @@ import { z } from "zod";
 import { prisma } from "@/lib/prisma";
 import { hashPassword, setSession } from "@/lib/auth";
 import { generateUsername } from "@/lib/spaces";
+import { rateLimit, clientIp } from "@/lib/rate-limit";
 
 export const runtime = "nodejs";
 
@@ -13,6 +14,15 @@ const schema = z.object({
 });
 
 export async function POST(req: NextRequest) {
+  // Anti-abus : limite les créations de compte par IP (fenêtre 1 h).
+  const rl = await rateLimit(`signup:${clientIp(req)}`, 10, 60 * 60);
+  if (!rl.ok) {
+    return NextResponse.json(
+      { error: "Trop de créations de compte. Réessayez plus tard." },
+      { status: 429, headers: { "Retry-After": String(rl.retryAfter) } },
+    );
+  }
+
   const body = await req.json().catch(() => null);
   const parsed = schema.safeParse(body);
   if (!parsed.success) {
@@ -21,9 +31,12 @@ export async function POST(req: NextRequest) {
       { status: 400 },
     );
   }
-  const { email, password, name } = parsed.data;
+  const { password, name } = parsed.data;
+  const email = parsed.data.email.trim().toLowerCase();
 
-  const existing = await prisma.user.findUnique({ where: { email } });
+  const existing = await prisma.user.findFirst({
+    where: { email: { equals: email, mode: "insensitive" } },
+  });
   if (existing) {
     return NextResponse.json(
       { error: "Un compte existe déjà avec cet email." },

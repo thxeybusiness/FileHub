@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import Link from "next/link";
 import { marked } from "marked";
+import { sanitizeRichHtml } from "@/lib/sanitize-html";
 import {
   ArrowLeft, Check, Loader2, KanbanSquare, Plus, X, RefreshCw, Search, Filter, Tag,
   Trash2, Calendar, Flag, GripVertical, MoreHorizontal, Copy, ListChecks, ChevronDown,
@@ -688,7 +689,7 @@ function CardModal({ card, labels, onClose, onPatch, onDelete, onDup, onArchive 
   const addCheck = (text: string) => { const t = text.trim(); if (!t) return; onPatch({ checklist: [...(card.checklist ?? []), { id: uid(), text: t, done: false }] }); };
   const patchCheck = (cid: string, patch: Partial<Check>) => onPatch({ checklist: (card.checklist ?? []).map((c) => c.id === cid ? { ...c, ...patch } : c) });
   const delCheck = (cid: string) => onPatch({ checklist: (card.checklist ?? []).filter((c) => c.id !== cid) });
-  const descHtml = useMemo(() => { try { return marked.parse(card.desc || "*Vide.*", { async: false }) as string; } catch { return ""; } }, [card.desc]);
+  const descHtml = useMemo(() => { try { return sanitizeRichHtml(marked.parse(card.desc || "*Vide.*", { async: false }) as string); } catch { return ""; } }, [card.desc]);
 
   return (
     <div className="fixed inset-0 z-[80] grid place-items-start justify-center overflow-y-auto bg-black/60 p-4 py-10 backdrop-blur-sm" onClick={onClose}>

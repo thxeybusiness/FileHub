@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import Link from "next/link";
 import { marked } from "marked";
+import { sanitizeRichHtml } from "@/lib/sanitize-html";
 import {
   ArrowLeft, Check, Loader2, FolderKanban, Plus, X, RefreshCw, Search, Filter, Trash2,
   GripVertical, MoreHorizontal, Copy, ChevronDown, ChevronRight, ChevronLeft, Home,
@@ -1178,7 +1179,7 @@ function RowDetail({ row, fields, primary, onClose, onCell, onNotes, onChecklist
   if (!mounted) return null;
   const cl = row.checklist ?? [];
   const done = cl.filter((c) => c.done).length;
-  const notesHtml = (() => { try { return marked.parse(row.notes || "*Aucune description.*", { async: false }) as string; } catch { return ""; } })();
+  const notesHtml = (() => { try { return sanitizeRichHtml(marked.parse(row.notes || "*Aucune description.*", { async: false }) as string); } catch { return ""; } })();
 
   return createPortal(
     <div className="fixed inset-0 z-[80] flex items-start justify-center overflow-auto bg-black/60 p-4 backdrop-blur-sm sm:p-8" onMouseDown={onClose}>

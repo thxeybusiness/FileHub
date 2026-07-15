@@ -4,6 +4,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { marked } from "marked";
 import { ArrowLeft, Check, Loader2, ChevronRight, Home, StickyNote, Eye, Pencil, RefreshCw, History, MessageSquare } from "lucide-react";
+import { sanitizeRichHtml } from "@/lib/sanitize-html";
 import { api } from "@/lib/api";
 import { AiAssistant } from "./ai-assistant";
 import { RealtimeEngine, type Actions } from "./realtime";
@@ -84,7 +85,7 @@ export function NoteEditor({
   const onName = (v: string) => { setName(v); persist({ name: v.trim() || "Note sans titre" }); };
 
   const html = (() => {
-    try { return marked.parse(content || "*Note vide.*", { async: false }) as string; } catch { return ""; }
+    try { return sanitizeRichHtml(marked.parse(content || "*Note vide.*", { async: false }) as string); } catch { return ""; }
   })();
 
   return (

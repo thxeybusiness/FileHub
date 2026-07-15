@@ -3,7 +3,7 @@ import { z } from "zod";
 import { getUserId } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { isFounder, aiDailyLimit } from "@/lib/plans";
-import { aiUsageToday, incrementAiUsage } from "@/lib/ai-quota";
+import { reserveAiUsage, refundAiUsage } from "@/lib/ai-quota";
 import { aiConfigured, completeText, completeJson } from "@/lib/ai";
 
 export const runtime = "nodejs";
@@ -211,15 +211,17 @@ export async function POST(req: NextRequest) {
   if (limit <= 0) {
     return NextResponse.json({ error: "L'assistant IA n'est pas inclus dans votre grade." }, { status: 403 });
   }
-  if (Number.isFinite(limit) && (await aiUsageToday(userId)) >= limit) {
-    return NextResponse.json({ error: `Quota IA du jour atteint (${limit}/jour). Réessayez demain.` }, { status: 429 });
-  }
-  const charge = async () => { if (Number.isFinite(limit)) await incrementAiUsage(userId); };
-
   const body = await req.json().catch(() => null);
   const parsed = schema.safeParse(body);
   if (!parsed.success) return NextResponse.json({ error: "Requête invalide" }, { status: 400 });
   const { kind, action, text = "", instruction } = parsed.data;
+
+  // Réservation atomique du quota AVANT l'appel au modèle (anti-course) ;
+  // remboursée si l'appel échoue.
+  const metered = Number.isFinite(limit);
+  if (metered && !(await reserveAiUsage(userId, limit))) {
+    return NextResponse.json({ error: `Quota IA du jour atteint (${limit}/jour). Réessayez demain.` }, { status: 429 });
+  }
 
   try {
     if (kind === "chart") {
@@ -229,7 +231,6 @@ export async function POST(req: NextRequest) {
         schema: CHART_SCHEMA,
         maxTokens: 2000,
       });
-      await charge();
       return NextResponse.json({ chart });
     }
     if (kind === "board") {
@@ -239,7 +240,6 @@ export async function POST(req: NextRequest) {
         schema: BOARD_SCHEMA,
         maxTokens: 2500,
       });
-      await charge();
       return NextResponse.json({ data });
     }
     if (kind === "slides") {
@@ -249,7 +249,6 @@ export async function POST(req: NextRequest) {
         schema: SLIDES_SCHEMA,
         maxTokens: 3000,
       });
-      await charge();
       return NextResponse.json({ data });
     }
     if (kind === "project") {
@@ -259,7 +258,6 @@ export async function POST(req: NextRequest) {
         schema: PROJECT_SCHEMA,
         maxTokens: 3000,
       });
-      await charge();
       return NextResponse.json({ data });
     }
 
@@ -270,9 +268,9 @@ export async function POST(req: NextRequest) {
       doc: DOC_SYSTEM, sheet: SHEET_SYSTEM, draw: DRAW_SYSTEM, note: NOTE_SYSTEM, diagram: DIAGRAM_SYSTEM,
     };
     const table = tables[kind];
-    if (!table) return NextResponse.json({ error: "Type inconnu" }, { status: 400 });
+    if (!table) { if (metered) await refundAiUsage(userId); return NextResponse.json({ error: "Type inconnu" }, { status: 400 }); }
     const build = table[action] ?? table.custom;
-    if (!build) return NextResponse.json({ error: "Action inconnue" }, { status: 400 });
+    if (!build) { if (metered) await refundAiUsage(userId); return NextResponse.json({ error: "Action inconnue" }, { status: 400 }); }
 
     const result = await completeText({
       system: systems[kind],
@@ -280,9 +278,9 @@ export async function POST(req: NextRequest) {
       maxTokens: kind === "doc" ? 6000 : 2500,
       effort: "low",
     });
-    await charge();
     return NextResponse.json({ result });
   } catch (err) {
+    if (metered) await refundAiUsage(userId); // l'appel a échoué : on rend le crédit
     const raw = err instanceof Error ? err.message : String(err);
     let message = "L'assistant IA a rencontré une erreur. Réessayez dans un instant.";
     if (/credit balance|Plans & Billing|purchase credits/i.test(raw)) {

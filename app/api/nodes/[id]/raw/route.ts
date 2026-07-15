@@ -6,6 +6,9 @@ import { getMemberSpaceIds, nodeAccessWhere } from "@/lib/spaces";
 
 export const runtime = "nodejs";
 
+// HTML, SVG et XML peuvent embarquer des scripts : servis en téléchargement.
+const ACTIVE_TYPES = /^(text\/html|application\/xhtml\+xml|image\/svg\+xml|application\/xml|text\/xml)/i;
+
 // GET /api/nodes/:id/raw?download=1  — serve file bytes inline or as download.
 export async function GET(
   req: NextRequest,
@@ -31,16 +34,19 @@ export async function GET(
     return NextResponse.json({ error: "Fichier manquant" }, { status: 404 });
   }
 
-  const download = new URL(req.url).searchParams.get("download") === "1";
+  const mime = node.mimeType || "application/octet-stream";
+  // Types « actifs » toujours téléchargés, jamais rendus en ligne.
+  const download = ACTIVE_TYPES.test(mime) || new URL(req.url).searchParams.get("download") === "1";
   const disposition = download ? "attachment" : "inline";
   const filename = encodeURIComponent(node.name);
 
   return new NextResponse(new Uint8Array(buffer), {
     headers: {
-      "Content-Type": node.mimeType || "application/octet-stream",
+      "Content-Type": mime,
       "Content-Length": String(buffer.length),
       "Content-Disposition": `${disposition}; filename*=UTF-8''${filename}`,
       "Cache-Control": "private, max-age=0, must-revalidate",
+      "X-Content-Type-Options": "nosniff",
     },
   });
 }

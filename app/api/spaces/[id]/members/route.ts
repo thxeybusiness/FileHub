@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { getUserId } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { getSpaceRole } from "@/lib/spaces";
+import { getSpaceRole, canEditRole } from "@/lib/spaces";
 import { notify, notifyMany, displayName } from "@/lib/notifications";
 import { logActivity, actorNameFor } from "@/lib/activity";
 
@@ -22,7 +22,9 @@ export async function POST(
   if (!userId) return NextResponse.json({ error: "Non autorisé" }, { status: 401 });
   const { id } = await params;
 
-  if (!(await getSpaceRole(userId, id))) {
+  // Inviter exige un rôle éditeur (ou propriétaire) : un membre en lecture
+  // seule ne peut pas ajouter de membres ni accorder un accès en écriture.
+  if (!canEditRole(await getSpaceRole(userId, id))) {
     return NextResponse.json({ error: "Accès refusé" }, { status: 403 });
   }
 

@@ -36,3 +36,32 @@ export async function incrementAiUsage(userId: string): Promise<void> {
     userId,
   );
 }
+
+/**
+ * Réserve atomiquement une utilisation IA AVANT l'appel au modèle : incrémente
+ * le compteur uniquement s'il reste sous la limite. Renvoie `true` si la place
+ * est accordée, `false` si le quota du jour est déjà atteint. Atomique — insensible
+ * aux requêtes concurrentes (impossible de dépasser la limite en parallèle).
+ */
+export async function reserveAiUsage(userId: string, limit: number): Promise<boolean> {
+  await ensureTable();
+  const rows = await prisma.$queryRawUnsafe<{ count: number }[]>(
+    `INSERT INTO filehub_ai_usage (user_id, day, count) VALUES ($1, CURRENT_DATE, 1)
+     ON CONFLICT (user_id, day) DO UPDATE SET count = filehub_ai_usage.count + 1
+       WHERE filehub_ai_usage.count < $2
+     RETURNING count`,
+    userId,
+    limit,
+  );
+  return rows.length > 0;
+}
+
+/** Rembourse une utilisation réservée (ex. si l'appel au modèle a échoué). */
+export async function refundAiUsage(userId: string): Promise<void> {
+  await ensureTable();
+  await prisma.$executeRawUnsafe(
+    `UPDATE filehub_ai_usage SET count = GREATEST(count - 1, 0)
+       WHERE user_id = $1 AND day = CURRENT_DATE`,
+    userId,
+  );
+}

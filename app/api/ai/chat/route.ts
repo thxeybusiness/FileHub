@@ -3,7 +3,7 @@ import { z } from "zod";
 import { getUserId } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { isFounder, aiDailyLimit } from "@/lib/plans";
-import { aiUsageToday, incrementAiUsage } from "@/lib/ai-quota";
+import { reserveAiUsage, refundAiUsage } from "@/lib/ai-quota";
 import { aiConfigured, completeChat, type ChatMessage } from "@/lib/ai";
 import { buildDriveContext } from "@/lib/drive-context";
 
@@ -50,13 +50,15 @@ export async function POST(req: NextRequest) {
   if (limit <= 0) {
     return NextResponse.json({ error: "L'assistant IA n'est pas inclus dans votre grade." }, { status: 403 });
   }
-  if (Number.isFinite(limit) && (await aiUsageToday(userId)) >= limit) {
-    return NextResponse.json({ error: `Quota IA du jour atteint (${limit}/jour). Réessayez demain.` }, { status: 429 });
-  }
-
   const body = await req.json().catch(() => null);
   const parsed = schema.safeParse(body);
   if (!parsed.success) return NextResponse.json({ error: "Requête invalide" }, { status: 400 });
+
+  // Réservation atomique du quota AVANT l'appel au modèle (anti-course).
+  const metered = Number.isFinite(limit);
+  if (metered && !(await reserveAiUsage(userId, limit))) {
+    return NextResponse.json({ error: `Quota IA du jour atteint (${limit}/jour). Réessayez demain.` }, { status: 429 });
+  }
 
   const messages = parsed.data.messages as ChatMessage[];
   const lastUser = [...messages].reverse().find((m) => m.role === "user");
@@ -64,9 +66,9 @@ export async function POST(req: NextRequest) {
   try {
     const context = await buildDriveContext(userId, lastUser?.content ?? "");
     const reply = await completeChat({ system: SYSTEM(context), messages });
-    if (Number.isFinite(limit)) await incrementAiUsage(userId);
     return NextResponse.json({ reply });
   } catch (err) {
+    if (metered) await refundAiUsage(userId); // l'appel a échoué : on rend le crédit
     const raw = err instanceof Error ? err.message : String(err);
     let message = "L'assistant a rencontré une erreur. Réessayez dans un instant.";
     if (/credit balance|Plans & Billing|purchase credits/i.test(raw)) {

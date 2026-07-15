@@ -8,6 +8,7 @@ import { categoryOf, CATEGORY_META } from "@/lib/filetypes";
 import { SharedFileIcon } from "@/components/shared-file-icon";
 import { SharePasswordGate } from "@/components/share-password-gate";
 import { isUnlocked, unlockCookieName } from "@/lib/share";
+import { sanitizeRichHtml } from "@/lib/sanitize-html";
 
 export default async function SharePage({
   params,
@@ -100,7 +101,7 @@ export default async function SharePage({
             {node.type === "doc" ? (
               <article
                 className="doc-surface prose-share"
-                dangerouslySetInnerHTML={{ __html: sanitizeHtml(node.content ?? "") || "<p>Document vide.</p>" }}
+                dangerouslySetInnerHTML={{ __html: sanitizeRichHtml(node.content) || "<p>Document vide.</p>" }}
               />
             ) : ["sheet", "chart", "draw", "note", "diagram", "board", "slides", "project"].includes(node.type) ? (
               <div className="py-16 text-center text-muted flex flex-col items-center gap-2">
@@ -161,13 +162,3 @@ function FilePreview({ cat, url, name }: { cat: string; url: string; name: strin
   );
 }
 
-// Nettoyage minimal du HTML d'un document avant affichage public :
-// retire scripts, iframes, gestionnaires d'événements et URLs javascript:.
-function sanitizeHtml(html: string): string {
-  return html
-    .replace(/<\s*(script|iframe|object|embed|link|meta|style)\b[\s\S]*?(<\/\s*\1\s*>|$)/gi, "")
-    .replace(/\son\w+\s*=\s*"[^"]*"/gi, "")
-    .replace(/\son\w+\s*=\s*'[^']*'/gi, "")
-    .replace(/\son\w+\s*=\s*[^\s>]+/gi, "")
-    .replace(/(href|src)\s*=\s*(["']?)\s*javascript:[^"'>\s]*/gi, "$1=$2#");
-}

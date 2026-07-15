@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
+import { sanitizeRichHtml } from "@/lib/sanitize-html";
 import {
   ArrowLeft,
   Bold,
@@ -65,7 +66,9 @@ export function DocEditor({
   useEffect(() => {
     if (editorRef.current) {
       const raw = initialContent || "";
-      const cleaned = repairForDarkTheme(raw);
+      // Sécurité : on nettoie le HTML stocké (scripts, on*, javascript:…) AVANT
+      // de l'injecter, puis on répare les couleurs du thème sombre.
+      const cleaned = repairForDarkTheme(sanitizeRichHtml(raw));
       editorRef.current.innerHTML = cleaned;
       countWords();
       if (cleaned !== raw && cleaned.trim()) persist({ content: cleaned });
