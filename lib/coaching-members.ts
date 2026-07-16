@@ -18,12 +18,15 @@ async function ensureTable() {
        UNIQUE (node_id, user_id)
      )`,
   );
-  await prisma.$executeRawUnsafe(
-    `CREATE INDEX IF NOT EXISTS filehub_coaching_member_user_idx ON filehub_coaching_member (user_id)`,
-  );
-  await prisma.$executeRawUnsafe(
-    `CREATE INDEX IF NOT EXISTS filehub_coaching_member_node_idx ON filehub_coaching_member (node_id)`,
-  );
+  // Index indépendants → en parallèle (moins d'allers-retours à froid).
+  await Promise.all([
+    prisma.$executeRawUnsafe(
+      `CREATE INDEX IF NOT EXISTS filehub_coaching_member_user_idx ON filehub_coaching_member (user_id)`,
+    ).catch(() => {}),
+    prisma.$executeRawUnsafe(
+      `CREATE INDEX IF NOT EXISTS filehub_coaching_member_node_idx ON filehub_coaching_member (node_id)`,
+    ).catch(() => {}),
+  ]);
   ensured = true;
 }
 

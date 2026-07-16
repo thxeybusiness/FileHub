@@ -17,13 +17,17 @@ async function ensureTable() {
        created_at timestamptz NOT NULL DEFAULT now()
      )`,
   );
-  await prisma.$executeRawUnsafe(
-    `CREATE INDEX IF NOT EXISTS filehub_coaching_space_space_idx ON filehub_coaching_space (space_id)`,
-  );
-  // Garantit l'unicité par coaché même si la PK n'était pas reconnue.
-  await prisma.$executeRawUnsafe(
-    `CREATE UNIQUE INDEX IF NOT EXISTS filehub_coaching_space_coaching_uidx ON filehub_coaching_space (coaching_id)`,
-  ).catch(() => {});
+  // Index indépendants → créés en parallèle (moins d'allers-retours au démarrage
+  // à froid). L'unique garantit l'unicité par coaché même si la PK n'était pas
+  // reconnue.
+  await Promise.all([
+    prisma.$executeRawUnsafe(
+      `CREATE INDEX IF NOT EXISTS filehub_coaching_space_space_idx ON filehub_coaching_space (space_id)`,
+    ).catch(() => {}),
+    prisma.$executeRawUnsafe(
+      `CREATE UNIQUE INDEX IF NOT EXISTS filehub_coaching_space_coaching_uidx ON filehub_coaching_space (coaching_id)`,
+    ).catch(() => {}),
+  ]);
   ensured = true;
 }
 
