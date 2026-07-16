@@ -287,7 +287,7 @@ export function Sidebar({ initial }: { initial: Me }) {
             ) : (
               coachees.map((c) => {
                 const href = `/drive/coaching/${c.id}`;
-                const active = pathname === href;
+                const active = pathname === href || pathname.startsWith(href + "/");
                 const title = c.coacheeName || c.name || "Coaché";
                 const dot = COACHEE_STATUS_COLOR[c.status] ?? "#06b6d4";
                 return (

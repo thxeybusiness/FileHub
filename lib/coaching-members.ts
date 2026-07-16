@@ -98,3 +98,29 @@ export async function clearCoachingMembers(nodeId: string): Promise<void> {
   await ensureTable();
   await prisma.$executeRawUnsafe(`DELETE FROM filehub_coaching_member WHERE node_id = $1`, nodeId);
 }
+
+export type CoachingAccessRole = "owner" | "editor" | "viewer";
+export type CoachingNode = { id: string; name: string; content: string | null; userId: string };
+
+/**
+ * Résout l'accès d'un utilisateur à un suivi de coaché : renvoie le node et le
+ * rôle effectif (owner = propriétaire, sinon rôle de membre invité), ou null si
+ * aucun accès. Utilisé par la fiche, le drive du coaché et ses documents.
+ */
+export async function resolveCoachingAccess(
+  userId: string,
+  coachingId: string,
+): Promise<{ node: CoachingNode | null; role: CoachingAccessRole | null }> {
+  const node = await prisma.node.findFirst({
+    where: { id: coachingId, type: "coaching", trashed: false },
+    select: { id: true, name: true, content: true, userId: true },
+  });
+  if (!node) return { node: null, role: null };
+  const role: CoachingAccessRole | null =
+    node.userId === userId ? "owner" : await getCoachingRole(coachingId, userId);
+  return { node, role };
+}
+
+export function canEditRole(role: CoachingAccessRole | null): boolean {
+  return role === "owner" || role === "editor";
+}

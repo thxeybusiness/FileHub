@@ -1,38 +1,37 @@
 import { notFound, redirect } from "next/navigation";
 import { getUserId } from "@/lib/auth";
-import { prisma } from "@/lib/prisma";
-import { CoachingEditor } from "@/components/coaching-editor";
-import { getCoachingRole, listCoachingMembers } from "@/lib/coaching-members";
+import { resolveCoachingAccess, canEditRole } from "@/lib/coaching-members";
+import { CoachingWorkspace } from "@/components/coaching-workspace";
+
+function parseCoachee(content: string | null): { name: string; status: string } {
+  try {
+    const c = JSON.parse(content || "{}") as { coachee?: { name?: unknown; status?: unknown } };
+    const co = c.coachee ?? {};
+    return {
+      name: typeof co.name === "string" ? co.name : "",
+      status: typeof co.status === "string" ? co.status : "active",
+    };
+  } catch {
+    return { name: "", status: "active" };
+  }
+}
 
 export default async function Page({ params }: { params: Promise<{ id: string }> }) {
   const userId = await getUserId();
   if (!userId) redirect("/login");
   const { id } = await params;
 
-  const node = await prisma.node.findFirst({
-    where: { id, type: "coaching", trashed: false },
-    select: { id: true, name: true, content: true, userId: true },
-  });
-  if (!node) notFound();
+  const { node, role } = await resolveCoachingAccess(userId, id);
+  if (!node || !role) notFound();
 
-  // Accès : propriétaire OU membre invité (rôle éditeur / lecteur).
-  const isOwner = node.userId === userId;
-  const role = isOwner ? "owner" : await getCoachingRole(id, userId);
-  if (!role) notFound();
-
-  const canEdit = role === "owner" || role === "editor";
-  const members = await listCoachingMembers(id);
-  const shared = members.length > 0;
-
+  const { name, status } = parseCoachee(node.content);
   return (
-    <CoachingEditor
-      id={node.id}
-      initialName={node.name}
-      initialContent={node.content ?? ""}
-      backHref="/drive/accompagnement"
-      crumbs={[{ id: "accompagnement", name: "Accompagnement" }]}
-      shared={shared}
-      canEdit={canEdit}
+    <CoachingWorkspace
+      id={id}
+      coacheeName={name}
+      coachingName={node.name}
+      status={status}
+      canEdit={canEditRole(role)}
     />
   );
 }
