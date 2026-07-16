@@ -10,7 +10,7 @@ import {
   GripVertical, MoreHorizontal, Copy, ChevronDown, ChevronRight, ChevronLeft, Home,
   Table2, KanbanSquare, CalendarDays, GanttChartSquare, LayoutGrid, ArrowUpDown, Layers,
   Type, CircleDot, Tag, User, Calendar, Hash, Flag, CheckSquare, Percent, Star, Link2,
-  Eye, EyeOff, Settings2, ListChecks, AlignLeft, SlidersHorizontal, Palette, History, MessageSquare,
+  Eye, EyeOff, Pencil, Settings2, ListChecks, AlignLeft, SlidersHorizontal, Palette, History, MessageSquare,
 } from "lucide-react";
 import { api } from "@/lib/api";
 import { AiAssistant } from "./ai-assistant";
@@ -1175,10 +1175,12 @@ function RowDetail({ row, fields, primary, onClose, onCell, onNotes, onChecklist
 }) {
   const [mounted, setMounted] = useState(false);
   const [newCheck, setNewCheck] = useState("");
+  const [descPreview, setDescPreview] = useState(false);
   useEffect(() => { setMounted(true); const onKey = (e: KeyboardEvent) => e.key === "Escape" && onClose(); window.addEventListener("keydown", onKey); return () => window.removeEventListener("keydown", onKey); }, [onClose]);
   if (!mounted) return null;
   const cl = row.checklist ?? [];
   const done = cl.filter((c) => c.done).length;
+  const hasNotes = !!(row.notes ?? "").trim();
   const notesHtml = (() => { try { return sanitizeRichHtml(marked.parse(row.notes || "*Aucune description.*", { async: false }) as string); } catch { return ""; } })();
 
   return createPortal(
@@ -1191,16 +1193,16 @@ function RowDetail({ row, fields, primary, onClose, onCell, onNotes, onChecklist
           <button onClick={onClose} className="grid size-8 place-items-center rounded-lg text-muted hover:bg-white/5 hover:text-white"><X className="size-4" /></button>
         </div>
         <div className="max-h-[75vh] overflow-auto p-5">
-          <input value={asStr(row.cells[primary.id])} onChange={(e) => onCell(primary.id, e.target.value)} placeholder="Sans titre" className="w-full bg-transparent text-2xl font-bold outline-none placeholder:text-white/25" />
+          <input value={asStr(row.cells[primary.id])} onChange={(e) => onCell(primary.id, e.target.value)} placeholder="Sans titre" className="w-full bg-transparent text-2xl font-bold leading-tight outline-none placeholder:text-white/25" />
 
-          {/* Properties */}
-          <div className="mt-5 space-y-1">
+          {/* Properties — carte claire avec séparateurs */}
+          <div className="mt-5 overflow-hidden rounded-2xl border border-white/10 bg-white/[0.02] divide-y divide-white/[0.06]">
             {fields.filter((f) => !f.primary).map((f) => {
               const Icon = fieldIcon(f.type);
               return (
-                <div key={f.id} className="flex items-start gap-2 rounded-lg px-1 py-1.5 hover:bg-white/[0.02]">
-                  <span className="flex w-36 shrink-0 items-center gap-2 pt-1 text-xs text-muted"><Icon className="size-3.5" />{f.name}</span>
-                  <div className="min-w-0 flex-1 pt-0.5"><CellEditor field={f} value={row.cells[f.id]} onChange={(v) => onCell(f.id, v)} onAddOption={onAddOption} /></div>
+                <div key={f.id} className="flex items-center gap-3 px-4 py-2.5">
+                  <span className="flex w-36 shrink-0 items-center gap-2 text-xs font-medium text-muted"><Icon className="size-3.5" />{f.name}</span>
+                  <div className="min-w-0 flex-1"><CellEditor field={f} value={row.cells[f.id]} onChange={(v) => onCell(f.id, v)} onAddOption={onAddOption} /></div>
                 </div>
               );
             })}
@@ -1225,13 +1227,22 @@ function RowDetail({ row, fields, primary, onClose, onCell, onNotes, onChecklist
             </div>
           </div>
 
-          {/* Notes */}
+          {/* Description — un seul volet, avec bascule Aperçu (plus lisible) */}
           <div className="mt-6">
-            <div className="mb-2 flex items-center gap-2 text-sm font-semibold"><AlignLeft className="size-4" style={{ color: ACCENT }} /> Description</div>
-            <div className="grid gap-2 sm:grid-cols-2">
-              <textarea value={row.notes ?? ""} onChange={(e) => onNotes(e.target.value)} placeholder="Écrivez en Markdown…" className="min-h-[120px] w-full resize-y rounded-xl border border-white/10 bg-white/[0.03] px-3 py-2 font-mono text-sm outline-none focus:border-white/20 placeholder:text-white/25" />
-              <div className="prose-share min-h-[120px] rounded-xl border border-white/10 bg-white/[0.015] px-3 py-2 text-sm" dangerouslySetInnerHTML={{ __html: notesHtml }} />
+            <div className="mb-2 flex items-center gap-2">
+              <AlignLeft className="size-4" style={{ color: ACCENT }} />
+              <span className="text-sm font-semibold">Description</span>
+              {(hasNotes || descPreview) && (
+                <button onClick={() => setDescPreview((v) => !v)} className="ml-auto inline-flex items-center gap-1.5 rounded-lg border border-white/10 px-2.5 py-1 text-xs text-muted transition hover:bg-white/5 hover:text-white">
+                  {descPreview ? <><Pencil className="size-3.5" /> Éditer</> : <><Eye className="size-3.5" /> Aperçu</>}
+                </button>
+              )}
             </div>
+            {descPreview ? (
+              <div className="prose-share min-h-[120px] rounded-xl border border-white/10 bg-white/[0.015] px-4 py-3 text-sm" dangerouslySetInnerHTML={{ __html: notesHtml }} />
+            ) : (
+              <textarea value={row.notes ?? ""} onChange={(e) => onNotes(e.target.value)} placeholder="Décrivez l'objectif : contexte, critères de réussite, notes… (Markdown pris en charge)" className="min-h-[140px] w-full resize-y rounded-xl border border-white/10 bg-white/[0.03] px-4 py-3 text-sm leading-relaxed outline-none focus:border-white/20 placeholder:text-white/25" />
+            )}
           </div>
         </div>
       </div>
