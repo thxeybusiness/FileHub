@@ -33,6 +33,30 @@ export type CoachingSummary = {
   openActions: number;
   shared: boolean;
 };
+export type CoachingAgendaItem = {
+  coachingId: string;
+  coacheeName: string;
+  date: string;
+  kind: "session" | "action";
+  label: string;
+  done: boolean;
+};
+export type CoachingPendingAction = {
+  coachingId: string;
+  coacheeName: string;
+  text: string;
+  due: string | null;
+};
+export type CoachingOverview = {
+  stats: { total: number; active: number; avgProgress: number; openActions: number; upcoming: number };
+  coachees: {
+    id: string; coacheeName: string; status: string; progress: number;
+    openActions: number; sessions: number; nextSession: string | null; shared: boolean;
+  }[];
+  upcoming: CoachingAgendaItem[];
+  pendingActions: CoachingPendingAction[];
+  agenda: CoachingAgendaItem[];
+};
 export type CoachingMemberInfo = {
   id: string;
   name: string | null;
@@ -329,6 +353,10 @@ export const api = {
   // Nettoie les espaces-coaché orphelins (vides) qui polluent la liste Espaces.
   cleanupCoachingSpaces() {
     return req<{ removed: number }>("/api/coaching/cleanup-spaces", { method: "POST" });
+  },
+  // Agrégat transversal (dashboard/agenda du coaching).
+  getCoachingOverview() {
+    return req<CoachingOverview>("/api/coaching/overview");
   },
   getCoachingMembers(id: string) {
     return req<{ id: string; name: string; isOwner: boolean; myRole: string; members: CoachingMemberInfo[] }>(

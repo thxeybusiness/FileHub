@@ -22,6 +22,7 @@ import {
   ShieldCheck,
   Settings,
   HeartHandshake,
+  CalendarDays,
   ChevronDown,
   X,
 } from "lucide-react";
@@ -54,7 +55,9 @@ const NAV = [
 
 // Navigation de l'espace « Accompagnement » (SaaS séparé : aucune option FileHub).
 const COACHING_NAV = [
-  { href: "/drive/accompagnement", label: "Mes coachés", icon: HeartHandshake, exact: true },
+  { href: "/drive/accompagnement", label: "Tableau de bord", icon: LayoutDashboard, exact: true },
+  { href: "/drive/accompagnement/coaches", label: "Mes coachés", icon: HeartHandshake, exact: true },
+  { href: "/drive/accompagnement/agenda", label: "Agenda", icon: CalendarDays, exact: true },
 ];
 
 // Couleur de la pastille de statut d'un coaché dans la barre latérale.

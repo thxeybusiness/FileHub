@@ -1,5 +1,5 @@
-import { AccompagnementHome } from "@/components/accompagnement-home";
+import { CoachingDashboard } from "@/components/coaching-dashboard";
 
 export default function Page() {
-  return <AccompagnementHome />;
+  return <CoachingDashboard />;
 }
