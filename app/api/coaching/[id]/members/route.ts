@@ -7,6 +7,7 @@ import {
   getCoachingRole, listCoachingMembers, addCoachingMember,
   setCoachingMemberRole, removeCoachingMember, type CoachingRole,
 } from "@/lib/coaching-members";
+import { ensureCoachingSpace, getCoachingSpaceId, syncSpaceMember, unsyncSpaceMember } from "@/lib/coaching-space";
 
 export const runtime = "nodejs";
 
@@ -108,6 +109,10 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
   const role: CoachingRole = parsed.data.role ?? "editor";
   await addCoachingMember(id, invited.id, role);
 
+  // Miroir dans le drive dédié du coaché : la personne y accède avec son rôle.
+  const spaceId = await ensureCoachingSpace(id, node.userId, node.name);
+  await syncSpaceMember(spaceId, invited.id, role);
+
   // Notifie l'invité.
   const actor = await prisma.user.findUnique({ where: { id: userId }, select: { name: true, username: true, email: true } });
   const actorName = actor ? displayName(actor) : "Quelqu'un";
@@ -143,6 +148,8 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
   }
 
   await setCoachingMemberRole(id, parsed.data.userId, parsed.data.role);
+  const sp = await getCoachingSpaceId(id);
+  if (sp) await syncSpaceMember(sp, parsed.data.userId, parsed.data.role);
   return NextResponse.json({ ok: true });
 }
 
@@ -163,5 +170,7 @@ export async function DELETE(req: NextRequest, { params }: { params: Promise<{ i
   if (!parsed.success) return NextResponse.json({ error: "Requête invalide" }, { status: 400 });
 
   await removeCoachingMember(id, parsed.data.userId);
+  const sp = await getCoachingSpaceId(id);
+  if (sp) await unsyncSpaceMember(sp, parsed.data.userId);
   return NextResponse.json({ ok: true });
 }

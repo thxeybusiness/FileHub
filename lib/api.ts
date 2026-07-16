@@ -42,13 +42,6 @@ export type CoachingMemberInfo = {
   isOwner: boolean;
   isMe: boolean;
 };
-export type CoachingDocMeta = {
-  id: string;
-  category: string;
-  title: string;
-  updatedAt: string;
-};
-export type CoachingDoc = CoachingDocMeta & { content: string };
 export type SpaceMemberInfo = {
   id: string;
   name: string | null;
@@ -343,22 +336,6 @@ export const api = {
   },
   removeCoachingMember(id: string, memberUserId: string) {
     return req<{ ok: boolean }>(`/api/coaching/${id}/members`, jsonInit("DELETE", { userId: memberUserId }));
-  },
-  // ── Drive du coaché (documents rangés par rubrique) ──
-  listCoachingDocs(id: string) {
-    return req<{ docs: CoachingDocMeta[] }>(`/api/coaching/${id}/docs`);
-  },
-  createCoachingDoc(id: string, category: string, title: string) {
-    return req<{ doc: CoachingDoc }>(`/api/coaching/${id}/docs`, jsonInit("POST", { category, title }));
-  },
-  getCoachingDoc(id: string, docId: string) {
-    return req<{ doc: CoachingDoc }>(`/api/coaching/${id}/docs/${docId}`);
-  },
-  saveCoachingDoc(id: string, docId: string, patch: { title?: string; content?: string; category?: string }) {
-    return req<{ ok: boolean; updatedAt: string }>(`/api/coaching/${id}/docs/${docId}`, jsonInit("PUT", patch));
-  },
-  deleteCoachingDoc(id: string, docId: string) {
-    return req<{ ok: boolean }>(`/api/coaching/${id}/docs/${docId}`, { method: "DELETE" });
   },
 
   emptyTrash() {

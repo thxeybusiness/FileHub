@@ -66,6 +66,7 @@ export function DriveExplorer({
   spaceId = null,
   basePath = "/drive",
   spaceName,
+  nodeBase,
 }: {
   view: View;
   folderId?: string | null;
@@ -74,6 +75,9 @@ export function DriveExplorer({
   spaceId?: string | null;
   basePath?: string;
   spaceName?: string;
+  // Base pour ouvrir un document (drive du coaché) : "<base>/<nodeId>".
+  // Par défaut on ouvre les éditeurs FileHub génériques (/drive/<type>/<id>).
+  nodeBase?: string;
 }) {
   const router = useRouter();
   const [nodes, setNodes] = useState<SerializedNode[]>([]);
@@ -182,31 +186,31 @@ export function DriveExplorer({
   };
 
   // ---- Actions -------------------------------------------------------------
+  // Lien d'ouverture d'un document : drive du coaché (nodeBase) ou éditeur FileHub.
+  const editorHref = (type: string, id: string) =>
+    nodeBase ? `${nodeBase}/${id}` : `/drive/${type}/${id}`;
+
   const open = (n: SerializedNode) => {
     if (n.type === "folder") router.push(`${basePath}/folder/${n.id}`);
-    else if (n.type === "doc") router.push(`/drive/doc/${n.id}`);
-    else if (n.type === "sheet") router.push(`/drive/sheet/${n.id}`);
-    else if (n.type === "chart") router.push(`/drive/chart/${n.id}`);
-    else if (n.type === "draw") router.push(`/drive/draw/${n.id}`);
-    else if (n.type === "note" || n.type === "diagram" || n.type === "board" || n.type === "slides" || n.type === "project" || n.type === "coaching")
-      router.push(`/drive/${n.type}/${n.id}`);
+    else if (n.type === "doc" || n.type === "sheet" || n.type === "chart" || n.type === "draw" || n.type === "note" || n.type === "diagram" || n.type === "board" || n.type === "slides" || n.type === "project" || n.type === "coaching")
+      router.push(editorHref(n.type, n.id));
     else setPreview(n);
   };
 
   const createDoc = async () => {
     const { node } = await api.createDoc("Document sans titre", folderId, spaceId);
-    router.push(`/drive/doc/${node.id}`);
+    router.push(editorHref("doc", node.id));
   };
 
   const createSheet = async () => {
     const { node } = await api.createSheet("Feuille sans titre", folderId, spaceId);
-    router.push(`/drive/sheet/${node.id}`);
+    router.push(editorHref("sheet", node.id));
   };
 
   const createChart = async (type: ChartType = "bar") => {
     const { node } = await api.createChart("Graphique sans titre", folderId, spaceId);
     await api.saveChart(node.id, { content: defaultChartDoc(type) });
-    router.push(`/drive/chart/${node.id}`);
+    router.push(editorHref("chart", node.id));
   };
 
   const closeProjectMenu = () => {
@@ -216,13 +220,13 @@ export function DriveExplorer({
 
   const createDraw = async () => {
     const { node } = await api.createDraw("Dessin sans titre", folderId, spaceId);
-    router.push(`/drive/draw/${node.id}`);
+    router.push(editorHref("draw", node.id));
   };
 
   const createTyped = async (type: "note" | "diagram" | "board" | "slides" | "project") => {
     const label = { note: "Note sans titre", diagram: "Diagramme sans titre", board: "Tableau kanban", slides: "Présentation sans titre", project: "Tableau sans titre" }[type];
     const { node } = await api.createNode(type, label, folderId, spaceId);
-    router.push(`/drive/${type}/${node.id}`);
+    router.push(editorHref(type, node.id));
   };
 
   const doRename = async (n: SerializedNode, name: string) => {

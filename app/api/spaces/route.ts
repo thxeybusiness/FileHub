@@ -4,10 +4,11 @@ import { getUserId } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { notify } from "@/lib/notifications";
 import { spaceLimit, effectivePlan } from "@/lib/plans";
+import { filterCoachingSpaceIds, ownerCoachingSpaceIds } from "@/lib/coaching-space";
 
 export const runtime = "nodejs";
 
-// GET /api/spaces — espaces dont je suis membre
+// GET /api/spaces — espaces dont je suis membre (hors drives de coaché, cachés)
 export async function GET() {
   const userId = await getUserId();
   if (!userId) return NextResponse.json({ error: "Non autorisé" }, { status: 401 });
@@ -28,14 +29,19 @@ export async function GET() {
     },
   });
 
+  // Les espaces adossés à un coaché ne doivent jamais apparaître dans FileHub.
+  const hidden = await filterCoachingSpaceIds(memberships.map((m) => m.space.id));
+
   return NextResponse.json({
-    spaces: memberships.map((m) => ({
-      id: m.space.id,
-      name: m.space.name,
-      role: m.role,
-      isOwner: m.space.ownerId === userId,
-      memberCount: m.space._count.members,
-    })),
+    spaces: memberships
+      .filter((m) => !hidden.has(m.space.id))
+      .map((m) => ({
+        id: m.space.id,
+        name: m.space.name,
+        role: m.role,
+        isOwner: m.space.ownerId === userId,
+        memberCount: m.space._count.members,
+      })),
   });
 }
 
@@ -54,7 +60,11 @@ export async function POST(req: NextRequest) {
   const me = await prisma.user.findUnique({ where: { id: userId }, select: { email: true, plan: true } });
   const limit = spaceLimit(effectivePlan(me?.email, me?.plan ?? "free"));
   if (Number.isFinite(limit)) {
-    const owned = await prisma.space.count({ where: { ownerId: userId } });
+    // Les drives de coaché (espaces cachés) ne comptent pas dans la limite.
+    const coachingSpaceIds = await ownerCoachingSpaceIds(userId);
+    const owned = await prisma.space.count({
+      where: { ownerId: userId, ...(coachingSpaceIds.length ? { id: { notIn: coachingSpaceIds } } : {}) },
+    });
     if (owned >= limit) {
       return NextResponse.json(
         {
