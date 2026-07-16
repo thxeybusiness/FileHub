@@ -26,6 +26,7 @@ import {
   KanbanSquare,
   FolderKanban,
   HeartHandshake,
+  ClipboardList,
   File as FileIcon,
   type LucideIcon,
 } from "lucide-react";
@@ -69,7 +70,7 @@ export function NodeIcon({
   size = 20,
   className = "",
 }: {
-  type: "folder" | "file" | "doc" | "sheet" | "chart" | "draw" | "note" | "diagram" | "board" | "slides" | "project" | "coaching";
+  type: "folder" | "file" | "doc" | "sheet" | "chart" | "draw" | "note" | "diagram" | "board" | "slides" | "project" | "coaching" | "seance";
   mimeType?: string | null;
   name?: string;
   color?: string | null;
@@ -136,6 +137,7 @@ export function NodeIcon({
     slides: { icon: Presentation, color: "#fb7185" },
     project: { icon: FolderKanban, color: "#8b5cf6" },
     coaching: { icon: HeartHandshake, color: "#06b6d4" },
+    seance: { icon: ClipboardList, color: "#0ea5e9" },
   };
   if (EXTRA[type]) {
     const { icon: Icon, color } = EXTRA[type];

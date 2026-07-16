@@ -13,6 +13,7 @@ import { DiagramEditor } from "@/components/diagram-editor";
 import { BoardEditor } from "@/components/board-editor";
 import { SlidesEditor } from "@/components/slides-editor";
 import { ProjectEditor } from "@/components/project-editor";
+import { SeanceEditor } from "@/components/seance-editor";
 import type { ChartDoc } from "@/lib/chart-palette";
 
 function parseJson<T>(content: string | null): T | null {
@@ -65,6 +66,8 @@ export default async function Page({ params }: { params: Promise<{ id: string; n
       return <SlidesEditor id={node.id} initialName={node.name} initialContent={content} backHref={backHref} crumbs={crumbs} shared />;
     case "project":
       return <ProjectEditor id={node.id} initialName={node.name} initialContent={content} backHref={backHref} crumbs={crumbs} shared />;
+    case "seance":
+      return <SeanceEditor id={node.id} initialName={node.name} initialContent={content} backHref={backHref} crumbs={crumbs} canEdit={role !== "viewer"} />;
     default:
       notFound();
   }

@@ -35,6 +35,19 @@ const DEFAULT_COACHING = JSON.stringify({
   ],
   notes: "",
 });
+// Compte-rendu de séance (drive coaching) : outil structuré (pas un doc texte).
+const DEFAULT_SEANCE = JSON.stringify({
+  date: "",
+  duration: "",
+  nextDate: "",
+  objective: "",
+  mood: null,
+  rating: null,
+  topics: [{ id: "t1", text: "" }],
+  observations: "",
+  actions: [{ id: "a1", text: "", done: false }],
+  privateNotes: "",
+});
 // Projet : base de données de tâches (champs typés + lignes + vues).
 const DEFAULT_PROJECT = JSON.stringify({
   fields: [
@@ -175,7 +188,7 @@ const createSchema = z.object({
   parentId: z.string().nullable().optional(),
   color: z.string().optional(),
   type: z
-    .enum(["folder", "doc", "sheet", "chart", "draw", "note", "diagram", "board", "slides", "project", "coaching"])
+    .enum(["folder", "doc", "sheet", "chart", "draw", "note", "diagram", "board", "slides", "project", "coaching", "seance"])
     .optional(),
   spaceId: z.string().nullable().optional(),
 });
@@ -234,6 +247,9 @@ export async function POST(req: NextRequest) {
         : {}),
       ...(type === "coaching"
         ? { content: DEFAULT_COACHING, mimeType: "application/vnd.filehub.coaching" }
+        : {}),
+      ...(type === "seance"
+        ? { content: DEFAULT_SEANCE, mimeType: "application/vnd.filehub.seance" }
         : {}),
     },
     include: { _count: { select: { children: true } } },

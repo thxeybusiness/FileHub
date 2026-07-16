@@ -61,9 +61,6 @@ import { ConfirmDialog } from "./confirm-dialog";
 type View = "my" | "starred" | "recent" | "trash";
 type UploadTask = { id: string; name: string; progress: number; error?: boolean };
 
-// Modèle de compte-rendu de séance (drive coaching) — HTML de l'éditeur Document.
-const SESSION_NOTE_TEMPLATE = `<h2>Compte-rendu de séance</h2><p><strong>Date :</strong> </p><p><strong>Objectif de la séance :</strong> </p><h3>Points abordés</h3><ul><li></li></ul><h3>Ressenti &amp; observations</h3><p></p><h3>Actions pour la prochaine séance</h3><ul><li></li></ul>`;
-
 // Modèle de plan d'action (drive coaching) — base de données de tâches "projet".
 const ACTION_PLAN_TEMPLATE = JSON.stringify({
   fields: [
@@ -228,7 +225,7 @@ export function DriveExplorer({
 
   const open = (n: SerializedNode) => {
     if (n.type === "folder") router.push(`${basePath}/folder/${n.id}`);
-    else if (n.type === "doc" || n.type === "sheet" || n.type === "chart" || n.type === "draw" || n.type === "note" || n.type === "diagram" || n.type === "board" || n.type === "slides" || n.type === "project" || n.type === "coaching")
+    else if (n.type === "doc" || n.type === "sheet" || n.type === "chart" || n.type === "draw" || n.type === "note" || n.type === "diagram" || n.type === "board" || n.type === "slides" || n.type === "project" || n.type === "coaching" || n.type === "seance")
       router.push(editorHref(n.type, n.id));
     else setPreview(n);
   };
@@ -266,10 +263,10 @@ export function DriveExplorer({
   };
 
   // ── Créations spécifiques au coaching (avec modèle pré-rempli) ──
+  // Compte-rendu de séance : vrai outil structuré (type « seance »), pas un doc.
   const createSessionNote = async () => {
-    const { node } = await api.createDoc("Compte-rendu de séance", folderId, spaceId);
-    await api.saveDoc(node.id, { content: SESSION_NOTE_TEMPLATE }).catch(() => {});
-    router.push(editorHref("doc", node.id));
+    const { node } = await api.createNode("seance", "Compte-rendu de séance", folderId, spaceId);
+    router.push(editorHref("seance", node.id));
   };
 
   const createActionPlan = async () => {
@@ -282,7 +279,7 @@ export function DriveExplorer({
   type CreateItem = { icon: typeof FileText; tint: string; label: string; desc: string; fn?: () => void; expandable?: boolean };
   const createItems: CreateItem[] = variant === "coaching"
     ? [
-        { icon: CalendarClock, tint: "#06b6d4", label: "Compte-rendu de séance", desc: "Note de séance pré-remplie", fn: createSessionNote },
+        { icon: CalendarClock, tint: "#0ea5e9", label: "Compte-rendu de séance", desc: "Outil structuré : objectif, points, actions…", fn: createSessionNote },
         { icon: Target, tint: "#22c55e", label: "Plan d'action", desc: "Objectifs & tâches multi-vues", fn: createActionPlan },
         { icon: FileText, tint: "#5b8bff", label: "Document", desc: "Traitement de texte", fn: createDoc },
         { icon: Table2, tint: "#10b981", label: "Feuille de suivi", desc: "Tableur : indicateurs, présence…", fn: createSheet },
