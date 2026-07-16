@@ -20,6 +20,10 @@ async function ensureTable() {
   await prisma.$executeRawUnsafe(
     `CREATE INDEX IF NOT EXISTS filehub_coaching_space_space_idx ON filehub_coaching_space (space_id)`,
   );
+  // Garantit l'unicité par coaché même si la PK n'était pas reconnue.
+  await prisma.$executeRawUnsafe(
+    `CREATE UNIQUE INDEX IF NOT EXISTS filehub_coaching_space_coaching_uidx ON filehub_coaching_space (coaching_id)`,
+  ).catch(() => {});
   ensured = true;
 }
 
@@ -74,50 +78,98 @@ export async function ownerCoachingSpaceIds(ownerId: string): Promise<string[]> 
  */
 export async function ensureCoachingSpace(coachingId: string, ownerId: string, name: string): Promise<string> {
   await ensureTable();
+
   const existing = await getCoachingSpaceId(coachingId);
-  if (existing) return existing;
-
-  const space = await prisma.space.create({
-    data: {
-      name: name?.trim() || "Coaché",
-      ownerId,
-      members: { create: { userId: ownerId, role: "owner" } },
-    },
-    select: { id: true },
-  });
-
-  // Revendique le lien ; en cas de course, on garde l'espace déjà créé.
-  const claimed = await prisma.$executeRawUnsafe(
-    `INSERT INTO filehub_coaching_space (coaching_id, space_id, owner_id) VALUES ($1, $2, $3)
-       ON CONFLICT (coaching_id) DO NOTHING`,
-    coachingId,
-    space.id,
-    ownerId,
-  );
-  if (Number(claimed) === 0) {
-    await prisma.space.delete({ where: { id: space.id } }).catch(() => {});
-    return (await getCoachingSpaceId(coachingId))!;
+  if (existing) {
+    // Le lien existe : on vérifie que l'espace n'a pas été supprimé entre-temps.
+    const sp = await prisma.space.findUnique({ where: { id: existing }, select: { id: true } }).catch(() => null);
+    if (sp) return existing;
+    // Lien orphelin (espace supprimé) → on le nettoie et on recrée.
+    await prisma.$executeRawUnsafe(`DELETE FROM filehub_coaching_space WHERE coaching_id = $1`, coachingId).catch(() => {});
   }
 
-  // Recopie les membres invités du suivi dans l'espace (mêmes rôles).
-  const members = await listCoachingMembers(coachingId);
+  // Auto-réparation : récupère un espace orphelin laissé par l'ancien bug
+  // (même nom, appartenant au coach, vide, sans lien) au lieu d'en créer un
+  // doublon — ce qui nettoie au passage les espaces parasites déjà visibles.
+  const cleanName = name?.trim() || "Coaché";
+  const orphan = await prisma.space
+    .findFirst({
+      where: { ownerId, name: cleanName, nodes: { none: {} }, members: { every: { userId: ownerId } } },
+      select: { id: true },
+      orderBy: { createdAt: "desc" },
+    })
+    .catch(() => null);
+  if (orphan) {
+    const mapped = await prisma.$queryRawUnsafe<{ x: number }[]>(
+      `SELECT 1 AS x FROM filehub_coaching_space WHERE space_id = $1 LIMIT 1`,
+      orphan.id,
+    ).catch(() => [{ x: 1 }] as { x: number }[]);
+    if (!mapped.length) {
+      try {
+        await prisma.$executeRawUnsafe(
+          `INSERT INTO filehub_coaching_space (coaching_id, space_id, owner_id) VALUES ($1, $2, $3)`,
+          coachingId,
+          orphan.id,
+          ownerId,
+        );
+        await addStarterFolders(orphan.id, ownerId);
+        return orphan.id;
+      } catch {
+        const again = await getCoachingSpaceId(coachingId);
+        if (again) return again;
+        // sinon on retombe sur la création normale ci-dessous
+      }
+    }
+  }
+
+  // Création ATOMIQUE de l'espace + du lien : si l'insert du lien échoue, la
+  // transaction annule tout → jamais d'espace orphelin visible dans FileHub.
+  // (Pas d'ON CONFLICT : on gère la course en catch.)
+  let spaceId: string;
+  try {
+    spaceId = await prisma.$transaction(async (tx) => {
+      const s = await tx.space.create({
+        data: { name: name?.trim() || "Coaché", ownerId, members: { create: { userId: ownerId, role: "owner" } } },
+        select: { id: true },
+      });
+      await tx.$executeRawUnsafe(
+        `INSERT INTO filehub_coaching_space (coaching_id, space_id, owner_id) VALUES ($1, $2, $3)`,
+        coachingId,
+        s.id,
+        ownerId,
+      );
+      return s.id;
+    });
+  } catch {
+    // Course concurrente (lien déjà écrit) ou erreur transitoire : on réutilise
+    // le lien existant sans laisser d'espace orphelin.
+    const again = await getCoachingSpaceId(coachingId);
+    if (again) return again;
+    throw new Error("Impossible de préparer le drive du coaché.");
+  }
+
+  // Recopie les membres invités du suivi (mêmes rôles) — best-effort.
+  const members = await listCoachingMembers(coachingId).catch(() => []);
   await Promise.all(
     members.map((m) =>
-      prisma.spaceMember.create({ data: { spaceId: space.id, userId: m.userId, role: m.role } }).catch(() => {}),
+      prisma.spaceMember.create({ data: { spaceId, userId: m.userId, role: m.role } }).catch(() => {}),
     ),
   );
 
-  // Structure de départ prête à l'emploi (dossiers de rangement coaching).
+  await addStarterFolders(spaceId, ownerId);
+  return spaceId;
+}
+
+// Structure de départ prête à l'emploi (dossiers de rangement coaching).
+async function addStarterFolders(spaceId: string, ownerId: string): Promise<void> {
   const STARTER_FOLDERS = ["Séances", "Ressources", "Documents", "Administratif"];
   await Promise.all(
     STARTER_FOLDERS.map((folderName) =>
       prisma.node
-        .create({ data: { userId: ownerId, spaceId: space.id, parentId: null, name: folderName, type: "folder" } })
+        .create({ data: { userId: ownerId, spaceId, parentId: null, name: folderName, type: "folder" } })
         .catch(() => {}),
     ),
   );
-
-  return space.id;
 }
 
 /** Ajoute / met à jour un membre dans l'espace du coaché (miroir du suivi). */
