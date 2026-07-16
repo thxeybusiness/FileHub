@@ -83,7 +83,11 @@ export async function ensureCoachingSpace(coachingId: string, ownerId: string, n
   if (existing) {
     // Le lien existe : on vérifie que l'espace n'a pas été supprimé entre-temps.
     const sp = await prisma.space.findUnique({ where: { id: existing }, select: { id: true } }).catch(() => null);
-    if (sp) return existing;
+    if (sp) {
+      // Nettoie les anciens dossiers de départ (vides) qu'on ne crée plus.
+      await removeEmptyStarterFolders(existing);
+      return existing;
+    }
     // Lien orphelin (espace supprimé) → on le nettoie et on recrée.
     await prisma.$executeRawUnsafe(`DELETE FROM filehub_coaching_space WHERE coaching_id = $1`, coachingId).catch(() => {});
   }
@@ -112,7 +116,6 @@ export async function ensureCoachingSpace(coachingId: string, ownerId: string, n
           orphan.id,
           ownerId,
         );
-        await addStarterFolders(orphan.id, ownerId);
         return orphan.id;
       } catch {
         const again = await getCoachingSpaceId(coachingId);
@@ -156,19 +159,24 @@ export async function ensureCoachingSpace(coachingId: string, ownerId: string, n
     ),
   );
 
-  await addStarterFolders(spaceId, ownerId);
   return spaceId;
 }
 
-// Structure de départ prête à l'emploi (dossiers de rangement coaching).
-async function addStarterFolders(spaceId: string, ownerId: string): Promise<void> {
-  const STARTER_FOLDERS = ["Séances", "Ressources", "Documents", "Administratif"];
+// Supprime les anciens dossiers de départ (Séances/Ressources/Documents/
+// Administratif) restés VIDES à la racine du drive d'un coaché — on ne les
+// crée plus automatiquement.
+const STARTER_FOLDER_NAMES = ["Séances", "Ressources", "Documents", "Administratif"];
+async function removeEmptyStarterFolders(spaceId: string): Promise<void> {
+  const folders = await prisma.node
+    .findMany({
+      where: { spaceId, parentId: null, type: "folder", name: { in: STARTER_FOLDER_NAMES } },
+      select: { id: true, _count: { select: { children: true } } },
+    })
+    .catch(() => [] as { id: string; _count: { children: number } }[]);
   await Promise.all(
-    STARTER_FOLDERS.map((folderName) =>
-      prisma.node
-        .create({ data: { userId: ownerId, spaceId, parentId: null, name: folderName, type: "folder" } })
-        .catch(() => {}),
-    ),
+    folders
+      .filter((f) => f._count.children === 0)
+      .map((f) => prisma.node.delete({ where: { id: f.id } }).catch(() => {})),
   );
 }
 
