@@ -7,13 +7,14 @@ import { sanitizeRichHtml } from "@/lib/sanitize-html";
 import {
   ArrowLeft, Home, ChevronRight, Check, Loader2, RefreshCw, HeartHandshake,
   Plus, Trash2, Target, CalendarClock, ListChecks, NotebookPen,
-  Contact, Smile, Meh, Frown, History, MessageSquare, Eye, Pencil,
+  Contact, Smile, Meh, Frown, History, MessageSquare, Eye, Pencil, Users, Lock,
 } from "lucide-react";
 import { api } from "@/lib/api";
 import { RealtimeEngine, type Actions } from "./realtime";
 import { CollabBar } from "./collab-bar";
 import { VersionHistory } from "./version-history";
 import { CommentsPanel } from "./comments-panel";
+import { CoachingMembersDialog } from "./coaching-members-dialog";
 import { ExportButton } from "./export-button";
 import { downloadText, safeFilename } from "@/lib/export-doc";
 import type { Peer } from "./use-collab";
@@ -155,15 +156,16 @@ function toMarkdown(name: string, c: Coaching): string {
 
 /* ───────────────────────── Main editor ───────────────────────── */
 export function CoachingEditor({
-  id, initialName, initialContent, backHref, crumbs, shared = false,
+  id, initialName, initialContent, backHref, crumbs, shared = false, canEdit = true,
 }: {
-  id: string; initialName: string; initialContent: string; backHref: string; crumbs: Crumb[]; shared?: boolean;
+  id: string; initialName: string; initialContent: string; backHref: string; crumbs: Crumb[]; shared?: boolean; canEdit?: boolean;
 }) {
   const [name, setName] = useState(initialName);
   const [data, setData] = useState<Coaching>(() => parse(initialContent));
   const [save, setSave] = useState<SaveState>("saved");
   const [flash, setFlash] = useState(false);
   const [notePreview, setNotePreview] = useState(false);
+  const [membersOpen, setMembersOpen] = useState(false);
 
   const [peers, setPeers] = useState<Peer[]>([]);
   const [histOpen, setHistOpen] = useState(false);
@@ -175,6 +177,7 @@ export function CoachingEditor({
   const serialize = useCallback((c: Coaching) => JSON.stringify(c), []);
 
   const persist = useCallback((next: Coaching, nextName?: string) => {
+    if (!canEdit) return; // lecture seule : aucune écriture
     setSave("saving");
     dirty.current = true;
     actions.current.markEditing();
@@ -184,7 +187,7 @@ export function CoachingEditor({
         .then((r) => { setSave("saved"); dirty.current = false; if (r?.updatedAt) actions.current.syncVersion(r.updatedAt); })
         .catch(() => setSave("error"));
     }, 550);
-  }, [id, serialize]);
+  }, [id, serialize, canEdit]);
 
   const update = useCallback((fn: (c: Coaching) => Coaching) => {
     setData((prev) => { const next = fn(prev); persist(next); return next; });
@@ -248,6 +251,7 @@ export function CoachingEditor({
       <RealtimeEngine id={id} shared={shared} mode="blob" content={serialize(data)} onRemote={applyRemote} fetchRemote={fetchRemote} setPeers={setPeers} actions={actions} />
       <VersionHistory id={id} open={histOpen} onClose={() => setHistOpen(false)} onRestore={applyRemote} />
       <CommentsPanel id={id} open={comOpen} onClose={() => setComOpen(false)} />
+      {membersOpen && <CoachingMembersDialog id={id} onClose={() => setMembersOpen(false)} />}
 
       {/* Header */}
       <header className="h-16 shrink-0 border-b border-white/10 bg-white/[0.03] backdrop-blur-xl px-4 sm:px-6 flex items-center gap-3">
@@ -261,13 +265,21 @@ export function CoachingEditor({
           </div>
           <div className="flex items-center gap-2">
             <HeartHandshake className="size-4 shrink-0" style={{ color: ACCENT }} />
-            <input value={name} onChange={(e) => onName(e.target.value)} className="min-w-0 flex-1 bg-transparent text-base font-semibold outline-none placeholder:text-white/30" placeholder="Accompagnement sans titre" />
+            <input value={name} onChange={(e) => onName(e.target.value)} readOnly={!canEdit} className="min-w-0 flex-1 bg-transparent text-base font-semibold outline-none placeholder:text-white/30" placeholder="Accompagnement sans titre" />
           </div>
         </div>
+        {!canEdit && (
+          <span className="hidden sm:inline-flex items-center gap-1.5 rounded-lg border border-white/10 bg-white/[0.03] px-2.5 py-1 text-xs text-muted" title="Vous consultez ce suivi en lecture seule">
+            <Lock className="size-3.5" /> Lecture seule
+          </span>
+        )}
         <ExportButton items={[
           { label: "Résumé (.md)", onClick: () => downloadText(safeFilename(name) + ".md", toMarkdown(name, data), "text/markdown") },
           { label: "Données (.json)", onClick: () => downloadText(safeFilename(name) + ".json", serialize(data), "application/json") },
         ]} />
+        <button onClick={() => setMembersOpen(true)} title="Membres du suivi" className="grid size-9 place-items-center rounded-lg text-muted hover:bg-white/5 hover:text-white transition">
+          <Users className="size-5" />
+        </button>
         <button onClick={() => setComOpen(true)} title="Commentaires" className="grid size-9 place-items-center rounded-lg text-muted hover:bg-white/5 hover:text-white transition">
           <MessageSquare className="size-5" />
         </button>
@@ -280,8 +292,8 @@ export function CoachingEditor({
         </div>
       </header>
 
-      {/* Body */}
-      <div className="flex-1 min-h-0 overflow-auto">
+      {/* Body — fieldset désactivé = lecture seule pour les membres « lecteur » */}
+      <fieldset disabled={!canEdit} className="flex-1 min-h-0 overflow-auto border-0 p-0 m-0 min-w-0 disabled:opacity-100">
         <div className="mx-auto max-w-4xl px-4 sm:px-6 py-6 space-y-6">
 
           {/* Carte coaché */}
@@ -474,7 +486,7 @@ export function CoachingEditor({
           </section>
 
         </div>
-      </div>
+      </fieldset>
     </div>
   );
 }

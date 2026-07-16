@@ -4,6 +4,7 @@ import { getUserId } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { getMemberSpaceIds, nodeAccessWhere, canWriteSpace } from "@/lib/spaces";
 import { snapshotVersion } from "@/lib/doc-versions";
+import { listMemberCoachingIds, getCoachingRole } from "@/lib/coaching-members";
 
 export const runtime = "nodejs";
 
@@ -21,9 +22,11 @@ export async function GET(
   if (!userId) return NextResponse.json({ error: "Non autorisé" }, { status: 401 });
   const { id } = await params;
   const memberIds = await getMemberSpaceIds(userId);
+  // Suivis de coaché partagés avec moi (extension Accompagnement).
+  const coachingIds = await listMemberCoachingIds(userId);
 
   const node = await prisma.node.findFirst({
-    where: { id, type: { in: TYPES }, ...nodeAccessWhere(userId, memberIds) },
+    where: { id, type: { in: TYPES }, OR: [...nodeAccessWhere(userId, memberIds).OR, { id: { in: coachingIds } }] },
     select: { id: true, name: true, type: true, content: true },
   });
   if (!node) return NextResponse.json({ error: "Introuvable" }, { status: 404 });
@@ -45,14 +48,19 @@ export async function PUT(
   if (!userId) return NextResponse.json({ error: "Non autorisé" }, { status: 401 });
   const { id } = await params;
   const memberIds = await getMemberSpaceIds(userId);
+  const coachingIds = await listMemberCoachingIds(userId);
 
   const node = await prisma.node.findFirst({
-    where: { id, type: { in: TYPES }, ...nodeAccessWhere(userId, memberIds) },
-    select: { id: true, spaceId: true },
+    where: { id, type: { in: TYPES }, OR: [...nodeAccessWhere(userId, memberIds).OR, { id: { in: coachingIds } }] },
+    select: { id: true, spaceId: true, type: true, userId: true },
   });
   if (!node) return NextResponse.json({ error: "Introuvable" }, { status: 404 });
   if (node.spaceId && !(await canWriteSpace(userId, node.spaceId))) {
     return NextResponse.json({ error: "Vous êtes en lecture seule sur cet espace" }, { status: 403 });
+  }
+  // Suivi de coaché partagé : seul un membre « éditeur » (ou le propriétaire) peut écrire.
+  if (node.type === "coaching" && node.userId !== userId && (await getCoachingRole(id, userId)) !== "editor") {
+    return NextResponse.json({ error: "Vous êtes en lecture seule sur ce suivi" }, { status: 403 });
   }
 
   const body = await req.json().catch(() => null);

@@ -134,17 +134,26 @@ export function AccompagnementHome() {
                           </span>
                           <div className="min-w-0 flex-1">
                             <p className="truncate text-sm font-semibold">{title}</p>
-                            <span className="mt-0.5 inline-flex items-center gap-1.5 rounded-full px-2 py-0.5 text-[11px] font-medium" style={{ background: sm.color + "26", color: sm.color }}>
-                              <span className="size-1.5 rounded-full" style={{ background: sm.color }} />{sm.l}
-                            </span>
+                            <div className="mt-0.5 flex flex-wrap items-center gap-1.5">
+                              <span className="inline-flex items-center gap-1.5 rounded-full px-2 py-0.5 text-[11px] font-medium" style={{ background: sm.color + "26", color: sm.color }}>
+                                <span className="size-1.5 rounded-full" style={{ background: sm.color }} />{sm.l}
+                              </span>
+                              {it.shared && (
+                                <span className="inline-flex items-center gap-1 rounded-full bg-white/[0.06] px-2 py-0.5 text-[11px] font-medium text-muted">
+                                  <Users className="size-3" /> Partagé
+                                </span>
+                              )}
+                            </div>
                           </div>
-                          <span
-                            onClick={(e) => remove(e, it.id)}
-                            className="grid size-7 shrink-0 place-items-center rounded-lg text-muted opacity-0 transition hover:bg-white/5 hover:text-red-400 group-hover:opacity-100"
-                            title="Mettre à la corbeille"
-                          >
-                            <Trash2 className="size-4" />
-                          </span>
+                          {!it.shared && (
+                            <span
+                              onClick={(e) => remove(e, it.id)}
+                              className="grid size-7 shrink-0 place-items-center rounded-lg text-muted opacity-0 transition hover:bg-white/5 hover:text-red-400 group-hover:opacity-100"
+                              title="Mettre à la corbeille"
+                            >
+                              <Trash2 className="size-4" />
+                            </span>
+                          )}
                         </div>
 
                         {/* Progression */}

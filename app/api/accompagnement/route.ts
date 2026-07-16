@@ -3,6 +3,7 @@ import { z } from "zod";
 import { getUserId } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { logActivity, actorNameFor } from "@/lib/activity";
+import { listMemberCoachingIds } from "@/lib/coaching-members";
 
 export const runtime = "nodejs";
 
@@ -26,9 +27,10 @@ type Summary = {
   progress: number;
   sessions: number;
   openActions: number;
+  shared: boolean;
 };
 
-function summarize(content: string | null): Omit<Summary, "id" | "name" | "updatedAt"> {
+function summarize(content: string | null): Omit<Summary, "id" | "name" | "updatedAt" | "shared"> {
   const fallback = { coacheeName: "", status: "active", progress: 0, sessions: 0, openActions: 0 };
   if (!content) return fallback;
   try {
@@ -60,16 +62,23 @@ export async function GET() {
   const userId = await getUserId();
   if (!userId) return NextResponse.json({ error: "Non autorisé" }, { status: 401 });
 
+  // Suivis dont je suis propriétaire OU membre invité (partagés avec moi).
+  const memberIds = await listMemberCoachingIds(userId);
   const nodes = await prisma.node.findMany({
-    where: { userId, spaceId: null, type: "coaching", trashed: false },
+    where: {
+      type: "coaching",
+      trashed: false,
+      OR: [{ userId, spaceId: null }, { id: { in: memberIds } }],
+    },
     orderBy: { updatedAt: "desc" },
-    select: { id: true, name: true, content: true, updatedAt: true },
+    select: { id: true, name: true, content: true, updatedAt: true, userId: true },
   });
 
   const items: Summary[] = nodes.map((n) => ({
     id: n.id,
     name: n.name,
     updatedAt: n.updatedAt.toISOString(),
+    shared: n.userId !== userId,
     ...summarize(n.content),
   }));
 

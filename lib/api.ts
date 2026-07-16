@@ -31,6 +31,16 @@ export type CoachingSummary = {
   progress: number;
   sessions: number;
   openActions: number;
+  shared: boolean;
+};
+export type CoachingMemberInfo = {
+  id: string;
+  name: string | null;
+  username: string | null;
+  email: string;
+  role: string;
+  isOwner: boolean;
+  isMe: boolean;
 };
 export type SpaceMemberInfo = {
   id: string;
@@ -312,6 +322,20 @@ export const api = {
   },
   createAccompagnement(name?: string) {
     return req<{ id: string; name: string }>("/api/accompagnement", jsonInit("POST", { name }));
+  },
+  getCoachingMembers(id: string) {
+    return req<{ id: string; name: string; isOwner: boolean; myRole: string; members: CoachingMemberInfo[] }>(
+      `/api/coaching/${id}/members`,
+    );
+  },
+  inviteCoachingMember(id: string, identifier: string, role: "editor" | "viewer" = "editor") {
+    return req<{ member: CoachingMemberInfo }>(`/api/coaching/${id}/members`, jsonInit("POST", { identifier, role }));
+  },
+  updateCoachingMemberRole(id: string, memberUserId: string, role: "editor" | "viewer") {
+    return req<{ ok: boolean }>(`/api/coaching/${id}/members`, jsonInit("PATCH", { userId: memberUserId, role }));
+  },
+  removeCoachingMember(id: string, memberUserId: string) {
+    return req<{ ok: boolean }>(`/api/coaching/${id}/members`, jsonInit("DELETE", { userId: memberUserId }));
   },
 
   emptyTrash() {
