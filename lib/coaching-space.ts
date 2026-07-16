@@ -193,6 +193,71 @@ export async function deleteCoachingSpace(coachingId: string): Promise<void> {
   await prisma.$executeRawUnsafe(`DELETE FROM filehub_coaching_space WHERE coaching_id = $1`, coachingId).catch(() => {});
 }
 
+/**
+ * Nettoie les espaces-coaché ORPHELINS laissés par l'ancien bug (créés mais
+ * jamais reliés dans la table de correspondance) — ils polluaient la liste
+ * « Espaces » de FileHub. Auto-réparation SÛRE : on ne supprime QUE des espaces
+ *   • possédés par l'utilisateur,
+ *   • VIDES (aucun fichier/dossier — donc aucune perte de données),
+ *   • NON reliés à un coaché (absents de la table),
+ *   • dont le nom correspond à un coaché OU au motif « Coaching … » historique.
+ * Si la lecture de la table de correspondance échoue, on n'efface RIEN (pour ne
+ * jamais risquer de supprimer un vrai drive de coaché). Renvoie le nombre
+ * d'espaces supprimés.
+ */
+export async function reconcileOrphanCoachingSpaces(userId: string): Promise<number> {
+  // 1) Ids des drives de coaché RELIÉS (à préserver absolument). Lecture directe
+  //    et stricte : au moindre échec, on abandonne le nettoyage.
+  let mapped: Set<string>;
+  try {
+    await ensureTable();
+    const rows = await prisma.$queryRawUnsafe<{ space_id: string }[]>(
+      `SELECT space_id FROM filehub_coaching_space WHERE owner_id = $1`,
+      userId,
+    );
+    mapped = new Set(rows.map((r) => r.space_id));
+  } catch {
+    return 0;
+  }
+
+  // 2) Noms des coachés de l'utilisateur (le drive porte le nom du coaché).
+  const coachees = await prisma.node
+    .findMany({ where: { userId, type: "coaching" }, select: { name: true } })
+    .catch(() => [] as { name: string }[]);
+  const coacheeNames = new Set(coachees.map((c) => (c.name || "").trim().toLowerCase()));
+
+  // 3) Espaces possédés, VIDES et NON reliés.
+  const owned = await prisma.space
+    .findMany({
+      where: {
+        ownerId: userId,
+        nodes: { none: {} },
+        ...(mapped.size ? { id: { notIn: [...mapped] } } : {}),
+      },
+      select: { id: true, name: true },
+    })
+    .catch(() => [] as { id: string; name: string }[]);
+
+  // 4) Ne garder que ceux qui ressemblent à un drive de coaché orphelin.
+  const looksCoaching = (name: string) => {
+    const n = (name || "").trim();
+    return coacheeNames.has(n.toLowerCase()) || /^coaching\b/i.test(n);
+  };
+  const orphans = owned.filter((s) => looksCoaching(s.name));
+
+  // 5) Suppression (espaces vides → aucune perte de fichier).
+  let removed = 0;
+  for (const s of orphans) {
+    try {
+      await prisma.space.delete({ where: { id: s.id } });
+      removed++;
+    } catch {
+      /* on continue */
+    }
+  }
+  return removed;
+}
+
 /** Ajoute / met à jour un membre dans l'espace du coaché (miroir du suivi). */
 export async function syncSpaceMember(spaceId: string, userId: string, role: "editor" | "viewer"): Promise<void> {
   await prisma.spaceMember

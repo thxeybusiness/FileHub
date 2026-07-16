@@ -326,6 +326,10 @@ export const api = {
   deleteCoaching(id: string) {
     return req<{ ok: boolean }>(`/api/coaching/${id}`, { method: "DELETE" });
   },
+  // Nettoie les espaces-coaché orphelins (vides) qui polluent la liste Espaces.
+  cleanupCoachingSpaces() {
+    return req<{ removed: number }>("/api/coaching/cleanup-spaces", { method: "POST" });
+  },
   getCoachingMembers(id: string) {
     return req<{ id: string; name: string; isOwner: boolean; myRole: string; members: CoachingMemberInfo[] }>(
       `/api/coaching/${id}/members`,

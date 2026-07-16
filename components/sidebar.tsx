@@ -94,6 +94,12 @@ export function Sidebar({ initial }: { initial: Me }) {
 
   useEffect(() => {
     loadSpaces();
+    // Auto-réparation : purge les espaces-coaché orphelins (vides) laissés par
+    // l'ancien bug, puis rafraîchit la liste si quelque chose a été retiré.
+    api
+      .cleanupCoachingSpaces()
+      .then((r) => { if (r?.removed) loadSpaces(); })
+      .catch(() => {});
     const refresh = () => {
       fetch("/api/me")
         .then((r) => (r.ok ? r.json() : null))
