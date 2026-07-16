@@ -52,6 +52,11 @@ const NAV = [
   { href: "/drive/settings", label: "Paramètres", icon: Settings },
 ];
 
+// Navigation de l'espace « Accompagnement » (SaaS séparé : aucune option FileHub).
+const COACHING_NAV = [
+  { href: "/drive/accompagnement", label: "Mes coachés", icon: HeartHandshake, exact: true },
+];
+
 export function Sidebar({ initial }: { initial: Me }) {
   const pathname = usePathname();
   const router = useRouter();
@@ -209,76 +214,100 @@ export function Sidebar({ initial }: { initial: Me }) {
         )}
       </div>
 
-      <nav className="flex-1 px-3 py-4 space-y-1">
-        {NAV.filter((item) => item.href !== "/drive/assistant" || hasAiAccess(me.plan ?? "free")).map((item) => {
-          const active = item.exact
-            ? pathname === item.href
-            : pathname.startsWith(item.href);
-          return (
-            <Link
-              key={item.href}
-              href={item.href}
-              className={cn(
-                "relative flex items-center gap-3 px-3 h-10 rounded-xl text-sm font-medium transition group overflow-hidden",
-                active
-                  ? "bg-gradient-to-r from-brand-500/25 to-transparent text-white"
-                  : "text-ink/70 hover:bg-white/5 hover:text-ink",
-              )}
-            >
-              {active && <span className="absolute left-0 top-1/2 h-5 w-1 -translate-y-1/2 rounded-r-full bg-gradient-to-b from-[#5b8bff] to-[#22d3ee]" />}
-              <item.icon className={cn("size-[18px]", active && "text-brand-200")} />
-              {item.label}
-              {active && <ChevronRight className="size-4 ml-auto text-brand-300" />}
-            </Link>
-          );
-        })}
+      {inAccompagnement ? (
+        /* ── Navigation de l'espace Coaching (aucune option FileHub) ── */
+        <nav className="flex-1 px-3 py-4 space-y-1">
+          {COACHING_NAV.map((item) => {
+            const active = item.exact ? pathname === item.href : pathname.startsWith(item.href);
+            return (
+              <Link
+                key={item.href}
+                href={item.href}
+                className={cn(
+                  "relative flex items-center gap-3 px-3 h-10 rounded-xl text-sm font-medium transition overflow-hidden",
+                  active ? "bg-gradient-to-r from-cyan-500/25 to-transparent text-white" : "text-ink/70 hover:bg-white/5 hover:text-ink",
+                )}
+              >
+                {active && <span className="absolute left-0 top-1/2 h-5 w-1 -translate-y-1/2 rounded-r-full bg-gradient-to-b from-[#06b6d4] to-[#3b82f6]" />}
+                <item.icon className={cn("size-[18px]", active && "text-cyan-200")} />
+                {item.label}
+                {active && <ChevronRight className="size-4 ml-auto text-cyan-300" />}
+              </Link>
+            );
+          })}
+        </nav>
+      ) : (
+        <nav className="flex-1 px-3 py-4 space-y-1">
+          {NAV.filter((item) => item.href !== "/drive/assistant" || hasAiAccess(me.plan ?? "free")).map((item) => {
+            const active = item.exact
+              ? pathname === item.href
+              : pathname.startsWith(item.href);
+            return (
+              <Link
+                key={item.href}
+                href={item.href}
+                className={cn(
+                  "relative flex items-center gap-3 px-3 h-10 rounded-xl text-sm font-medium transition group overflow-hidden",
+                  active
+                    ? "bg-gradient-to-r from-brand-500/25 to-transparent text-white"
+                    : "text-ink/70 hover:bg-white/5 hover:text-ink",
+                )}
+              >
+                {active && <span className="absolute left-0 top-1/2 h-5 w-1 -translate-y-1/2 rounded-r-full bg-gradient-to-b from-[#5b8bff] to-[#22d3ee]" />}
+                <item.icon className={cn("size-[18px]", active && "text-brand-200")} />
+                {item.label}
+                {active && <ChevronRight className="size-4 ml-auto text-brand-300" />}
+              </Link>
+            );
+          })}
 
-        {/* Espaces communs */}
-        <div className="pt-5">
-          <div className="flex items-center justify-between px-3 pb-1">
-            <span className="text-[11px] font-semibold uppercase tracking-wider text-muted">Espaces</span>
-            <button
-              onClick={() => setCreatingSpace(true)}
-              title="Créer un espace"
-              className="grid size-6 place-items-center rounded-md text-muted hover:bg-white/10 hover:text-white transition"
-            >
-              <Plus className="size-4" />
-            </button>
+          {/* Espaces communs */}
+          <div className="pt-5">
+            <div className="flex items-center justify-between px-3 pb-1">
+              <span className="text-[11px] font-semibold uppercase tracking-wider text-muted">Espaces</span>
+              <button
+                onClick={() => setCreatingSpace(true)}
+                title="Créer un espace"
+                className="grid size-6 place-items-center rounded-md text-muted hover:bg-white/10 hover:text-white transition"
+              >
+                <Plus className="size-4" />
+              </button>
+            </div>
+            {spaces.length === 0 ? (
+              <button
+                onClick={() => setCreatingSpace(true)}
+                className="flex w-full items-center gap-2 px-3 h-9 rounded-xl text-sm text-muted hover:bg-white/5 hover:text-ink transition"
+              >
+                <Plus className="size-4" /> Nouvel espace
+              </button>
+            ) : (
+              spaces.map((s) => {
+                const href = `/drive/space/${s.id}`;
+                const active = pathname.startsWith(href);
+                return (
+                  <Link
+                    key={s.id}
+                    href={href}
+                    className={cn(
+                      "relative flex items-center gap-3 px-3 h-10 rounded-xl text-sm font-medium transition overflow-hidden",
+                      active
+                        ? "bg-gradient-to-r from-brand-500/25 to-transparent text-white"
+                        : "text-ink/70 hover:bg-white/5 hover:text-ink",
+                    )}
+                  >
+                    {active && <span className="absolute left-0 top-1/2 h-5 w-1 -translate-y-1/2 rounded-r-full bg-gradient-to-b from-[#5b8bff] to-[#22d3ee]" />}
+                    <Users className={cn("size-[18px] shrink-0", active && "text-brand-200")} />
+                    <span className="truncate">{s.name}</span>
+                    <span className="ml-auto text-xs text-muted">{s.memberCount}</span>
+                  </Link>
+                );
+              })
+            )}
           </div>
-          {spaces.length === 0 ? (
-            <button
-              onClick={() => setCreatingSpace(true)}
-              className="flex w-full items-center gap-2 px-3 h-9 rounded-xl text-sm text-muted hover:bg-white/5 hover:text-ink transition"
-            >
-              <Plus className="size-4" /> Nouvel espace
-            </button>
-          ) : (
-            spaces.map((s) => {
-              const href = `/drive/space/${s.id}`;
-              const active = pathname.startsWith(href);
-              return (
-                <Link
-                  key={s.id}
-                  href={href}
-                  className={cn(
-                    "relative flex items-center gap-3 px-3 h-10 rounded-xl text-sm font-medium transition overflow-hidden",
-                    active
-                      ? "bg-gradient-to-r from-brand-500/25 to-transparent text-white"
-                      : "text-ink/70 hover:bg-white/5 hover:text-ink",
-                  )}
-                >
-                  {active && <span className="absolute left-0 top-1/2 h-5 w-1 -translate-y-1/2 rounded-r-full bg-gradient-to-b from-[#5b8bff] to-[#22d3ee]" />}
-                  <Users className={cn("size-[18px] shrink-0", active && "text-brand-200")} />
-                  <span className="truncate">{s.name}</span>
-                  <span className="ml-auto text-xs text-muted">{s.memberCount}</span>
-                </Link>
-              );
-            })
-          )}
-        </div>
-      </nav>
+        </nav>
+      )}
 
-      {creatingSpace && (
+      {creatingSpace && !inAccompagnement && (
         <NameDialog
           title="Nouvel espace commun"
           label="Nom de l'espace"
@@ -289,34 +318,39 @@ export function Sidebar({ initial }: { initial: Me }) {
         />
       )}
 
-      {/* Storage meter */}
-      <div className="px-4 pb-3">
-        <div className="rounded-2xl border border-white/10 p-4 bg-white/[0.03]">
-          <div className="flex items-center gap-2 text-sm font-medium mb-2">
-            <Cloud className="size-4 text-cyan-300" />
-            Stockage
+      {/* Chrome FileHub : masqué dans l'espace Coaching (SaaS séparé) */}
+      {!inAccompagnement && (
+        <>
+          {/* Storage meter */}
+          <div className="px-4 pb-3">
+            <div className="rounded-2xl border border-white/10 p-4 bg-white/[0.03]">
+              <div className="flex items-center gap-2 text-sm font-medium mb-2">
+                <Cloud className="size-4 text-cyan-300" />
+                Stockage
+              </div>
+              <div className="h-2 rounded-full bg-white/10 overflow-hidden">
+                <div
+                  className={cn(
+                    "h-full rounded-full transition-all",
+                    nearFull ? "bg-red-500" : "bg-gradient-to-r from-[#3b6dff] to-[#22d3ee]",
+                  )}
+                  style={{ width: `${pct}%` }}
+                />
+              </div>
+              <p className="text-xs text-muted mt-2">
+                {isFounder
+                  ? `${formatBytes(me.storageUsed)} · Illimité`
+                  : `${formatBytes(me.storageUsed)} sur ${formatBytes(me.storageLimit)}`}
+              </p>
+            </div>
           </div>
-          <div className="h-2 rounded-full bg-white/10 overflow-hidden">
-            <div
-              className={cn(
-                "h-full rounded-full transition-all",
-                nearFull ? "bg-red-500" : "bg-gradient-to-r from-[#3b6dff] to-[#22d3ee]",
-              )}
-              style={{ width: `${pct}%` }}
-            />
-          </div>
-          <p className="text-xs text-muted mt-2">
-            {isFounder
-              ? `${formatBytes(me.storageUsed)} · Illimité`
-              : `${formatBytes(me.storageUsed)} sur ${formatBytes(me.storageLimit)}`}
-          </p>
-        </div>
-      </div>
 
-      {/* Installer l'application (masqué si déjà installé) */}
-      <div className="px-4 pb-2">
-        <InstallButton variant="ghost" className="w-full py-2.5 text-sm" />
-      </div>
+          {/* Installer l'application (masqué si déjà installé) */}
+          <div className="px-4 pb-2">
+            <InstallButton variant="ghost" className="w-full py-2.5 text-sm" />
+          </div>
+        </>
+      )}
 
       {/* User */}
       <div className="px-3 pb-4 pt-1 border-t border-line">
@@ -361,37 +395,41 @@ export function Sidebar({ initial }: { initial: Me }) {
           </button>
         </div>
 
-        {/* Abonnement : illimité (Fondateur), gérer (Pro) ou passer à Pro (Basic) */}
-        {isFounder ? (
-          <Link
-            href="/drive/abonnement"
-            className="mt-1 flex h-9 items-center justify-center gap-1.5 rounded-xl border border-amber-400/30 bg-gradient-to-r from-amber-500/10 to-pink-500/10 text-xs font-semibold text-amber-200 transition hover:from-amber-500/20 hover:to-pink-500/20"
-          >
-            <Gem className="size-3.5" /> Accès illimité à vie
-          </Link>
-        ) : me.plan === "premium" || me.plan === "business" ? (
-          <Link
-            href="/drive/abonnement"
-            className="mt-1 flex h-9 items-center justify-center gap-1.5 rounded-xl border border-white/10 text-xs font-medium text-white/80 hover:bg-white/5 transition"
-          >
-            <Crown className="size-3.5 text-amber-300" /> Gérer mon abonnement
-          </Link>
-        ) : (
-          <Link
-            href="/drive/abonnement"
-            className="group relative mt-1 flex h-9 items-center justify-center gap-1.5 overflow-hidden rounded-xl bg-gradient-to-r from-[#3b6dff] to-[#7b3bff] text-xs font-semibold text-white shadow-lg shadow-blue-500/25 transition hover:shadow-blue-500/40"
-          >
-            <Sparkles className="size-3.5" /> Passer à Pro
-            <span className="absolute inset-0 -translate-x-full bg-gradient-to-r from-transparent via-white/25 to-transparent" style={{ animation: "shine 3.5s ease-in-out infinite" }} />
-          </Link>
-        )}
-        {isFounder && (
-          <Link
-            href="/drive/admin"
-            className="mt-1 flex h-9 items-center justify-center gap-1.5 rounded-xl border border-white/10 text-xs font-medium text-white/70 transition hover:bg-white/5 hover:text-white"
-          >
-            <ShieldCheck className="size-3.5 text-amber-300" /> Admin — grades
-          </Link>
+        {/* Abonnement & admin : options FileHub, masquées dans l'espace Coaching */}
+        {!inAccompagnement && (
+          <>
+            {isFounder ? (
+              <Link
+                href="/drive/abonnement"
+                className="mt-1 flex h-9 items-center justify-center gap-1.5 rounded-xl border border-amber-400/30 bg-gradient-to-r from-amber-500/10 to-pink-500/10 text-xs font-semibold text-amber-200 transition hover:from-amber-500/20 hover:to-pink-500/20"
+              >
+                <Gem className="size-3.5" /> Accès illimité à vie
+              </Link>
+            ) : me.plan === "premium" || me.plan === "business" ? (
+              <Link
+                href="/drive/abonnement"
+                className="mt-1 flex h-9 items-center justify-center gap-1.5 rounded-xl border border-white/10 text-xs font-medium text-white/80 hover:bg-white/5 transition"
+              >
+                <Crown className="size-3.5 text-amber-300" /> Gérer mon abonnement
+              </Link>
+            ) : (
+              <Link
+                href="/drive/abonnement"
+                className="group relative mt-1 flex h-9 items-center justify-center gap-1.5 overflow-hidden rounded-xl bg-gradient-to-r from-[#3b6dff] to-[#7b3bff] text-xs font-semibold text-white shadow-lg shadow-blue-500/25 transition hover:shadow-blue-500/40"
+              >
+                <Sparkles className="size-3.5" /> Passer à Pro
+                <span className="absolute inset-0 -translate-x-full bg-gradient-to-r from-transparent via-white/25 to-transparent" style={{ animation: "shine 3.5s ease-in-out infinite" }} />
+              </Link>
+            )}
+            {isFounder && (
+              <Link
+                href="/drive/admin"
+                className="mt-1 flex h-9 items-center justify-center gap-1.5 rounded-xl border border-white/10 text-xs font-medium text-white/70 transition hover:bg-white/5 hover:text-white"
+              >
+                <ShieldCheck className="size-3.5 text-amber-300" /> Admin — grades
+              </Link>
+            )}
+          </>
         )}
       </div>
       </aside>

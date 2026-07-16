@@ -2,9 +2,7 @@ import { redirect } from "next/navigation";
 import { getCurrentUser } from "@/lib/auth";
 import { Sidebar } from "@/components/sidebar";
 import { AuroraBackground } from "@/components/aurora-bg";
-import { CalculatorWidget } from "@/components/calculator-widget";
-import { ScratchpadWidget } from "@/components/scratchpad-widget";
-import { CommandPalette } from "@/components/command-palette";
+import { FileHubWidgets } from "@/components/filehub-widgets";
 import { effectivePlan, isFounder, planStorage, FOUNDER_STORAGE } from "@/lib/plans";
 
 export default async function DriveLayout({
@@ -28,9 +26,7 @@ export default async function DriveLayout({
         }}
       />
       <div className="relative z-10 flex-1 min-w-0 flex flex-col">{children}</div>
-      <CommandPalette />
-      <ScratchpadWidget />
-      <CalculatorWidget />
+      <FileHubWidgets />
     </div>
   );
 }
