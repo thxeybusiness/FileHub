@@ -36,6 +36,7 @@ export default async function Page({ params }: { params: Promise<{ id: string; f
           spaceId={spaceId}
           basePath={`/drive/coaching/${id}`}
           nodeBase={`/drive/coaching/${id}/n`}
+          variant="coaching"
         />
       </div>
     </div>

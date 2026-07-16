@@ -95,6 +95,16 @@ export async function ensureCoachingSpace(coachingId: string, ownerId: string, n
     ),
   );
 
+  // Structure de départ prête à l'emploi (dossiers de rangement coaching).
+  const STARTER_FOLDERS = ["Séances", "Ressources", "Documents", "Administratif"];
+  await Promise.all(
+    STARTER_FOLDERS.map((folderName) =>
+      prisma.node
+        .create({ data: { userId: ownerId, spaceId: space.id, parentId: null, name: folderName, type: "folder" } })
+        .catch(() => {}),
+    ),
+  );
+
   return space.id;
 }
 

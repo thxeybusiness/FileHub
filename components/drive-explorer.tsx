@@ -36,6 +36,9 @@ import {
   LineChart,
   PieChart,
   Menu,
+  CalendarClock,
+  Target,
+  HeartHandshake,
 } from "lucide-react";
 import type { SerializedNode } from "@/lib/nodes";
 import { api, notifyRefresh } from "@/lib/api";
@@ -58,6 +61,36 @@ import { ConfirmDialog } from "./confirm-dialog";
 type View = "my" | "starred" | "recent" | "trash";
 type UploadTask = { id: string; name: string; progress: number; error?: boolean };
 
+// Modèle de compte-rendu de séance (drive coaching) — HTML de l'éditeur Document.
+const SESSION_NOTE_TEMPLATE = `<h2>Compte-rendu de séance</h2><p><strong>Date :</strong> </p><p><strong>Objectif de la séance :</strong> </p><h3>Points abordés</h3><ul><li></li></ul><h3>Ressenti &amp; observations</h3><p></p><h3>Actions pour la prochaine séance</h3><ul><li></li></ul>`;
+
+// Modèle de plan d'action (drive coaching) — base de données de tâches "projet".
+const ACTION_PLAN_TEMPLATE = JSON.stringify({
+  fields: [
+    { id: "f_obj", name: "Objectif", type: "text", primary: true, width: 300 },
+    {
+      id: "f_status", name: "Statut", type: "status", width: 150,
+      options: [
+        { id: "s_todo", name: "À faire", color: "#64748b" },
+        { id: "s_doing", name: "En cours", color: "#3b6dff" },
+        { id: "s_done", name: "Atteint", color: "#22c55e" },
+      ],
+    },
+    { id: "f_prio", name: "Priorité", type: "priority", width: 130 },
+    { id: "f_due", name: "Échéance", type: "date", width: 130 },
+    { id: "f_progress", name: "Avancement", type: "progress", width: 160 },
+  ],
+  rows: [
+    { id: "r1", notes: "", checklist: [], cells: { f_obj: "Premier objectif", f_status: "s_doing", f_prio: "high", f_progress: 20 } },
+    { id: "r2", notes: "", checklist: [], cells: { f_obj: "Deuxième objectif", f_status: "s_todo", f_prio: "medium", f_progress: 0 } },
+  ],
+  views: [
+    { id: "v_table", name: "Objectifs", type: "table" },
+    { id: "v_board", name: "Par statut", type: "board", groupBy: "f_status" },
+    { id: "v_cal", name: "Échéances", type: "calendar", dateField: "f_due" },
+  ],
+});
+
 export function DriveExplorer({
   view,
   folderId = null,
@@ -67,6 +100,7 @@ export function DriveExplorer({
   basePath = "/drive",
   spaceName,
   nodeBase,
+  variant = "filehub",
 }: {
   view: View;
   folderId?: string | null;
@@ -78,6 +112,8 @@ export function DriveExplorer({
   // Base pour ouvrir un document (drive du coaché) : "<base>/<nodeId>".
   // Par défaut on ouvre les éditeurs FileHub génériques (/drive/<type>/<id>).
   nodeBase?: string;
+  // "coaching" : menu de création adapté au coaching (modèles pré-remplis).
+  variant?: "filehub" | "coaching";
 }) {
   const router = useRouter();
   const [nodes, setNodes] = useState<SerializedNode[]>([]);
@@ -228,6 +264,45 @@ export function DriveExplorer({
     const { node } = await api.createNode(type, label, folderId, spaceId);
     router.push(editorHref(type, node.id));
   };
+
+  // ── Créations spécifiques au coaching (avec modèle pré-rempli) ──
+  const createSessionNote = async () => {
+    const { node } = await api.createDoc("Compte-rendu de séance", folderId, spaceId);
+    await api.saveDoc(node.id, { content: SESSION_NOTE_TEMPLATE }).catch(() => {});
+    router.push(editorHref("doc", node.id));
+  };
+
+  const createActionPlan = async () => {
+    const { node } = await api.createNode("project", "Plan d'action", folderId, spaceId);
+    await api.saveContent(node.id, { content: ACTION_PLAN_TEMPLATE }).catch(() => {});
+    router.push(editorHref("project", node.id));
+  };
+
+  // Options du menu « + » : jeu adapté au coaching, ou générique FileHub.
+  type CreateItem = { icon: typeof FileText; tint: string; label: string; desc: string; fn?: () => void; expandable?: boolean };
+  const createItems: CreateItem[] = variant === "coaching"
+    ? [
+        { icon: CalendarClock, tint: "#06b6d4", label: "Compte-rendu de séance", desc: "Note de séance pré-remplie", fn: createSessionNote },
+        { icon: Target, tint: "#22c55e", label: "Plan d'action", desc: "Objectifs & tâches multi-vues", fn: createActionPlan },
+        { icon: FileText, tint: "#5b8bff", label: "Document", desc: "Traitement de texte", fn: createDoc },
+        { icon: Table2, tint: "#10b981", label: "Feuille de suivi", desc: "Tableur : indicateurs, présence…", fn: createSheet },
+        { icon: StickyNote, tint: "#eab308", label: "Note", desc: "Note rapide (Markdown)", fn: () => createTyped("note") },
+        { icon: Presentation, tint: "#fb7185", label: "Support de séance", desc: "Diaporama", fn: () => createTyped("slides") },
+        { icon: Upload, tint: "#a78bff", label: "Importer un fichier", desc: "PDF, images, contrats…", fn: () => fileInput.current?.click() },
+        { icon: FolderPlus, tint: "#f59e0b", label: "Nouveau dossier", desc: "Organisez les documents", fn: () => setNewFolder(true) },
+      ]
+    : [
+        { icon: Upload, tint: "#5b8bff", label: "Importer", desc: "Fichiers depuis votre appareil", fn: () => fileInput.current?.click() },
+        { icon: FileText, tint: "#5b8bff", label: "Document", desc: "Traitement de texte", fn: createDoc },
+        { icon: Table2, tint: "#10b981", label: "Feuille de calcul", desc: "Tableur complet", fn: createSheet },
+        { icon: BarChart3, tint: "#f59e0b", label: "Graphique", desc: "Choisir un type", expandable: true },
+        { icon: Presentation, tint: "#fb7185", label: "Présentation", desc: "Diaporama + IA", fn: () => createTyped("slides") },
+        { icon: FolderKanban, tint: "#8b5cf6", label: "Tableau", desc: "Base de tâches multi-vues", fn: () => createTyped("project") },
+        { icon: StickyNote, tint: "#eab308", label: "Note", desc: "Markdown rapide", fn: () => createTyped("note") },
+        { icon: Workflow, tint: "#14b8a6", label: "Diagramme", desc: "Schéma Mermaid", fn: () => createTyped("diagram") },
+        { icon: Brush, tint: "#ec4899", label: "Dessin", desc: "Tablette graphique", fn: createDraw },
+        { icon: FolderPlus, tint: "#a78bff", label: "Nouveau dossier", desc: "Organisez vos fichiers", fn: () => setNewFolder(true) },
+      ];
 
   const doRename = async (n: SerializedNode, name: string) => {
     await api.update(n.id, { name });
@@ -429,7 +504,7 @@ export function DriveExplorer({
                   className="group relative h-10 overflow-hidden rounded-xl bg-gradient-to-r from-[#3b6dff] to-[#7b3bff] px-4 text-sm font-semibold text-white shadow-lg shadow-blue-500/25 transition hover:shadow-blue-500/40 flex items-center gap-2"
                 >
                   <span className="relative z-10 flex items-center gap-2">
-                    <Sparkles className="size-4" /> New Project
+                    <Sparkles className="size-4" /> {variant === "coaching" ? "Nouveau" : "New Project"}
                     <ChevronDown className={cn("size-4 transition", projectMenu && "rotate-180")} />
                   </span>
                   <span
@@ -445,33 +520,32 @@ export function DriveExplorer({
                       className="absolute left-0 top-12 z-50 w-[440px] max-w-[calc(100vw-3rem)] overflow-hidden rounded-2xl border border-white/10 bg-[#0f1017]/95 backdrop-blur-2xl shadow-2xl shadow-black/50"
                       style={{ animation: "mclarenOpen 0.6s cubic-bezier(0.22,1.15,0.36,1) both", transformOrigin: "top center" }}
                     >
-                      {/* En-tête avec le logo FileHub */}
-                      <div className="flex items-center gap-3 border-b border-white/10 bg-gradient-to-r from-[#3b6dff]/15 to-[#7b3bff]/15 px-5 py-4">
-                        <span className="grid size-9 place-items-center rounded-xl bg-gradient-to-br from-[#3b6dff] to-[#7b3bff] shadow-lg shadow-blue-500/30">
-                          <Cloud className="size-5 text-white" />
-                        </span>
-                        <div>
-                          <p className="text-sm font-bold leading-tight">
-                            Nouveau projet
-                          </p>
-                          <p className="text-xs text-muted">Que voulez-vous créer&nbsp;?</p>
+                      {/* En-tête du menu de création */}
+                      {variant === "coaching" ? (
+                        <div className="flex items-center gap-3 border-b border-white/10 bg-gradient-to-r from-[#06b6d4]/15 to-[#3b82f6]/15 px-5 py-4">
+                          <span className="grid size-9 place-items-center rounded-xl bg-gradient-to-br from-[#06b6d4] to-[#3b82f6] shadow-lg shadow-cyan-500/30">
+                            <HeartHandshake className="size-5 text-white" />
+                          </span>
+                          <div>
+                            <p className="text-sm font-bold leading-tight">Nouveau pour ce coaché</p>
+                            <p className="text-xs text-muted">Que voulez-vous créer&nbsp;?</p>
+                          </div>
                         </div>
-                      </div>
+                      ) : (
+                        <div className="flex items-center gap-3 border-b border-white/10 bg-gradient-to-r from-[#3b6dff]/15 to-[#7b3bff]/15 px-5 py-4">
+                          <span className="grid size-9 place-items-center rounded-xl bg-gradient-to-br from-[#3b6dff] to-[#7b3bff] shadow-lg shadow-blue-500/30">
+                            <Cloud className="size-5 text-white" />
+                          </span>
+                          <div>
+                            <p className="text-sm font-bold leading-tight">Nouveau projet</p>
+                            <p className="text-xs text-muted">Que voulez-vous créer&nbsp;?</p>
+                          </div>
+                        </div>
+                      )}
 
                       {/* Grille des créations */}
                       <div className="grid grid-cols-2 gap-1.5 p-3">
-                        {[
-                          { icon: Upload, tint: "#5b8bff", label: "Importer", desc: "Fichiers depuis votre appareil", fn: () => fileInput.current?.click() },
-                          { icon: FileText, tint: "#5b8bff", label: "Document", desc: "Traitement de texte", fn: createDoc },
-                          { icon: Table2, tint: "#10b981", label: "Feuille de calcul", desc: "Tableur complet", fn: createSheet },
-                          { icon: BarChart3, tint: "#f59e0b", label: "Graphique", desc: "Choisir un type", expandable: true },
-                          { icon: Presentation, tint: "#fb7185", label: "Présentation", desc: "Diaporama + IA", fn: () => createTyped("slides") },
-                          { icon: FolderKanban, tint: "#8b5cf6", label: "Tableau", desc: "Base de tâches multi-vues", fn: () => createTyped("project") },
-                          { icon: StickyNote, tint: "#eab308", label: "Note", desc: "Markdown rapide", fn: () => createTyped("note") },
-                          { icon: Workflow, tint: "#14b8a6", label: "Diagramme", desc: "Schéma Mermaid", fn: () => createTyped("diagram") },
-                          { icon: Brush, tint: "#ec4899", label: "Dessin", desc: "Tablette graphique", fn: createDraw },
-                          { icon: FolderPlus, tint: "#a78bff", label: "Nouveau dossier", desc: "Organisez vos fichiers", fn: () => setNewFolder(true) },
-                        ].map((o, i) => (
+                        {createItems.map((o, i) => (
                           <button
                             key={o.label}
                             onClick={() => {
