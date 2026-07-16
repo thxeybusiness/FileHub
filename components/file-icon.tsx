@@ -25,6 +25,7 @@ import {
   Workflow,
   KanbanSquare,
   FolderKanban,
+  HeartHandshake,
   File as FileIcon,
   type LucideIcon,
 } from "lucide-react";
@@ -68,7 +69,7 @@ export function NodeIcon({
   size = 20,
   className = "",
 }: {
-  type: "folder" | "file" | "doc" | "sheet" | "chart" | "draw" | "note" | "diagram" | "board" | "slides" | "project";
+  type: "folder" | "file" | "doc" | "sheet" | "chart" | "draw" | "note" | "diagram" | "board" | "slides" | "project" | "coaching";
   mimeType?: string | null;
   name?: string;
   color?: string | null;
@@ -134,6 +135,7 @@ export function NodeIcon({
     board: { icon: KanbanSquare, color: "#f97316" },
     slides: { icon: Presentation, color: "#fb7185" },
     project: { icon: FolderKanban, color: "#8b5cf6" },
+    coaching: { icon: HeartHandshake, color: "#06b6d4" },
   };
   if (EXTRA[type]) {
     const { icon: Icon, color } = EXTRA[type];

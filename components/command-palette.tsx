@@ -6,7 +6,7 @@ import { useRouter } from "next/navigation";
 import {
   Search, HardDrive, Sparkles, LayoutDashboard, Clock, Star, Trash2, Crown,
   FileText, Table2, BarChart3, Brush, FolderPlus, CornerDownLeft, ArrowUp, ArrowDown,
-  Presentation, FolderKanban, StickyNote, Workflow,
+  Presentation, FolderKanban, StickyNote, Workflow, HeartHandshake,
   type LucideIcon,
 } from "lucide-react";
 import { api } from "@/lib/api";
@@ -82,7 +82,7 @@ export function CommandPalette() {
     router.push(href);
   }
 
-  async function create(type: "doc" | "sheet" | "chart" | "draw" | "folder" | "note" | "diagram" | "board" | "slides" | "project") {
+  async function create(type: "doc" | "sheet" | "chart" | "draw" | "folder" | "note" | "diagram" | "board" | "slides" | "project" | "coaching") {
     setOpen(false);
     if (type === "folder") {
       const { node } = await api.createFolder("Nouveau dossier", null, null);
@@ -91,9 +91,9 @@ export function CommandPalette() {
     }
     const labels: Record<string, string> = {
       doc: "Document sans titre", sheet: "Feuille sans titre", chart: "Graphique sans titre", draw: "Dessin sans titre",
-      note: "Note sans titre", diagram: "Diagramme sans titre", board: "Tableau kanban", slides: "Présentation sans titre", project: "Tableau sans titre",
+      note: "Note sans titre", diagram: "Diagramme sans titre", board: "Tableau kanban", slides: "Présentation sans titre", project: "Tableau sans titre", coaching: "Accompagnement sans titre",
     };
-    if (type === "note" || type === "diagram" || type === "board" || type === "slides" || type === "project") {
+    if (type === "note" || type === "diagram" || type === "board" || type === "slides" || type === "project" || type === "coaching") {
       const { node } = await api.createNode(type, labels[type], null, null);
       router.push(`/drive/${type}/${node.id}`);
       return;
@@ -122,6 +122,7 @@ export function CommandPalette() {
       { id: "new-project", label: "Nouveau tableau", icon: FolderKanban, run: () => create("project") },
       { id: "new-note", label: "Nouvelle note", icon: StickyNote, run: () => create("note") },
       { id: "new-diagram", label: "Nouveau diagramme", icon: Workflow, run: () => create("diagram") },
+      { id: "new-coaching", label: "Nouvel accompagnement", icon: HeartHandshake, run: () => create("coaching") },
       { id: "new-folder", label: "Nouveau dossier", icon: FolderPlus, run: () => create("folder") },
     ];
     const q = query.trim().toLowerCase();
@@ -150,7 +151,7 @@ export function CommandPalette() {
   function openNode(n: SerializedNode) {
     setOpen(false);
     if (n.type === "folder") router.push(`/drive/folder/${n.id}`);
-    else if (["doc", "sheet", "chart", "draw", "note", "diagram", "board", "slides", "project"].includes(n.type))
+    else if (["doc", "sheet", "chart", "draw", "note", "diagram", "board", "slides", "project", "coaching"].includes(n.type))
       router.push(`/drive/${n.type}/${n.id}`);
     else router.push(n.parentId ? `/drive/folder/${n.parentId}` : "/drive");
   }

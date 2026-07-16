@@ -7,7 +7,7 @@ import { listVersions, getVersionContent } from "@/lib/doc-versions";
 
 export const runtime = "nodejs";
 
-const TYPES = ["note", "diagram", "board", "slides", "project"];
+const TYPES = ["note", "diagram", "board", "slides", "project", "coaching"];
 
 async function loadNode(userId: string, id: string) {
   const memberIds = await getMemberSpaceIds(userId);

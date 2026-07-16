@@ -103,7 +103,7 @@ export default async function SharePage({
                 className="doc-surface prose-share"
                 dangerouslySetInnerHTML={{ __html: sanitizeRichHtml(node.content) || "<p>Document vide.</p>" }}
               />
-            ) : ["sheet", "chart", "draw", "note", "diagram", "board", "slides", "project"].includes(node.type) ? (
+            ) : ["sheet", "chart", "draw", "note", "diagram", "board", "slides", "project", "coaching"].includes(node.type) ? (
               <div className="py-16 text-center text-muted flex flex-col items-center gap-2">
                 <FileWarning className="size-8" />
                 Cet élément s'ouvre dans FileHub.

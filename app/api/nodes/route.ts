@@ -23,6 +23,18 @@ const DEFAULT_BOARD = JSON.stringify({
 const DEFAULT_SLIDES = JSON.stringify({
   slides: [{ title: "Titre de la présentation", bullets: ["Premier point", "Deuxième point"] }],
 });
+// Accompagnement : suivi d'un coaché (profil + objectifs + séances + actions).
+const DEFAULT_COACHING = JSON.stringify({
+  coachee: { name: "", status: "active", startDate: "", email: "", phone: "", goal: "" },
+  objectives: [
+    { id: "o1", title: "Définir l'objectif principal", progress: 20, done: false },
+  ],
+  sessions: [],
+  actions: [
+    { id: "a1", text: "Planifier la première séance", due: "", done: false },
+  ],
+  notes: "",
+});
 // Projet : base de données de tâches (champs typés + lignes + vues).
 const DEFAULT_PROJECT = JSON.stringify({
   fields: [
@@ -97,7 +109,7 @@ export async function GET(req: NextRequest) {
     where.trashed = true;
   } else if (view === "recent") {
     where.trashed = false;
-    where.type = { in: ["file", "doc", "sheet", "chart", "draw", "note", "diagram", "board", "slides", "project"] };
+    where.type = { in: ["file", "doc", "sheet", "chart", "draw", "note", "diagram", "board", "slides", "project", "coaching"] };
   } else {
     where.trashed = false;
     where.parentId = parent && parent !== "root" ? parent : null;
@@ -156,7 +168,7 @@ const createSchema = z.object({
   parentId: z.string().nullable().optional(),
   color: z.string().optional(),
   type: z
-    .enum(["folder", "doc", "sheet", "chart", "draw", "note", "diagram", "board", "slides", "project"])
+    .enum(["folder", "doc", "sheet", "chart", "draw", "note", "diagram", "board", "slides", "project", "coaching"])
     .optional(),
   spaceId: z.string().nullable().optional(),
 });
@@ -212,6 +224,9 @@ export async function POST(req: NextRequest) {
         : {}),
       ...(type === "project"
         ? { content: DEFAULT_PROJECT, mimeType: "application/vnd.filehub.project" }
+        : {}),
+      ...(type === "coaching"
+        ? { content: DEFAULT_COACHING, mimeType: "application/vnd.filehub.coaching" }
         : {}),
     },
     include: { _count: { select: { children: true } } },

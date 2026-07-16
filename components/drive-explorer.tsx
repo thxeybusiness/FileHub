@@ -31,6 +31,7 @@ import {
   FolderKanban,
   StickyNote,
   Workflow,
+  HeartHandshake,
   Sparkles,
   Cloud,
   LineChart,
@@ -188,7 +189,7 @@ export function DriveExplorer({
     else if (n.type === "sheet") router.push(`/drive/sheet/${n.id}`);
     else if (n.type === "chart") router.push(`/drive/chart/${n.id}`);
     else if (n.type === "draw") router.push(`/drive/draw/${n.id}`);
-    else if (n.type === "note" || n.type === "diagram" || n.type === "board" || n.type === "slides" || n.type === "project")
+    else if (n.type === "note" || n.type === "diagram" || n.type === "board" || n.type === "slides" || n.type === "project" || n.type === "coaching")
       router.push(`/drive/${n.type}/${n.id}`);
     else setPreview(n);
   };
@@ -219,8 +220,8 @@ export function DriveExplorer({
     router.push(`/drive/draw/${node.id}`);
   };
 
-  const createTyped = async (type: "note" | "diagram" | "board" | "slides" | "project") => {
-    const label = { note: "Note sans titre", diagram: "Diagramme sans titre", board: "Tableau kanban", slides: "Présentation sans titre", project: "Tableau sans titre" }[type];
+  const createTyped = async (type: "note" | "diagram" | "board" | "slides" | "project" | "coaching") => {
+    const label = { note: "Note sans titre", diagram: "Diagramme sans titre", board: "Tableau kanban", slides: "Présentation sans titre", project: "Tableau sans titre", coaching: "Accompagnement sans titre" }[type];
     const { node } = await api.createNode(type, label, folderId, spaceId);
     router.push(`/drive/${type}/${node.id}`);
   };
@@ -465,6 +466,7 @@ export function DriveExplorer({
                           { icon: FolderKanban, tint: "#8b5cf6", label: "Tableau", desc: "Base de tâches multi-vues", fn: () => createTyped("project") },
                           { icon: StickyNote, tint: "#eab308", label: "Note", desc: "Markdown rapide", fn: () => createTyped("note") },
                           { icon: Workflow, tint: "#14b8a6", label: "Diagramme", desc: "Schéma Mermaid", fn: () => createTyped("diagram") },
+                          { icon: HeartHandshake, tint: "#06b6d4", label: "Accompagnement", desc: "Suivi de coaché", fn: () => createTyped("coaching") },
                           { icon: Brush, tint: "#ec4899", label: "Dessin", desc: "Tablette graphique", fn: createDraw },
                           { icon: FolderPlus, tint: "#a78bff", label: "Nouveau dossier", desc: "Organisez vos fichiers", fn: () => setNewFolder(true) },
                         ].map((o, i) => (
