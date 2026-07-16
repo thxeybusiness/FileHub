@@ -1,7 +1,8 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { X, UserPlus, Loader2, Crown, Trash2, Users } from "lucide-react";
+import { useRouter } from "next/navigation";
+import { X, UserPlus, Loader2, Crown, Trash2, Users, LogOut, AlertTriangle } from "lucide-react";
 import { api, notifyRefresh, type SpaceMemberInfo } from "@/lib/api";
 
 export function MembersDialog({
@@ -19,6 +20,22 @@ export function MembersDialog({
   const [inviting, setInviting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
+  const [confirmDelete, setConfirmDelete] = useState(false);
+  const [deleting, setDeleting] = useState(false);
+  const router = useRouter();
+
+  async function deleteOrLeave() {
+    setDeleting(true);
+    try {
+      await api.deleteSpace(spaceId);
+      notifyRefresh();
+      onClose();
+      router.push("/drive");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Échec de la suppression.");
+      setDeleting(false);
+    }
+  }
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => e.key === "Escape" && onClose();
@@ -165,6 +182,46 @@ export function MembersDialog({
             ))
           )}
         </div>
+
+        {/* Zone de danger : supprimer (propriétaire) ou quitter (membre) */}
+        {!loading && (
+          <div className="mt-5 border-t border-white/10 pt-4">
+            {!confirmDelete ? (
+              <button
+                onClick={() => setConfirmDelete(true)}
+                className="flex w-full items-center justify-center gap-2 rounded-xl border border-red-500/30 bg-red-500/[0.06] py-2.5 text-sm font-medium text-red-300 transition hover:bg-red-500/10"
+              >
+                {isOwner ? <><Trash2 className="size-4" /> Supprimer l'espace</> : <><LogOut className="size-4" /> Quitter l'espace</>}
+              </button>
+            ) : (
+              <div className="rounded-xl border border-red-500/30 bg-red-500/[0.06] p-3">
+                <p className="flex items-start gap-2 text-sm text-red-200">
+                  <AlertTriangle className="mt-0.5 size-4 shrink-0" />
+                  {isOwner
+                    ? "Supprimer définitivement cet espace et tout son contenu ? Cette action est irréversible."
+                    : "Quitter cet espace ? Vous perdrez l'accès à son contenu."}
+                </p>
+                <div className="mt-3 flex gap-2">
+                  <button
+                    onClick={deleteOrLeave}
+                    disabled={deleting}
+                    className="flex flex-1 items-center justify-center gap-2 rounded-lg bg-red-600 py-2 text-sm font-semibold text-white hover:bg-red-700 disabled:opacity-60"
+                  >
+                    {deleting ? <Loader2 className="size-4 animate-spin" /> : <Trash2 className="size-4" />}
+                    {isOwner ? "Supprimer définitivement" : "Quitter"}
+                  </button>
+                  <button
+                    onClick={() => setConfirmDelete(false)}
+                    disabled={deleting}
+                    className="rounded-lg border border-white/10 px-4 py-2 text-sm text-muted hover:bg-white/5"
+                  >
+                    Annuler
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+        )}
       </div>
     </div>
   );
