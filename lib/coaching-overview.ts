@@ -7,6 +7,7 @@ import { listMemberCoachingIds } from "./coaching-members";
 
 export type AgendaItem = {
   coachingId: string;
+  itemId: string; // id de la séance / action dans la fiche (pour l'édition)
   coacheeName: string;
   date: string; // yyyy-mm-dd
   kind: "session" | "action";
@@ -42,8 +43,8 @@ const clampPct = (v: unknown) => Math.max(0, Math.min(100, Math.round(Number(v) 
 const isDate = (s: string) => /^\d{4}-\d{2}-\d{2}$/.test(s);
 
 type RawObjective = { done?: unknown; progress?: unknown };
-type RawSession = { date?: unknown; title?: unknown };
-type RawAction = { text?: unknown; due?: unknown; done?: unknown };
+type RawSession = { id?: unknown; date?: unknown; title?: unknown };
+type RawAction = { id?: unknown; text?: unknown; due?: unknown; done?: unknown };
 
 export async function getCoachingOverview(userId: string): Promise<CoachingOverview> {
   const memberIds = await listMemberCoachingIds(userId).catch(() => [] as string[]);
@@ -97,7 +98,7 @@ export async function getCoachingOverview(userId: string): Promise<CoachingOverv
       const date = asStr(s.date);
       if (!isDate(date)) continue;
       const item: AgendaItem = {
-        coachingId: n.id, coacheeName: name, date, kind: "session",
+        coachingId: n.id, itemId: asStr(s.id), coacheeName: name, date, kind: "session",
         label: asStr(s.title) || "Séance", done: date < today,
       };
       agenda.push(item);
@@ -117,7 +118,7 @@ export async function getCoachingOverview(userId: string): Promise<CoachingOverv
       const due = isDate(asStr(a.due)) ? asStr(a.due) : null;
       pendingActions.push({ coachingId: n.id, coacheeName: name, text, due });
       if (due) {
-        agenda.push({ coachingId: n.id, coacheeName: name, date: due, kind: "action", label: text, done: false });
+        agenda.push({ coachingId: n.id, itemId: asStr(a.id), coacheeName: name, date: due, kind: "action", label: text, done: false });
       }
     }
     openActionsTotal += openActions;

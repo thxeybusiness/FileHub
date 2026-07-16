@@ -35,6 +35,7 @@ export type CoachingSummary = {
 };
 export type CoachingAgendaItem = {
   coachingId: string;
+  itemId: string;
   coacheeName: string;
   date: string;
   kind: "session" | "action";
@@ -368,6 +369,17 @@ export const api = {
   // Comptes-rendus de séance (documents « seance ») d'un coaché.
   getCoachingSessions(id: string) {
     return req<{ sessions: CoachingSessionDoc[] }>(`/api/coaching/${id}/sessions`);
+  },
+  // Édition de l'agenda : ajoute/modifie/supprime une séance ou action d'un coaché.
+  editCoachingAgenda(id: string, body: {
+    op: "add" | "update" | "delete";
+    kind: "session" | "action";
+    itemId?: string;
+    date?: string;
+    label?: string;
+    done?: boolean;
+  }) {
+    return req<{ ok: boolean }>(`/api/coaching/${id}/agenda`, jsonInit("PATCH", body));
   },
   getCoachingMembers(id: string) {
     return req<{ id: string; name: string; isOwner: boolean; myRole: string; members: CoachingMemberInfo[] }>(

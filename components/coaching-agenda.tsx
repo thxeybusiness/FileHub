@@ -1,11 +1,12 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import {
   Menu, CalendarDays, ChevronLeft, ChevronRight, Loader2, CalendarClock, ListChecks,
+  Plus, X, Trash2, Check, ExternalLink,
 } from "lucide-react";
-import { api, type CoachingAgendaItem } from "@/lib/api";
+import { api, type CoachingOverview, type CoachingAgendaItem } from "@/lib/api";
 
 const ACCENT = "#06b6d4";
 const MONTHS = ["janvier", "février", "mars", "avril", "mai", "juin", "juillet", "août", "septembre", "octobre", "novembre", "décembre"];
@@ -20,18 +21,27 @@ function fmtLong(d: string): string {
 
 export function CoachingAgenda() {
   const router = useRouter();
-  const [agenda, setAgenda] = useState<CoachingAgendaItem[] | null>(null);
+  const [data, setData] = useState<CoachingOverview | null>(null);
   const now = new Date();
   const [cursor, setCursor] = useState({ y: now.getFullYear(), m: now.getMonth() });
   const [selected, setSelected] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
 
-  useEffect(() => {
-    api.getCoachingOverview().then((o) => setAgenda(o.agenda)).catch(() => setAgenda([]));
-  }, []);
+  // Formulaire d'ajout
+  const [adding, setAdding] = useState(false);
+  const [addKind, setAddKind] = useState<"session" | "action">("session");
+  const [addCoaching, setAddCoaching] = useState("");
+  const [addLabel, setAddLabel] = useState("");
+
+  const reload = useCallback(() => api.getCoachingOverview().then(setData).catch(() => setData(null)), []);
+  useEffect(() => { reload(); }, [reload]);
+
+  const coachees = data?.coachees ?? [];
+  const agenda = data?.agenda ?? [];
 
   const byDate = useMemo(() => {
     const map = new Map<string, CoachingAgendaItem[]>();
-    for (const e of agenda ?? []) {
+    for (const e of agenda) {
       const arr = map.get(e.date) ?? [];
       arr.push(e);
       map.set(e.date, arr);
@@ -41,10 +51,9 @@ export function CoachingAgenda() {
 
   const today = iso(now.getFullYear(), now.getMonth(), now.getDate());
 
-  // Construction de la grille du mois (semaines commençant le lundi).
   const cells = useMemo(() => {
     const first = new Date(cursor.y, cursor.m, 1);
-    const startDow = (first.getDay() + 6) % 7; // 0 = lundi
+    const startDow = (first.getDay() + 6) % 7;
     const daysInMonth = new Date(cursor.y, cursor.m + 1, 0).getDate();
     const arr: (number | null)[] = [];
     for (let i = 0; i < startDow; i++) arr.push(null);
@@ -54,15 +63,41 @@ export function CoachingAgenda() {
   }, [cursor]);
 
   const move = (delta: number) => {
-    setSelected(null);
+    setSelected(null); setAdding(false);
     setCursor((c) => {
       const m = c.m + delta;
       return { y: c.y + Math.floor(m / 12), m: ((m % 12) + 12) % 12 };
     });
   };
-  const goToday = () => { setCursor({ y: now.getFullYear(), m: now.getMonth() }); setSelected(today); };
+  const goToday = () => { setCursor({ y: now.getFullYear(), m: now.getMonth() }); pickDay(today); };
+
+  const pickDay = (date: string) => {
+    setSelected(date);
+    setAdding(false);
+    setAddLabel("");
+    if (!addCoaching && coachees.length) setAddCoaching(coachees[0].id);
+  };
+
+  // ── Mutations ──
+  const mutate = async (coachingId: string, body: Parameters<typeof api.editCoachingAgenda>[1]) => {
+    setBusy(true);
+    try {
+      await api.editCoachingAgenda(coachingId, body);
+      await reload();
+    } catch { /* ignore */ } finally { setBusy(false); }
+  };
+
+  const submitAdd = async () => {
+    if (!selected || !addCoaching || !addLabel.trim()) return;
+    await mutate(addCoaching, { op: "add", kind: addKind, date: selected, label: addLabel.trim() });
+    setAddLabel(""); setAdding(false);
+  };
 
   const selectedEvents = selected ? byDate.get(selected) ?? [] : [];
+  const openAdd = () => {
+    if (!addCoaching && coachees.length) setAddCoaching(coachees[0].id);
+    setAdding(true);
+  };
 
   return (
     <div className="flex h-full min-h-0 flex-col">
@@ -77,12 +112,12 @@ export function CoachingAgenda() {
           <h1 className="text-base font-semibold leading-tight">Agenda</h1>
           <p className="hidden sm:block text-xs text-muted">Séances et échéances, tous coachés</p>
         </div>
+        {busy && <Loader2 className="size-4 animate-spin text-muted" />}
         <button onClick={goToday} className="rounded-lg border border-white/10 px-3 py-1.5 text-xs font-medium text-muted transition hover:bg-white/5 hover:text-white">Aujourd'hui</button>
       </header>
 
       <div className="flex-1 min-h-0 overflow-auto">
         <div className="mx-auto max-w-4xl px-4 sm:px-6 py-6">
-          {/* Légende + navigation mois */}
           <div className="mb-3 flex items-center gap-3">
             <div className="flex items-center gap-1">
               <button onClick={() => move(-1)} className="grid size-8 place-items-center rounded-lg border border-white/10 text-muted hover:bg-white/5 hover:text-white"><ChevronLeft className="size-4" /></button>
@@ -95,15 +130,14 @@ export function CoachingAgenda() {
             </div>
           </div>
 
-          {agenda === null ? (
+          {data === null ? (
             <div className="flex items-center justify-center py-24 text-muted"><Loader2 className="size-6 animate-spin" /></div>
+          ) : coachees.length === 0 ? (
+            <p className="rounded-xl border border-dashed border-white/10 px-4 py-12 text-center text-sm text-muted">Ajoutez un coaché pour planifier des séances et des actions.</p>
           ) : (
             <>
-              {/* Grille */}
               <div className="grid grid-cols-7 gap-1">
-                {DOW.map((d, i) => (
-                  <div key={i} className="pb-1 text-center text-[11px] font-medium text-muted">{d}</div>
-                ))}
+                {DOW.map((d, i) => (<div key={i} className="pb-1 text-center text-[11px] font-medium text-muted">{d}</div>))}
                 {cells.map((d, i) => {
                   if (d === null) return <div key={i} className="aspect-square" />;
                   const date = iso(cursor.y, cursor.m, d);
@@ -111,11 +145,8 @@ export function CoachingAgenda() {
                   const isToday = date === today;
                   const isSel = date === selected;
                   return (
-                    <button
-                      key={i}
-                      onClick={() => setSelected(isSel ? null : date)}
-                      className={`aspect-square rounded-lg border p-1 text-left transition ${isSel ? "border-cyan-400/60 bg-cyan-500/10" : "border-white/10 bg-white/[0.02] hover:bg-white/[0.05]"}`}
-                    >
+                    <button key={i} onClick={() => (isSel ? (setSelected(null), setAdding(false)) : pickDay(date))}
+                      className={`aspect-square rounded-lg border p-1 text-left transition ${isSel ? "border-cyan-400/60 bg-cyan-500/10" : "border-white/10 bg-white/[0.02] hover:bg-white/[0.05]"}`}>
                       <span className={`grid size-5 place-items-center rounded-full text-[11px] font-semibold ${isToday ? "bg-cyan-500 text-black" : "text-white/80"}`}>{d}</span>
                       <div className="mt-0.5 space-y-0.5 overflow-hidden">
                         {events.slice(0, 2).map((e, j) => (
@@ -130,26 +161,72 @@ export function CoachingAgenda() {
                 })}
               </div>
 
-              {/* Détail du jour sélectionné */}
               {selected && (
                 <div className="mt-5 rounded-2xl border border-white/10 bg-white/[0.02] p-4">
-                  <h3 className="mb-2 text-sm font-semibold capitalize">{fmtLong(selected)}</h3>
-                  {selectedEvents.length === 0 ? (
-                    <p className="py-4 text-center text-sm text-white/40">Rien de prévu ce jour.</p>
+                  <div className="mb-3 flex items-center gap-2">
+                    <h3 className="text-sm font-semibold capitalize">{fmtLong(selected)}</h3>
+                    <button onClick={() => (adding ? setAdding(false) : openAdd())} className="ml-auto inline-flex items-center gap-1 rounded-lg border border-white/10 px-2.5 py-1.5 text-xs font-medium text-muted transition hover:bg-white/5 hover:text-white">
+                      {adding ? <X className="size-3.5" /> : <Plus className="size-3.5" />} {adding ? "Fermer" : "Ajouter"}
+                    </button>
+                  </div>
+
+                  {/* Formulaire d'ajout */}
+                  {adding && (
+                    <div className="mb-3 rounded-xl border border-white/10 bg-white/[0.03] p-3">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <div className="flex rounded-lg border border-white/10 p-0.5">
+                          {(["session", "action"] as const).map((k) => (
+                            <button key={k} onClick={() => setAddKind(k)}
+                              className={`rounded-md px-2.5 py-1 text-xs font-medium transition ${addKind === k ? "text-white" : "text-muted hover:text-white"}`}
+                              style={addKind === k ? { background: (k === "session" ? ACCENT : "#f59e0b") + "26", color: k === "session" ? "#67e8f9" : "#fcd34d" } : {}}>
+                              {k === "session" ? "Séance" : "Action"}
+                            </button>
+                          ))}
+                        </div>
+                        <select value={addCoaching} onChange={(e) => setAddCoaching(e.target.value)} className="rounded-lg border border-white/10 bg-white/[0.03] px-2 py-1.5 text-xs text-white outline-none [color-scheme:dark]">
+                          {coachees.map((c) => (<option key={c.id} value={c.id} className="bg-[#0f1017]">{c.coacheeName}</option>))}
+                        </select>
+                      </div>
+                      <div className="mt-2 flex items-center gap-2">
+                        <input value={addLabel} onChange={(e) => setAddLabel(e.target.value)} onKeyDown={(e) => e.key === "Enter" && submitAdd()} autoFocus
+                          placeholder={addKind === "session" ? "Thème de la séance…" : "Action à réaliser…"}
+                          className="min-w-0 flex-1 rounded-lg border border-white/10 bg-white/[0.03] px-3 py-2 text-sm outline-none placeholder:text-white/25 focus:border-sky-400/50" />
+                        <button onClick={submitAdd} disabled={!addLabel.trim() || busy} className="shrink-0 rounded-lg px-3 py-2 text-sm font-semibold text-white disabled:opacity-50" style={{ background: `linear-gradient(90deg, ${ACCENT}, #3b82f6)` }}>Ajouter</button>
+                      </div>
+                    </div>
+                  )}
+
+                  {selectedEvents.length === 0 && !adding ? (
+                    <p className="py-4 text-center text-sm text-white/40">Rien de prévu ce jour. Cliquez sur « Ajouter ».</p>
                   ) : (
-                    <ul className="space-y-1">
-                      {selectedEvents.map((e, i) => (
-                        <li key={i}>
-                          <button onClick={() => router.push(`/drive/coaching/${e.coachingId}/fiche`)} className="flex w-full items-center gap-3 rounded-lg px-2 py-2 text-left transition hover:bg-white/5">
-                            <span className="grid size-8 shrink-0 place-items-center rounded-lg" style={{ background: (e.kind === "session" ? ACCENT : "#f59e0b") + "1f", color: e.kind === "session" ? "#67e8f9" : "#fcd34d" }}>
-                              {e.kind === "session" ? <CalendarClock className="size-4" /> : <ListChecks className="size-4" />}
-                            </span>
-                            <div className="min-w-0 flex-1">
-                              <p className="truncate text-sm font-medium">{e.coacheeName}</p>
-                              <p className="truncate text-xs text-muted">{e.label}</p>
-                            </div>
-                            <span className="shrink-0 text-[11px] text-muted">{e.kind === "session" ? "Séance" : "Action"}</span>
-                          </button>
+                    <ul className="space-y-1.5">
+                      {selectedEvents.map((e) => (
+                        <li key={`${e.kind}:${e.itemId}`} className="group flex items-center gap-2 rounded-xl border border-white/10 bg-white/[0.02] px-2.5 py-2">
+                          <span className="grid size-8 shrink-0 place-items-center rounded-lg" style={{ background: (e.kind === "session" ? ACCENT : "#f59e0b") + "1f", color: e.kind === "session" ? "#67e8f9" : "#fcd34d" }}>
+                            {e.kind === "session" ? <CalendarClock className="size-4" /> : <ListChecks className="size-4" />}
+                          </span>
+                          <div className="min-w-0 flex-1">
+                            {e.itemId ? (
+                              <input
+                                key={`${e.itemId}:${e.label}`}
+                                defaultValue={e.label}
+                                onBlur={(ev) => { const v = ev.target.value.trim(); if (v && v !== e.label) mutate(e.coachingId, { op: "update", kind: e.kind, itemId: e.itemId, label: v }); }}
+                                onKeyDown={(ev) => ev.key === "Enter" && (ev.target as HTMLInputElement).blur()}
+                                className="w-full bg-transparent text-sm font-medium outline-none focus:text-white"
+                              />
+                            ) : (
+                              <p className="truncate text-sm font-medium">{e.label}</p>
+                            )}
+                            <p className="truncate text-xs text-muted">{e.coacheeName}</p>
+                          </div>
+                          {e.itemId && (
+                            <>
+                              <input type="date" value={e.date} onChange={(ev) => ev.target.value && mutate(e.coachingId, { op: "update", kind: e.kind, itemId: e.itemId, date: ev.target.value })}
+                                className="hidden shrink-0 rounded-lg border border-white/10 bg-white/[0.03] px-2 py-1 text-xs text-muted outline-none sm:block [color-scheme:dark]" title="Déplacer" />
+                              <button onClick={() => router.push(`/drive/coaching/${e.coachingId}/fiche`)} className="grid size-7 shrink-0 place-items-center rounded-lg text-muted opacity-0 transition hover:bg-white/5 hover:text-white group-hover:opacity-100" title="Ouvrir la fiche"><ExternalLink className="size-3.5" /></button>
+                              <button onClick={() => mutate(e.coachingId, { op: "delete", kind: e.kind, itemId: e.itemId })} className="grid size-7 shrink-0 place-items-center rounded-lg text-muted opacity-0 transition hover:bg-red-500/10 hover:text-red-400 group-hover:opacity-100" title="Supprimer"><Trash2 className="size-3.5" /></button>
+                            </>
+                          )}
                         </li>
                       ))}
                     </ul>
