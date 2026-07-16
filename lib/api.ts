@@ -323,6 +323,9 @@ export const api = {
   createAccompagnement(name?: string) {
     return req<{ id: string; name: string }>("/api/accompagnement", jsonInit("POST", { name }));
   },
+  deleteCoaching(id: string) {
+    return req<{ ok: boolean }>(`/api/coaching/${id}`, { method: "DELETE" });
+  },
   getCoachingMembers(id: string) {
     return req<{ id: string; name: string; isOwner: boolean; myRole: string; members: CoachingMemberInfo[] }>(
       `/api/coaching/${id}/members`,

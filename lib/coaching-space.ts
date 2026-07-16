@@ -172,6 +172,15 @@ async function addStarterFolders(spaceId: string, ownerId: string): Promise<void
   );
 }
 
+/** Supprime le drive d'un coaché (espace dédié + lien). */
+export async function deleteCoachingSpace(coachingId: string): Promise<void> {
+  const spaceId = await getCoachingSpaceId(coachingId);
+  if (spaceId) {
+    await prisma.space.delete({ where: { id: spaceId } }).catch(() => {});
+  }
+  await prisma.$executeRawUnsafe(`DELETE FROM filehub_coaching_space WHERE coaching_id = $1`, coachingId).catch(() => {});
+}
+
 /** Ajoute / met à jour un membre dans l'espace du coaché (miroir du suivi). */
 export async function syncSpaceMember(spaceId: string, userId: string, role: "editor" | "viewer"): Promise<void> {
   await prisma.spaceMember
