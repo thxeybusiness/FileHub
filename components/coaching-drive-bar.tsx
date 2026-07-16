@@ -3,7 +3,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { HeartHandshake, Target, Users, Trash2, Loader2, AlertTriangle } from "lucide-react";
+import { HeartHandshake, Target, Users, Trash2, Loader2, AlertTriangle, Sparkles } from "lucide-react";
 import { api, notifyRefresh } from "@/lib/api";
 import { CoachingMembersDialog } from "./coaching-members-dialog";
 
@@ -61,6 +61,12 @@ export function CoachingDriveBar({ id }: { id: string }) {
           style={{ background: `linear-gradient(90deg, ${ACCENT}, #3b82f6)` }}
         >
           <Target className="size-3.5" /> Fiche du coaché
+        </Link>
+        <Link
+          href={`/drive/coaching/${id}/portail`}
+          className="inline-flex items-center gap-1.5 rounded-lg border border-white/10 px-2.5 py-1.5 text-xs font-medium text-muted transition hover:bg-white/5 hover:text-white"
+        >
+          <Sparkles className="size-3.5" /> Portail
         </Link>
         <button
           onClick={() => setMembersOpen(true)}

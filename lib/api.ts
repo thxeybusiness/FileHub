@@ -57,6 +57,13 @@ export type CoachingOverview = {
   pendingActions: CoachingPendingAction[];
   agenda: CoachingAgendaItem[];
 };
+export type CoachingSessionDoc = {
+  id: string;
+  name: string;
+  date: string | null;
+  rating: number | null;
+  updatedAt: string;
+};
 export type CoachingMemberInfo = {
   id: string;
   name: string | null;
@@ -357,6 +364,10 @@ export const api = {
   // Agrégat transversal (dashboard/agenda du coaching).
   getCoachingOverview() {
     return req<CoachingOverview>("/api/coaching/overview");
+  },
+  // Comptes-rendus de séance (documents « seance ») d'un coaché.
+  getCoachingSessions(id: string) {
+    return req<{ sessions: CoachingSessionDoc[] }>(`/api/coaching/${id}/sessions`);
   },
   getCoachingMembers(id: string) {
     return req<{ id: string; name: string; isOwner: boolean; myRole: string; members: CoachingMemberInfo[] }>(

@@ -15,6 +15,7 @@ import { CollabBar } from "./collab-bar";
 import { VersionHistory } from "./version-history";
 import { CommentsPanel } from "./comments-panel";
 import { CoachingMembersDialog } from "./coaching-members-dialog";
+import { CoachingReports } from "./coaching-reports";
 import { ExportButton } from "./export-button";
 import { downloadText, safeFilename } from "@/lib/export-doc";
 import type { Peer } from "./use-collab";
@@ -434,6 +435,9 @@ export function CoachingEditor({
               </div>
             )}
           </Section>
+
+          {/* Comptes-rendus de séance (documents du drive) */}
+          <CoachingReports id={id} />
 
           {/* Actions à faire */}
           <Section icon={ListChecks} title="Actions à faire" count={openActions} onAdd={addAction} addLabel="Action">
