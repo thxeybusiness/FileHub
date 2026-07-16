@@ -25,34 +25,46 @@ async function ensureTable() {
 
 /** Espace dédié d'un coaché, ou null s'il n'a pas encore été créé. */
 export async function getCoachingSpaceId(coachingId: string): Promise<string | null> {
-  await ensureTable();
-  const rows = await prisma.$queryRawUnsafe<{ space_id: string }[]>(
-    `SELECT space_id FROM filehub_coaching_space WHERE coaching_id = $1 LIMIT 1`,
-    coachingId,
-  );
-  return rows[0]?.space_id ?? null;
+  try {
+    await ensureTable();
+    const rows = await prisma.$queryRawUnsafe<{ space_id: string }[]>(
+      `SELECT space_id FROM filehub_coaching_space WHERE coaching_id = $1 LIMIT 1`,
+      coachingId,
+    );
+    return rows[0]?.space_id ?? null;
+  } catch {
+    return null;
+  }
 }
 
 /** Parmi une liste d'ids d'espaces, ceux qui sont des drives de coaché (cachés). */
 export async function filterCoachingSpaceIds(spaceIds: string[]): Promise<Set<string>> {
   if (!spaceIds.length) return new Set();
-  await ensureTable();
-  const placeholders = spaceIds.map((_, i) => `$${i + 1}`).join(", ");
-  const rows = await prisma.$queryRawUnsafe<{ space_id: string }[]>(
-    `SELECT space_id FROM filehub_coaching_space WHERE space_id IN (${placeholders})`,
-    ...spaceIds,
-  );
-  return new Set(rows.map((r) => r.space_id));
+  try {
+    await ensureTable();
+    const placeholders = spaceIds.map((_, i) => `$${i + 1}`).join(", ");
+    const rows = await prisma.$queryRawUnsafe<{ space_id: string }[]>(
+      `SELECT space_id FROM filehub_coaching_space WHERE space_id IN (${placeholders})`,
+      ...spaceIds,
+    );
+    return new Set(rows.map((r) => r.space_id));
+  } catch {
+    return new Set();
+  }
 }
 
 /** Ids des espaces-coaché possédés par un utilisateur (pour exclure des quotas). */
 export async function ownerCoachingSpaceIds(ownerId: string): Promise<string[]> {
-  await ensureTable();
-  const rows = await prisma.$queryRawUnsafe<{ space_id: string }[]>(
-    `SELECT space_id FROM filehub_coaching_space WHERE owner_id = $1`,
-    ownerId,
-  );
-  return rows.map((r) => r.space_id);
+  try {
+    await ensureTable();
+    const rows = await prisma.$queryRawUnsafe<{ space_id: string }[]>(
+      `SELECT space_id FROM filehub_coaching_space WHERE owner_id = $1`,
+      ownerId,
+    );
+    return rows.map((r) => r.space_id);
+  } catch {
+    return [];
+  }
 }
 
 /**
