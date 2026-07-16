@@ -6,7 +6,7 @@ import {
   Menu, HeartHandshake, Plus, Loader2, Users, CalendarClock, ListChecks,
   Trash2, Search,
 } from "lucide-react";
-import { api, type CoachingSummary } from "@/lib/api";
+import { api, notifyRefresh, type CoachingSummary } from "@/lib/api";
 
 const STATUSES: Record<string, { l: string; color: string }> = {
   prospect: { l: "Prospect", color: "#a78bff" },
@@ -38,6 +38,7 @@ export function AccompagnementHome() {
     setCreating(true);
     try {
       const { id } = await api.createAccompagnement();
+      notifyRefresh();
       router.push(`/drive/coaching/${id}`);
     } catch {
       setCreating(false);
@@ -48,6 +49,7 @@ export function AccompagnementHome() {
     e.stopPropagation();
     setItems((prev) => (prev ? prev.filter((x) => x.id !== id) : prev));
     await api.update(id, { trashed: true }).catch(() => load());
+    notifyRefresh();
   };
 
   const filtered = (items ?? []).filter((it) => {

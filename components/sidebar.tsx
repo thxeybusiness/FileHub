@@ -28,7 +28,7 @@ import {
 import { cn, formatBytes } from "@/lib/utils";
 import { hasAiAccess } from "@/lib/plans";
 import { useRouter } from "next/navigation";
-import { api, notifyRefresh, type SpaceSummary } from "@/lib/api";
+import { api, notifyRefresh, type SpaceSummary, type CoachingSummary } from "@/lib/api";
 import { NameDialog } from "./name-dialog";
 import { NotificationCenter } from "./notification-center";
 import { InstallButton } from "./install-button";
@@ -57,11 +57,20 @@ const COACHING_NAV = [
   { href: "/drive/accompagnement", label: "Mes coachés", icon: HeartHandshake, exact: true },
 ];
 
+// Couleur de la pastille de statut d'un coaché dans la barre latérale.
+const COACHEE_STATUS_COLOR: Record<string, string> = {
+  prospect: "#a78bff",
+  active: "#22c55e",
+  paused: "#f59e0b",
+  done: "#64748b",
+};
+
 export function Sidebar({ initial }: { initial: Me }) {
   const pathname = usePathname();
   const router = useRouter();
   const [me, setMe] = useState<Me>(initial);
   const [spaces, setSpaces] = useState<SpaceSummary[]>([]);
+  const [coachees, setCoachees] = useState<CoachingSummary[]>([]);
   const [creatingSpace, setCreatingSpace] = useState(false);
   // Tiroir mobile (sans effet sur le rendu ordinateur, géré par breakpoint lg).
   const [mobileOpen, setMobileOpen] = useState(false);
@@ -95,6 +104,26 @@ export function Sidebar({ initial }: { initial: Me }) {
     window.addEventListener("filehub:refresh", refresh);
     return () => window.removeEventListener("filehub:refresh", refresh);
   }, []);
+
+  // Liste des coachés affichée dans la barre latérale de l'espace Coaching.
+  const loadCoachees = () => {
+    api.listAccompagnement().then((r) => setCoachees(r.items)).catch(() => {});
+  };
+  useEffect(() => {
+    if (!inAccompagnement) return;
+    loadCoachees();
+    const refresh = () => loadCoachees();
+    window.addEventListener("filehub:refresh", refresh);
+    return () => window.removeEventListener("filehub:refresh", refresh);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [inAccompagnement, pathname]);
+
+  async function createCoachee() {
+    const { id } = await api.createAccompagnement();
+    setMobileOpen(false);
+    notifyRefresh();
+    router.push(`/drive/coaching/${id}`);
+  }
 
   // Ouverture/fermeture du tiroir mobile via un événement global (bouton menu).
   useEffect(() => {
@@ -216,7 +245,7 @@ export function Sidebar({ initial }: { initial: Me }) {
 
       {inAccompagnement ? (
         /* ── Navigation de l'espace Coaching (aucune option FileHub) ── */
-        <nav className="flex-1 px-3 py-4 space-y-1">
+        <nav className="flex-1 px-3 py-4 space-y-1 overflow-y-auto">
           {COACHING_NAV.map((item) => {
             const active = item.exact ? pathname === item.href : pathname.startsWith(item.href);
             return (
@@ -235,6 +264,55 @@ export function Sidebar({ initial }: { initial: Me }) {
               </Link>
             );
           })}
+
+          {/* Liste des coachés */}
+          <div className="pt-5">
+            <div className="flex items-center justify-between px-3 pb-1">
+              <span className="text-[11px] font-semibold uppercase tracking-wider text-muted">Coachés</span>
+              <button
+                onClick={createCoachee}
+                title="Nouveau coaché"
+                className="grid size-6 place-items-center rounded-md text-muted hover:bg-white/10 hover:text-white transition"
+              >
+                <Plus className="size-4" />
+              </button>
+            </div>
+            {coachees.length === 0 ? (
+              <button
+                onClick={createCoachee}
+                className="flex w-full items-center gap-2 px-3 h-9 rounded-xl text-sm text-muted hover:bg-white/5 hover:text-ink transition"
+              >
+                <Plus className="size-4" /> Nouveau coaché
+              </button>
+            ) : (
+              coachees.map((c) => {
+                const href = `/drive/coaching/${c.id}`;
+                const active = pathname === href;
+                const title = c.coacheeName || c.name || "Coaché";
+                const dot = COACHEE_STATUS_COLOR[c.status] ?? "#06b6d4";
+                return (
+                  <Link
+                    key={c.id}
+                    href={href}
+                    className={cn(
+                      "relative flex items-center gap-2.5 px-3 h-10 rounded-xl text-sm font-medium transition overflow-hidden",
+                      active
+                        ? "bg-gradient-to-r from-cyan-500/25 to-transparent text-white"
+                        : "text-ink/70 hover:bg-white/5 hover:text-ink",
+                    )}
+                  >
+                    {active && <span className="absolute left-0 top-1/2 h-5 w-1 -translate-y-1/2 rounded-r-full bg-gradient-to-b from-[#06b6d4] to-[#3b82f6]" />}
+                    <span className="grid size-6 shrink-0 place-items-center rounded-full text-[10px] font-bold text-white" style={{ background: "linear-gradient(135deg, #06b6d4, #3b82f6)" }}>
+                      {title.charAt(0).toUpperCase()}
+                    </span>
+                    <span className="truncate flex-1">{title}</span>
+                    {c.shared && <Users className="size-3.5 shrink-0 text-muted" />}
+                    <span className="size-1.5 shrink-0 rounded-full" style={{ background: dot }} title={c.status} />
+                  </Link>
+                );
+              })
+            )}
+          </div>
         </nav>
       ) : (
         <nav className="flex-1 px-3 py-4 space-y-1">
