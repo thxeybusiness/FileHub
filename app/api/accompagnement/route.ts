@@ -9,7 +9,7 @@ export const runtime = "nodejs";
 // Contenu initial d'un nouveau suivi de coaché (même schéma que l'éditeur).
 function defaultCoachingContent(): string {
   return JSON.stringify({
-    coachee: { name: "", status: "active", startDate: "", email: "", phone: "", goal: "" },
+    coachee: { name: "", status: "active", startDate: "", contact: "", goal: "" },
     objectives: [{ id: "o1", title: "Définir l'objectif principal", progress: 20, done: false }],
     sessions: [],
     actions: [{ id: "a1", text: "Planifier la première séance", due: "", done: false }],

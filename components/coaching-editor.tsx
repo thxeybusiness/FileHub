@@ -7,7 +7,7 @@ import { sanitizeRichHtml } from "@/lib/sanitize-html";
 import {
   ArrowLeft, Home, ChevronRight, Check, Loader2, RefreshCw, HeartHandshake,
   Plus, Trash2, Target, CalendarClock, ListChecks, NotebookPen,
-  Mail, Phone, Smile, Meh, Frown, History, MessageSquare, Eye, Pencil,
+  Contact, Smile, Meh, Frown, History, MessageSquare, Eye, Pencil,
 } from "lucide-react";
 import { api } from "@/lib/api";
 import { RealtimeEngine, type Actions } from "./realtime";
@@ -27,7 +27,7 @@ type Mood = "" | "good" | "neutral" | "low";
 type Objective = { id: string; title: string; progress: number; done: boolean };
 type Session = { id: string; date: string; title: string; notes: string; mood: Mood; done: boolean };
 type Action = { id: string; text: string; due: string; done: boolean };
-type Coachee = { name: string; status: Status; startDate: string; email: string; phone: string; goal: string };
+type Coachee = { name: string; status: Status; startDate: string; contact: string; goal: string };
 type Coaching = { coachee: Coachee; objectives: Objective[]; sessions: Session[]; actions: Action[]; notes: string };
 
 /* ───────────────────────── Constants ───────────────────────── */
@@ -54,7 +54,7 @@ const asNum = (v: unknown) => (typeof v === "number" ? v : typeof v === "string"
 
 function defaultCoaching(): Coaching {
   return {
-    coachee: { name: "", status: "active", startDate: "", email: "", phone: "", goal: "" },
+    coachee: { name: "", status: "active", startDate: "", contact: "", goal: "" },
     objectives: [{ id: uid(), title: "Définir l'objectif principal", progress: 20, done: false }],
     sessions: [],
     actions: [{ id: uid(), text: "Planifier la première séance", due: "", done: false }],
@@ -87,13 +87,14 @@ function parse(content: string): Coaching {
     if (p && typeof p === "object" && (p.coachee || p.objectives || p.sessions || p.actions)) {
       const c = (p.coachee ?? {}) as Record<string, unknown>;
       const status = asStr(c.status) as Status;
+      // Rétrocompat : anciens suivis avec email/téléphone séparés → un seul « contact ».
+      const contact = asStr(c.contact) || [asStr(c.email), asStr(c.phone)].filter(Boolean).join(" · ");
       return {
         coachee: {
           name: asStr(c.name),
           status: (["prospect", "active", "paused", "done"].includes(status) ? status : "active") as Status,
           startDate: asStr(c.startDate),
-          email: asStr(c.email),
-          phone: asStr(c.phone),
+          contact,
           goal: asStr(c.goal),
         },
         objectives: Array.isArray(p.objectives) ? p.objectives.map(normObjective) : [],
@@ -133,8 +134,7 @@ function toMarkdown(name: string, c: Coaching): string {
   if (c.coachee.name) lines.push(`**Coaché :** ${c.coachee.name}`);
   lines.push(`**Statut :** ${sm.l}`);
   if (c.coachee.startDate) lines.push(`**Depuis le :** ${fmtDate(c.coachee.startDate)}`);
-  if (c.coachee.email) lines.push(`**Email :** ${c.coachee.email}`);
-  if (c.coachee.phone) lines.push(`**Téléphone :** ${c.coachee.phone}`);
+  if (c.coachee.contact) lines.push(`**Contact :** ${c.coachee.contact}`);
   if (c.coachee.goal) lines.push("", `**Objectif global :** ${c.coachee.goal}`);
   lines.push("", "## Objectifs", "");
   if (!c.objectives.length) lines.push("_Aucun objectif._");
@@ -317,12 +317,11 @@ export function CoachingEditor({
               <Labeled icon={CalendarClock} label="Depuis le">
                 <input type="date" value={data.coachee.startDate} onChange={(e) => patchCoachee({ startDate: e.target.value })} className="w-full bg-transparent text-sm outline-none [color-scheme:dark]" />
               </Labeled>
-              <Labeled icon={Mail} label="Email">
-                <input type="email" value={data.coachee.email} onChange={(e) => patchCoachee({ email: e.target.value })} placeholder="—" className="w-full bg-transparent text-sm outline-none placeholder:text-white/20" />
-              </Labeled>
-              <Labeled icon={Phone} label="Téléphone">
-                <input value={data.coachee.phone} onChange={(e) => patchCoachee({ phone: e.target.value })} placeholder="—" className="w-full bg-transparent text-sm outline-none placeholder:text-white/20" />
-              </Labeled>
+              <div className="sm:col-span-2">
+                <Labeled icon={Contact} label="Contact">
+                  <input value={data.coachee.contact} onChange={(e) => patchCoachee({ contact: e.target.value })} placeholder="Email, téléphone…" className="w-full bg-transparent text-sm outline-none placeholder:text-white/20" />
+                </Labeled>
+              </div>
             </div>
 
             {/* Objectif global */}

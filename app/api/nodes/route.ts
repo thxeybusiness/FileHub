@@ -25,7 +25,7 @@ const DEFAULT_SLIDES = JSON.stringify({
 });
 // Accompagnement : suivi d'un coaché (profil + objectifs + séances + actions).
 const DEFAULT_COACHING = JSON.stringify({
-  coachee: { name: "", status: "active", startDate: "", email: "", phone: "", goal: "" },
+  coachee: { name: "", status: "active", startDate: "", contact: "", goal: "" },
   objectives: [
     { id: "o1", title: "Définir l'objectif principal", progress: 20, done: false },
   ],
