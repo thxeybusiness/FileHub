@@ -21,6 +21,8 @@ import {
   Building2,
   ShieldCheck,
   Settings,
+  HeartHandshake,
+  ChevronDown,
   X,
 } from "lucide-react";
 import { cn, formatBytes } from "@/lib/utils";
@@ -58,6 +60,10 @@ export function Sidebar({ initial }: { initial: Me }) {
   const [creatingSpace, setCreatingSpace] = useState(false);
   // Tiroir mobile (sans effet sur le rendu ordinateur, géré par breakpoint lg).
   const [mobileOpen, setMobileOpen] = useState(false);
+  // Sélecteur d'application (FileHub / extension Accompagnement).
+  const [switcherOpen, setSwitcherOpen] = useState(false);
+  const inAccompagnement = pathname.startsWith("/drive/accompagnement") || pathname.startsWith("/drive/coaching");
+  const goApp = (href: string) => { setSwitcherOpen(false); setMobileOpen(false); router.push(href); };
 
   async function logout() {
     await fetch("/api/auth/logout", { method: "POST" }).catch(() => {});
@@ -130,20 +136,77 @@ export function Sidebar({ initial }: { initial: Me }) {
           mobileOpen ? "translate-x-0" : "-translate-x-full",
         )}
       >
-      <div className="h-16 flex items-center gap-2.5 px-5 border-b border-white/10">
-        <span className="grid size-8 place-items-center rounded-xl bg-gradient-to-br from-[#3b6dff] to-[#7b3bff] shadow-lg shadow-blue-500/30">
-          <Cloud className="size-5 text-white" />
-        </span>
-        <span className="text-lg font-bold tracking-tight">
-          FileHub
-        </span>
+      <div className="relative h-16 flex items-center gap-1 px-3 border-b border-white/10">
+        <button
+          onClick={() => setSwitcherOpen((v) => !v)}
+          className="flex min-w-0 flex-1 items-center gap-2.5 rounded-xl px-2 py-1.5 text-left transition hover:bg-white/5"
+          title="Changer d'application"
+        >
+          {inAccompagnement ? (
+            <span className="grid size-8 shrink-0 place-items-center rounded-xl bg-gradient-to-br from-[#06b6d4] to-[#3b82f6] shadow-lg shadow-cyan-500/30">
+              <HeartHandshake className="size-5 text-white" />
+            </span>
+          ) : (
+            <span className="grid size-8 shrink-0 place-items-center rounded-xl bg-gradient-to-br from-[#3b6dff] to-[#7b3bff] shadow-lg shadow-blue-500/30">
+              <Cloud className="size-5 text-white" />
+            </span>
+          )}
+          <span className="min-w-0 flex-1 truncate text-lg font-bold tracking-tight">
+            {inAccompagnement ? "Accompagnement" : "FileHub"}
+          </span>
+          <ChevronDown className={cn("size-4 shrink-0 text-muted transition", switcherOpen && "rotate-180")} />
+        </button>
         <button
           onClick={() => setMobileOpen(false)}
-          className="ml-auto grid size-8 place-items-center rounded-lg text-muted hover:bg-white/5 hover:text-white lg:hidden"
+          className="grid size-8 shrink-0 place-items-center rounded-lg text-muted hover:bg-white/5 hover:text-white lg:hidden"
           title="Fermer"
         >
           <X className="size-5" />
         </button>
+
+        {switcherOpen && (
+          <>
+            <div className="fixed inset-0 z-40" onClick={() => setSwitcherOpen(false)} />
+            <div
+              className="absolute left-3 right-3 top-[3.75rem] z-50 rounded-2xl border border-white/10 bg-[#0f1017]/97 p-1.5 shadow-2xl shadow-black/50 backdrop-blur-2xl"
+              style={{ animation: "revealUp 0.15s both" }}
+            >
+              <p className="px-2 py-1 text-[10px] font-semibold uppercase tracking-wider text-muted">Applications</p>
+              <button
+                onClick={() => goApp("/drive")}
+                className={cn(
+                  "flex w-full items-center gap-2.5 rounded-xl px-2 py-2 text-left transition hover:bg-white/5",
+                  !inAccompagnement && "bg-white/[0.06]",
+                )}
+              >
+                <span className="grid size-8 shrink-0 place-items-center rounded-xl bg-gradient-to-br from-[#3b6dff] to-[#7b3bff]">
+                  <Cloud className="size-4 text-white" />
+                </span>
+                <span className="min-w-0 flex-1">
+                  <span className="block text-sm font-semibold">FileHub</span>
+                  <span className="block truncate text-xs text-muted">Vos fichiers & documents</span>
+                </span>
+                {!inAccompagnement && <ChevronRight className="size-4 shrink-0 text-brand-300" />}
+              </button>
+              <button
+                onClick={() => goApp("/drive/accompagnement")}
+                className={cn(
+                  "flex w-full items-center gap-2.5 rounded-xl px-2 py-2 text-left transition hover:bg-white/5",
+                  inAccompagnement && "bg-white/[0.06]",
+                )}
+              >
+                <span className="grid size-8 shrink-0 place-items-center rounded-xl bg-gradient-to-br from-[#06b6d4] to-[#3b82f6]">
+                  <HeartHandshake className="size-4 text-white" />
+                </span>
+                <span className="min-w-0 flex-1">
+                  <span className="block text-sm font-semibold">Accompagnement</span>
+                  <span className="block truncate text-xs text-muted">Suivi de vos coachés</span>
+                </span>
+                {inAccompagnement && <ChevronRight className="size-4 shrink-0 text-cyan-300" />}
+              </button>
+            </div>
+          </>
+        )}
       </div>
 
       <nav className="flex-1 px-3 py-4 space-y-1">

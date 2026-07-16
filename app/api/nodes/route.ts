@@ -99,20 +99,27 @@ export async function GET(req: NextRequest) {
     where.spaceId = null;
   }
 
-  if (q) {
+  if (view === "coaching") {
+    // Extension « Accompagnement » : uniquement les suivis de coaché (perso).
+    where.trashed = false;
+    where.type = "coaching";
+  } else if (q) {
     where.trashed = false;
     where.name = { contains: q };
+    where.type = { not: "coaching" };
   } else if (view === "starred") {
     where.starred = true;
     where.trashed = false;
+    where.type = { not: "coaching" };
   } else if (view === "trash") {
     where.trashed = true;
   } else if (view === "recent") {
     where.trashed = false;
-    where.type = { in: ["file", "doc", "sheet", "chart", "draw", "note", "diagram", "board", "slides", "project", "coaching"] };
+    where.type = { in: ["file", "doc", "sheet", "chart", "draw", "note", "diagram", "board", "slides", "project"] };
   } else {
     where.trashed = false;
     where.parentId = parent && parent !== "root" ? parent : null;
+    where.type = { not: "coaching" };
   }
 
   const orderBy =

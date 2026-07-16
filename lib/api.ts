@@ -22,6 +22,16 @@ export type SpaceSummary = {
   isOwner: boolean;
   memberCount: number;
 };
+export type CoachingSummary = {
+  id: string;
+  name: string;
+  updatedAt: string;
+  coacheeName: string;
+  status: string;
+  progress: number;
+  sessions: number;
+  openActions: number;
+};
 export type SpaceMemberInfo = {
   id: string;
   name: string | null;
@@ -294,6 +304,14 @@ export const api = {
 
   remove(id: string) {
     return req<{ ok: boolean }>(`/api/nodes/${id}`, { method: "DELETE" });
+  },
+
+  // ── Extension « Accompagnement » (suivis de coaché) ──
+  listAccompagnement() {
+    return req<{ items: CoachingSummary[] }>("/api/accompagnement");
+  },
+  createAccompagnement(name?: string) {
+    return req<{ id: string; name: string }>("/api/accompagnement", jsonInit("POST", { name }));
   },
 
   emptyTrash() {

@@ -23,7 +23,8 @@ export async function GET() {
   const [grouped, trashedCount, sharesCount, memberIds, biggest] = await Promise.all([
     prisma.node.groupBy({
       by: ["type"],
-      where: personalActive,
+      // L'accompagnement est une extension à part : hors statistiques du drive.
+      where: { ...personalActive, type: { not: "coaching" } },
       _count: { _all: true },
       _sum: { size: true },
     }),
