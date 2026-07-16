@@ -282,7 +282,7 @@ export function DriveExplorer({
         { icon: CalendarClock, tint: "#0ea5e9", label: "Compte-rendu de séance", desc: "Outil structuré : objectif, points, actions…", fn: createSessionNote },
         { icon: Target, tint: "#22c55e", label: "Plan d'action", desc: "Objectifs & tâches multi-vues", fn: createActionPlan },
         { icon: FileText, tint: "#5b8bff", label: "Document", desc: "Traitement de texte", fn: createDoc },
-        { icon: Table2, tint: "#10b981", label: "Feuille de suivi", desc: "Tableur : indicateurs, présence…", fn: createSheet },
+        { icon: Table2, tint: "#10b981", label: "Tableur", desc: "Indicateurs, présence, suivi…", fn: createSheet },
         { icon: StickyNote, tint: "#eab308", label: "Note", desc: "Note rapide (Markdown)", fn: () => createTyped("note") },
         { icon: Presentation, tint: "#fb7185", label: "Support de séance", desc: "Diaporama", fn: () => createTyped("slides") },
         { icon: Upload, tint: "#a78bff", label: "Importer un fichier", desc: "PDF, images, contrats…", fn: () => fileInput.current?.click() },
