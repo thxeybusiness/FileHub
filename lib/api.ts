@@ -378,6 +378,10 @@ export const api = {
   getCoachingSessions(id: string) {
     return req<{ sessions: CoachingSessionDoc[] }>(`/api/coaching/${id}/sessions`);
   },
+  // Documents & fichiers du drive d'un coaché (pour les joindre aux étapes).
+  getCoachingFiles(id: string) {
+    return req<{ files: { id: string; name: string; type: string; mimeType: string | null }[] }>(`/api/coaching/${id}/files`);
+  },
   // Édition de l'agenda : ajoute/modifie/supprime une séance ou action d'un coaché.
   editCoachingAgenda(id: string, body: {
     op: "add" | "update" | "delete";
