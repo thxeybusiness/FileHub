@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import {
   Menu, CalendarDays, ChevronLeft, ChevronRight, Loader2, CalendarClock, ListChecks,
@@ -26,6 +26,12 @@ export function CoachingAgenda() {
   const [cursor, setCursor] = useState({ y: now.getFullYear(), m: now.getMonth() });
   const [selected, setSelected] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const detailRef = useRef<HTMLDivElement>(null);
+
+  // Fait défiler vers le panneau du jour dès qu'on sélectionne une date.
+  useEffect(() => {
+    if (selected) requestAnimationFrame(() => detailRef.current?.scrollIntoView({ behavior: "smooth", block: "center" }));
+  }, [selected]);
 
   // Formulaire d'ajout
   const [adding, setAdding] = useState(false);
@@ -139,14 +145,14 @@ export function CoachingAgenda() {
               <div className="grid grid-cols-7 gap-1">
                 {DOW.map((d, i) => (<div key={i} className="pb-1 text-center text-[11px] font-medium text-muted">{d}</div>))}
                 {cells.map((d, i) => {
-                  if (d === null) return <div key={i} className="aspect-square" />;
+                  if (d === null) return <div key={i} className="h-16 sm:h-[68px]" />;
                   const date = iso(cursor.y, cursor.m, d);
                   const events = byDate.get(date) ?? [];
                   const isToday = date === today;
                   const isSel = date === selected;
                   return (
                     <button key={i} onClick={() => (isSel ? (setSelected(null), setAdding(false)) : pickDay(date))}
-                      className={`aspect-square rounded-lg border p-1 text-left transition ${isSel ? "border-cyan-400/60 bg-cyan-500/10" : "border-white/10 bg-white/[0.02] hover:bg-white/[0.05]"}`}>
+                      className={`h-16 sm:h-[68px] rounded-lg border p-1 text-left transition ${isSel ? "border-cyan-400/60 bg-cyan-500/10" : "border-white/10 bg-white/[0.02] hover:bg-white/[0.05]"}`}>
                       <span className={`grid size-5 place-items-center rounded-full text-[11px] font-semibold ${isToday ? "bg-cyan-500 text-black" : "text-white/80"}`}>{d}</span>
                       <div className="mt-0.5 space-y-0.5 overflow-hidden">
                         {events.slice(0, 2).map((e, j) => (
@@ -162,12 +168,18 @@ export function CoachingAgenda() {
               </div>
 
               {selected && (
-                <div className="mt-5 rounded-2xl border border-white/10 bg-white/[0.02] p-4">
+                <div ref={detailRef} className="mt-5 scroll-mt-4 rounded-2xl border border-cyan-400/20 bg-white/[0.02] p-4 shadow-lg shadow-cyan-500/5">
                   <div className="mb-3 flex items-center gap-2">
                     <h3 className="text-sm font-semibold capitalize">{fmtLong(selected)}</h3>
-                    <button onClick={() => (adding ? setAdding(false) : openAdd())} className="ml-auto inline-flex items-center gap-1 rounded-lg border border-white/10 px-2.5 py-1.5 text-xs font-medium text-muted transition hover:bg-white/5 hover:text-white">
-                      {adding ? <X className="size-3.5" /> : <Plus className="size-3.5" />} {adding ? "Fermer" : "Ajouter"}
-                    </button>
+                    {adding ? (
+                      <button onClick={() => setAdding(false)} className="ml-auto inline-flex items-center gap-1.5 rounded-lg border border-white/10 px-3 py-2 text-sm font-medium text-muted transition hover:bg-white/5 hover:text-white">
+                        <X className="size-4" /> Fermer
+                      </button>
+                    ) : (
+                      <button onClick={openAdd} className="ml-auto inline-flex items-center gap-1.5 rounded-lg px-3.5 py-2 text-sm font-semibold text-white shadow-lg shadow-cyan-500/25 transition hover:brightness-110" style={{ background: `linear-gradient(90deg, ${ACCENT}, #3b82f6)` }}>
+                        <Plus className="size-4" /> Ajouter
+                      </button>
+                    )}
                   </div>
 
                   {/* Formulaire d'ajout */}
@@ -197,7 +209,12 @@ export function CoachingAgenda() {
                   )}
 
                   {selectedEvents.length === 0 && !adding ? (
-                    <p className="py-4 text-center text-sm text-white/40">Rien de prévu ce jour. Cliquez sur « Ajouter ».</p>
+                    <div className="flex flex-col items-center gap-3 py-6 text-center">
+                      <p className="text-sm text-white/40">Rien de prévu ce jour.</p>
+                      <button onClick={openAdd} className="inline-flex items-center gap-1.5 rounded-lg px-4 py-2.5 text-sm font-semibold text-white shadow-lg shadow-cyan-500/25 transition hover:brightness-110" style={{ background: `linear-gradient(90deg, ${ACCENT}, #3b82f6)` }}>
+                        <Plus className="size-4" /> Ajouter une séance ou une action
+                      </button>
+                    </div>
                   ) : (
                     <ul className="space-y-1.5">
                       {selectedEvents.map((e) => (
