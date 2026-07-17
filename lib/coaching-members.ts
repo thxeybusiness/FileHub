@@ -1,41 +1,17 @@
 import { randomUUID } from "crypto";
 import { prisma } from "./prisma";
 
-// Membres d'un suivi de coaché (extension « Accompagnement »), sans migration :
-// table provisionnée à la volée. Un membre = un utilisateur invité sur un node
-// de type « coaching », avec un rôle (editor | viewer). Le propriétaire du node
-// (node.userId) est implicitement « owner » et n'est pas stocké ici.
-let ensured = false;
-async function ensureTable() {
-  if (ensured) return;
-  await prisma.$executeRawUnsafe(
-    `CREATE TABLE IF NOT EXISTS filehub_coaching_member (
-       id text PRIMARY KEY,
-       node_id text NOT NULL,
-       user_id text NOT NULL,
-       role text NOT NULL DEFAULT 'editor',
-       created_at timestamptz NOT NULL DEFAULT now(),
-       UNIQUE (node_id, user_id)
-     )`,
-  );
-  // Index indépendants → en parallèle (moins d'allers-retours à froid).
-  await Promise.all([
-    prisma.$executeRawUnsafe(
-      `CREATE INDEX IF NOT EXISTS filehub_coaching_member_user_idx ON filehub_coaching_member (user_id)`,
-    ).catch(() => {}),
-    prisma.$executeRawUnsafe(
-      `CREATE INDEX IF NOT EXISTS filehub_coaching_member_node_idx ON filehub_coaching_member (node_id)`,
-    ).catch(() => {}),
-  ]);
-  ensured = true;
-}
+// Membres d'un suivi de coaché (extension « Accompagnement »). Un membre = un
+// utilisateur invité sur un node de type « coaching », avec un rôle
+// (editor | viewer). Le propriétaire du node (node.userId) est implicitement
+// « owner » et n'est pas stocké ici. Table filehub_coaching_member désormais
+// DÉCLARÉE dans le schéma Prisma (CoachingMember).
 
 export type CoachingRole = "editor" | "viewer";
 const normRole = (r: string | undefined): CoachingRole => (r === "viewer" ? "viewer" : "editor");
 
 /** Ids des suivis de coaché dont l'utilisateur est membre invité. */
 export async function listMemberCoachingIds(userId: string): Promise<string[]> {
-  await ensureTable();
   const rows = await prisma.$queryRawUnsafe<{ node_id: string }[]>(
     `SELECT node_id FROM filehub_coaching_member WHERE user_id = $1`,
     userId,
@@ -45,7 +21,6 @@ export async function listMemberCoachingIds(userId: string): Promise<string[]> {
 
 /** Rôle de l'utilisateur sur un suivi (invité), ou null s'il n'est pas membre. */
 export async function getCoachingRole(nodeId: string, userId: string): Promise<CoachingRole | null> {
-  await ensureTable();
   const rows = await prisma.$queryRawUnsafe<{ role: string }[]>(
     `SELECT role FROM filehub_coaching_member WHERE node_id = $1 AND user_id = $2 LIMIT 1`,
     nodeId,
@@ -57,7 +32,6 @@ export async function getCoachingRole(nodeId: string, userId: string): Promise<C
 
 /** Liste des membres invités d'un suivi (hors propriétaire). */
 export async function listCoachingMembers(nodeId: string): Promise<{ userId: string; role: CoachingRole }[]> {
-  await ensureTable();
   const rows = await prisma.$queryRawUnsafe<{ user_id: string; role: string }[]>(
     `SELECT user_id, role FROM filehub_coaching_member WHERE node_id = $1 ORDER BY created_at ASC`,
     nodeId,
@@ -66,7 +40,6 @@ export async function listCoachingMembers(nodeId: string): Promise<{ userId: str
 }
 
 export async function addCoachingMember(nodeId: string, userId: string, role: CoachingRole): Promise<void> {
-  await ensureTable();
   await prisma.$executeRawUnsafe(
     `INSERT INTO filehub_coaching_member (id, node_id, user_id, role) VALUES ($1, $2, $3, $4)
        ON CONFLICT (node_id, user_id) DO NOTHING`,
@@ -78,7 +51,6 @@ export async function addCoachingMember(nodeId: string, userId: string, role: Co
 }
 
 export async function setCoachingMemberRole(nodeId: string, userId: string, role: CoachingRole): Promise<void> {
-  await ensureTable();
   await prisma.$executeRawUnsafe(
     `UPDATE filehub_coaching_member SET role = $3 WHERE node_id = $1 AND user_id = $2`,
     nodeId,
@@ -88,7 +60,6 @@ export async function setCoachingMemberRole(nodeId: string, userId: string, role
 }
 
 export async function removeCoachingMember(nodeId: string, userId: string): Promise<void> {
-  await ensureTable();
   await prisma.$executeRawUnsafe(
     `DELETE FROM filehub_coaching_member WHERE node_id = $1 AND user_id = $2`,
     nodeId,
@@ -98,7 +69,6 @@ export async function removeCoachingMember(nodeId: string, userId: string): Prom
 
 /** Supprime tous les membres d'un suivi (quand le suivi est supprimé). */
 export async function clearCoachingMembers(nodeId: string): Promise<void> {
-  await ensureTable();
   await prisma.$executeRawUnsafe(`DELETE FROM filehub_coaching_member WHERE node_id = $1`, nodeId);
 }
 

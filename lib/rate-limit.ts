@@ -1,23 +1,10 @@
 import { prisma } from "./prisma";
 import type { NextRequest } from "next/server";
 
-// Limiteur de débit sans migration de schéma : une table à fenêtre glissante
-// provisionnée à la volée. Chaque « bucket » (clé libre) compte les hits sur
-// une fenêtre ; au-delà du plafond, la requête est refusée. Atomique (une
-// seule requête INSERT ... ON CONFLICT), donc insensible aux courses.
-
-let ensured = false;
-async function ensureTable() {
-  if (ensured) return;
-  await prisma.$executeRawUnsafe(
-    `CREATE TABLE IF NOT EXISTS filehub_rate_limit (
-       bucket text PRIMARY KEY,
-       count integer NOT NULL DEFAULT 0,
-       reset_at timestamptz NOT NULL
-     )`,
-  );
-  ensured = true;
-}
+// Limiteur de débit à fenêtre glissante. Chaque « bucket » (clé libre) compte
+// les hits sur une fenêtre ; au-delà du plafond, la requête est refusée.
+// Atomique (une seule requête INSERT ... ON CONFLICT), insensible aux courses.
+// Table filehub_rate_limit désormais DÉCLARÉE dans le schéma Prisma (RateLimit).
 
 export type RateResult = { ok: boolean; remaining: number; retryAfter: number };
 
@@ -28,9 +15,7 @@ export type RateResult = { ok: boolean; remaining: number; retryAfter: number };
  * @param windowSec durée de la fenêtre en secondes
  */
 export async function rateLimit(bucket: string, max: number, windowSec: number): Promise<RateResult> {
-  try {
-    await ensureTable();
-    const rows = await prisma.$queryRawUnsafe<{ count: number; reset_at: Date }[]>(
+  try {    const rows = await prisma.$queryRawUnsafe<{ count: number; reset_at: Date }[]>(
       `INSERT INTO filehub_rate_limit (bucket, count, reset_at)
          VALUES ($1, 1, now() + ($2 || ' seconds')::interval)
        ON CONFLICT (bucket) DO UPDATE SET

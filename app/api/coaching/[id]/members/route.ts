@@ -148,8 +148,11 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
   }
 
   await setCoachingMemberRole(id, parsed.data.userId, parsed.data.role);
-  const sp = await getCoachingSpaceId(id);
-  if (sp) await syncSpaceMember(sp, parsed.data.userId, parsed.data.role);
+  // Miroir dans l'espace : best-effort — ne doit pas transformer un succès en 500.
+  try {
+    const sp = await getCoachingSpaceId(id);
+    if (sp) await syncSpaceMember(sp, parsed.data.userId, parsed.data.role);
+  } catch { /* la mutation principale a réussi */ }
   return NextResponse.json({ ok: true });
 }
 
@@ -170,7 +173,9 @@ export async function DELETE(req: NextRequest, { params }: { params: Promise<{ i
   if (!parsed.success) return NextResponse.json({ error: "Requête invalide" }, { status: 400 });
 
   await removeCoachingMember(id, parsed.data.userId);
-  const sp = await getCoachingSpaceId(id);
-  if (sp) await unsyncSpaceMember(sp, parsed.data.userId);
+  try {
+    const sp = await getCoachingSpaceId(id);
+    if (sp) await unsyncSpaceMember(sp, parsed.data.userId);
+  } catch { /* la mutation principale a réussi */ }
   return NextResponse.json({ ok: true });
 }

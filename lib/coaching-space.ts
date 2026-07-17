@@ -1,174 +1,156 @@
 import { prisma } from "./prisma";
 import { listCoachingMembers } from "./coaching-members";
 
-// Chaque coaché possède un « drive » complet, réalisé par un espace FileHub
-// dédié et CACHÉ (exclu de la liste des espaces et des quotas visibles). Le lien
-// coaché → espace est stocké dans une table provisionnée à la volée (sans
-// migration). L'espace réutilise tout le modèle Node/Space (dossiers, upload,
-// tous les éditeurs, contrôle d'accès par membre).
-let ensured = false;
-async function ensureTable() {
-  if (ensured) return;
-  await prisma.$executeRawUnsafe(
-    `CREATE TABLE IF NOT EXISTS filehub_coaching_space (
-       coaching_id text PRIMARY KEY,
-       space_id text NOT NULL,
-       owner_id text NOT NULL,
-       created_at timestamptz NOT NULL DEFAULT now()
-     )`,
-  );
-  // Index indépendants → créés en parallèle (moins d'allers-retours au démarrage
-  // à froid). L'unique garantit l'unicité par coaché même si la PK n'était pas
-  // reconnue.
-  await Promise.all([
-    prisma.$executeRawUnsafe(
-      `CREATE INDEX IF NOT EXISTS filehub_coaching_space_space_idx ON filehub_coaching_space (space_id)`,
-    ).catch(() => {}),
-    prisma.$executeRawUnsafe(
-      `CREATE UNIQUE INDEX IF NOT EXISTS filehub_coaching_space_coaching_uidx ON filehub_coaching_space (coaching_id)`,
-    ).catch(() => {}),
-  ]);
-  ensured = true;
-}
+// Chaque coaché possède un « drive » : un espace FileHub dédié et CACHÉ (exclu
+// de la liste des espaces et des quotas). Le lien coaché → espace vit dans la
+// table filehub_coaching_space, DÉCLARÉE dans le schéma Prisma (modèle
+// CoachingSpaceLink) — elle n'est donc plus détruite par le `prisma db push`
+// du build (cause racine des espaces en double).
+//
+// Robustesse : les LECTURES du lien sont STRICTES — une erreur SQL remonte au
+// lieu de renvoyer « pas de lien », pour ne jamais créer de doublon sur un
+// incident transitoire. Les REPARATIONS (adoption/fusion/suppression) sont
+// volontairement CONSERVATRICES : jamais de perte de contenu, jamais la
+// capture silencieuse d'un espace légitime (voir reconcileOrphanCoachingSpaces).
 
 /** Espace dédié d'un coaché, ou null s'il n'a pas encore été créé. */
 export async function getCoachingSpaceId(coachingId: string): Promise<string | null> {
-  try {
-    await ensureTable();
-    const rows = await prisma.$queryRawUnsafe<{ space_id: string }[]>(
-      `SELECT space_id FROM filehub_coaching_space WHERE coaching_id = $1 LIMIT 1`,
-      coachingId,
-    );
-    return rows[0]?.space_id ?? null;
-  } catch {
-    return null;
-  }
+  const link = await prisma.coachingSpaceLink.findUnique({
+    where: { coachingId },
+    select: { spaceId: true },
+  });
+  return link?.spaceId ?? null;
 }
 
 /** Parmi une liste d'ids d'espaces, ceux qui sont des drives de coaché (cachés). */
 export async function filterCoachingSpaceIds(spaceIds: string[]): Promise<Set<string>> {
   if (!spaceIds.length) return new Set();
-  try {
-    await ensureTable();
-    const placeholders = spaceIds.map((_, i) => `$${i + 1}`).join(", ");
-    const rows = await prisma.$queryRawUnsafe<{ space_id: string }[]>(
-      `SELECT space_id FROM filehub_coaching_space WHERE space_id IN (${placeholders})`,
-      ...spaceIds,
-    );
-    return new Set(rows.map((r) => r.space_id));
-  } catch {
-    return new Set();
-  }
+  const rows = await prisma.coachingSpaceLink.findMany({
+    where: { spaceId: { in: spaceIds } },
+    select: { spaceId: true },
+  });
+  return new Set(rows.map((r) => r.spaceId));
 }
 
 /** Ids des espaces-coaché possédés par un utilisateur (pour exclure des quotas). */
 export async function ownerCoachingSpaceIds(ownerId: string): Promise<string[]> {
+  const rows = await prisma.coachingSpaceLink.findMany({
+    where: { ownerId },
+    select: { spaceId: true },
+  });
+  return rows.map((r) => r.spaceId);
+}
+
+/** Nom affiché d'un coaché : coachee.name de la fiche, sinon nom du node. */
+function coacheeDisplayName(content: string | null, fallback: string): string {
   try {
-    await ensureTable();
-    const rows = await prisma.$queryRawUnsafe<{ space_id: string }[]>(
-      `SELECT space_id FROM filehub_coaching_space WHERE owner_id = $1`,
-      ownerId,
-    );
-    return rows.map((r) => r.space_id);
+    const c = JSON.parse(content || "{}") as { coachee?: { name?: unknown } };
+    const n = c.coachee?.name;
+    return typeof n === "string" && n.trim() ? n.trim() : fallback?.trim() || "Coaché";
   } catch {
-    return [];
+    return fallback?.trim() || "Coaché";
   }
 }
 
-/**
- * Garantit l'existence de l'espace dédié d'un coaché (idempotent) et y
- * synchronise les membres du suivi. Renvoie l'id de l'espace.
- * ownerId = propriétaire du suivi (le coach) ; il est propriétaire de l'espace.
- */
-export async function ensureCoachingSpace(coachingId: string, ownerId: string, name: string): Promise<string> {
-  await ensureTable();
+/** Nom canonique du drive d'un coaché, dérivé du node (source unique de vérité,
+ *  indépendante du nom passé par l'appelant). */
+async function coachingDisplayName(coachingId: string, fallback: string): Promise<string> {
+  const node = await prisma.node
+    .findUnique({ where: { id: coachingId }, select: { name: true, content: true } })
+    .catch(() => null);
+  return coacheeDisplayName(node?.content ?? null, node?.name ?? fallback);
+}
 
+/** Recopie les membres invités du suivi comme membres de l'espace (best-effort). */
+async function syncMembersToSpace(coachingId: string, spaceId: string): Promise<void> {
+  const members = await listCoachingMembers(coachingId).catch(() => []);
+  await Promise.all(
+    members.map((m) =>
+      prisma.spaceMember
+        .upsert({
+          where: { spaceId_userId: { spaceId, userId: m.userId } },
+          create: { spaceId, userId: m.userId, role: m.role },
+          update: {},
+        })
+        .catch(() => {}),
+    ),
+  );
+}
+
+/**
+ * Garantit l'existence de l'espace dédié d'un coaché (idempotent). Renvoie l'id
+ * de l'espace. ownerId = propriétaire du suivi (le coach).
+ *
+ * Reconnexion SÛRE uniquement : si le coaché n'a pas de lien, on adopte un
+ * espace du même nom possédé par le coach SEULEMENT s'il est UNIQUE ET VIDE
+ * (opération non destructive, aucun risque d'avaler un espace légitime rempli).
+ * Les doublons remplis sont réunis par reconcileOrphanCoachingSpaces.
+ */
+export async function ensureCoachingSpace(coachingId: string, ownerId: string, fallbackName: string): Promise<string> {
   const existing = await getCoachingSpaceId(coachingId);
   if (existing) {
-    // Le lien existe : on vérifie que l'espace n'a pas été supprimé entre-temps.
     const sp = await prisma.space.findUnique({ where: { id: existing }, select: { id: true } }).catch(() => null);
     if (sp) {
-      // Nettoie les anciens dossiers de départ (vides) qu'on ne crée plus.
       await removeEmptyStarterFolders(existing);
       return existing;
     }
-    // Lien orphelin (espace supprimé) → on le nettoie et on recrée.
-    await prisma.$executeRawUnsafe(`DELETE FROM filehub_coaching_space WHERE coaching_id = $1`, coachingId).catch(() => {});
+    // Lien pendouillant (espace supprimé) → on le nettoie et on recrée.
+    await prisma.coachingSpaceLink.delete({ where: { coachingId } }).catch(() => {});
   }
 
-  // Auto-réparation : récupère un espace orphelin laissé par l'ancien bug
-  // (même nom, appartenant au coach, vide, sans lien) au lieu d'en créer un
-  // doublon — ce qui nettoie au passage les espaces parasites déjà visibles.
-  const cleanName = name?.trim() || "Coaché";
-  const orphan = await prisma.space
-    .findFirst({
-      where: { ownerId, name: cleanName, nodes: { none: {} }, members: { every: { userId: ownerId } } },
-      select: { id: true },
-      orderBy: { createdAt: "desc" },
-    })
-    .catch(() => null);
-  if (orphan) {
-    const mapped = await prisma.$queryRawUnsafe<{ x: number }[]>(
-      `SELECT 1 AS x FROM filehub_coaching_space WHERE space_id = $1 LIMIT 1`,
-      orphan.id,
-    ).catch(() => [{ x: 1 }] as { x: number }[]);
-    if (!mapped.length) {
+  // Nom canonique dérivé du node — cohérent quel que soit l'appelant.
+  const name = await coachingDisplayName(coachingId, fallbackName);
+
+  // Reconnexion sûre : adopter l'unique espace homonyme VIDE non relié.
+  const sameName = await prisma.space.findMany({
+    where: { ownerId, name },
+    select: { id: true, _count: { select: { nodes: true } } },
+  });
+  if (sameName.length) {
+    const linkedIds = new Set(
+      (
+        await prisma.coachingSpaceLink.findMany({
+          where: { spaceId: { in: sameName.map((s) => s.id) } },
+          select: { spaceId: true },
+        })
+      ).map((l) => l.spaceId),
+    );
+    const free = sameName.filter((s) => !linkedIds.has(s.id));
+    if (free.length === 1 && free[0]._count.nodes === 0) {
       try {
-        await prisma.$executeRawUnsafe(
-          `INSERT INTO filehub_coaching_space (coaching_id, space_id, owner_id) VALUES ($1, $2, $3)`,
-          coachingId,
-          orphan.id,
-          ownerId,
-        );
-        return orphan.id;
+        await prisma.coachingSpaceLink.create({ data: { coachingId, spaceId: free[0].id, ownerId } });
+        await syncMembersToSpace(coachingId, free[0].id);
+        return free[0].id;
       } catch {
         const again = await getCoachingSpaceId(coachingId);
         if (again) return again;
-        // sinon on retombe sur la création normale ci-dessous
+        // sinon → création normale
       }
     }
   }
 
-  // Création ATOMIQUE de l'espace + du lien : si l'insert du lien échoue, la
-  // transaction annule tout → jamais d'espace orphelin visible dans FileHub.
-  // (Pas d'ON CONFLICT : on gère la course en catch.)
+  // Création ATOMIQUE de l'espace + du lien.
   let spaceId: string;
   try {
     spaceId = await prisma.$transaction(async (tx) => {
       const s = await tx.space.create({
-        data: { name: name?.trim() || "Coaché", ownerId, members: { create: { userId: ownerId, role: "owner" } } },
+        data: { name, ownerId, members: { create: { userId: ownerId, role: "owner" } } },
         select: { id: true },
       });
-      await tx.$executeRawUnsafe(
-        `INSERT INTO filehub_coaching_space (coaching_id, space_id, owner_id) VALUES ($1, $2, $3)`,
-        coachingId,
-        s.id,
-        ownerId,
-      );
+      await tx.coachingSpaceLink.create({ data: { coachingId, spaceId: s.id, ownerId } });
       return s.id;
     });
   } catch {
-    // Course concurrente (lien déjà écrit) ou erreur transitoire : on réutilise
-    // le lien existant sans laisser d'espace orphelin.
     const again = await getCoachingSpaceId(coachingId);
     if (again) return again;
     throw new Error("Impossible de préparer le drive du coaché.");
   }
 
-  // Recopie les membres invités du suivi (mêmes rôles) — best-effort.
-  const members = await listCoachingMembers(coachingId).catch(() => []);
-  await Promise.all(
-    members.map((m) =>
-      prisma.spaceMember.create({ data: { spaceId, userId: m.userId, role: m.role } }).catch(() => {}),
-    ),
-  );
-
+  await syncMembersToSpace(coachingId, spaceId);
   return spaceId;
 }
 
-// Supprime les anciens dossiers de départ (Séances/Ressources/Documents/
-// Administratif) restés VIDES à la racine du drive d'un coaché — on ne les
-// crée plus automatiquement.
+// Supprime les anciens dossiers de départ restés VIDES à la racine du drive.
 const STARTER_FOLDER_NAMES = ["Séances", "Ressources", "Documents", "Administratif"];
 async function removeEmptyStarterFolders(spaceId: string): Promise<void> {
   const folders = await prisma.node
@@ -184,75 +166,170 @@ async function removeEmptyStarterFolders(spaceId: string): Promise<void> {
   );
 }
 
-/** Supprime le drive d'un coaché (espace dédié + lien). */
+/**
+ * Supprime le drive d'un coaché (espace + lien). Ordre SÛR : on ne retire le
+ * lien QUE si la suppression de l'espace a réussi (ou si l'espace n'existait
+ * plus) — sinon un espace non supprimé mais délié réapparaîtrait dans « Espaces ».
+ */
 export async function deleteCoachingSpace(coachingId: string): Promise<void> {
-  const spaceId = await getCoachingSpaceId(coachingId);
+  const spaceId = await getCoachingSpaceId(coachingId).catch(() => null);
   if (spaceId) {
-    await prisma.space.delete({ where: { id: spaceId } }).catch(() => {});
+    const sp = await prisma.space.findUnique({ where: { id: spaceId }, select: { id: true } }).catch(() => null);
+    if (sp) {
+      try {
+        await prisma.space.delete({ where: { id: spaceId } });
+      } catch {
+        // Échec transitoire : on GARDE le lien (l'espace reste filtré/caché) et
+        // on abandonne — l'appelant pourra retenter.
+        return;
+      }
+    }
   }
-  await prisma.$executeRawUnsafe(`DELETE FROM filehub_coaching_space WHERE coaching_id = $1`, coachingId).catch(() => {});
+  await prisma.coachingSpaceLink.delete({ where: { coachingId } }).catch(() => {});
+}
+
+// Supprime un espace UNIQUEMENT s'il est vide au moment du delete (garde
+// atomique dans une transaction, insensible au TOCTOU / aux ajouts concurrents).
+async function deleteSpaceIfEmpty(spaceId: string): Promise<boolean> {
+  try {
+    return await prisma.$transaction(async (tx) => {
+      const n = await tx.node.count({ where: { spaceId } });
+      if (n > 0) return false;
+      await tx.space.delete({ where: { id: spaceId } });
+      return true;
+    });
+  } catch {
+    return false;
+  }
+}
+
+// Fusionne un espace source dans un espace cible : déplace les nodes et les
+// membres, puis supprime la source si elle est bien vide. Aucune perte de
+// contenu (on DÉPLACE, on ne supprime jamais un espace non vide).
+async function mergeSpaceInto(srcId: string, targetId: string): Promise<boolean> {
+  if (srcId === targetId) return false;
+  try {
+    return await prisma.$transaction(async (tx) => {
+      await tx.node.updateMany({ where: { spaceId: srcId }, data: { spaceId: targetId } });
+      const members = await tx.spaceMember.findMany({ where: { spaceId: srcId }, select: { userId: true, role: true } });
+      for (const m of members) {
+        const already = await tx.spaceMember.findUnique({
+          where: { spaceId_userId: { spaceId: targetId, userId: m.userId } },
+          select: { id: true },
+        });
+        if (!already) await tx.spaceMember.create({ data: { spaceId: targetId, userId: m.userId, role: m.role } });
+      }
+      const remaining = await tx.node.count({ where: { spaceId: srcId } });
+      if (remaining === 0) {
+        await tx.space.delete({ where: { id: srcId } });
+        return true;
+      }
+      return false;
+    });
+  } catch {
+    return false;
+  }
 }
 
 /**
- * Nettoie les espaces-coaché ORPHELINS laissés par l'ancien bug (créés mais
- * jamais reliés dans la table de correspondance) — ils polluaient la liste
- * « Espaces » de FileHub. Auto-réparation SÛRE : on ne supprime QUE des espaces
- *   • possédés par l'utilisateur,
- *   • VIDES (aucun fichier/dossier — donc aucune perte de données),
- *   • NON reliés à un coaché (absents de la table),
- *   • dont le nom correspond à un coaché OU au motif « Coaching … » historique.
- * Si la lecture de la table de correspondance échoue, on n'efface RIEN (pour ne
- * jamais risquer de supprimer un vrai drive de coaché). Renvoie le nombre
- * d'espaces supprimés.
+ * Répare l'état laissé par l'ancien bug (liens effacés à chaque déploiement)
+ * SANS jamais risquer un espace légitime :
+ *
+ *  • On ne traite QUE la « signature du bug » : plusieurs espaces possédés
+ *    portant EXACTEMENT le nom d'un coaché (un utilisateur ne crée jamais deux
+ *    espaces partagés strictement homonymes). Ces doublons sont réunis dans un
+ *    seul drive (contenu + membres déplacés), qui est relié au coaché.
+ *  • Un espace homonyme UNIQUE et non relié est laissé INTACT (il pourrait être
+ *    un espace partagé légitime) — sauf s'il est VIDE, auquel cas il est
+ *    supprimé (aucune donnée).
+ *  • Les noms ambigus (2+ coachés du même nom, corbeille comprise) sont ignorés.
+ *  • On ne « vole » jamais un espace déjà relié à un AUTRE coaché.
+ *  • Suppressions/fusions atomiques et gardées → aucune perte de contenu.
+ *
+ * Renvoie le nombre d'espaces retirés de la liste « Espaces ».
  */
 export async function reconcileOrphanCoachingSpaces(userId: string): Promise<number> {
-  // 1) Ids des drives de coaché RELIÉS (à préserver absolument). Lecture directe
-  //    et stricte : au moindre échec, on abandonne le nettoyage.
-  let mapped: Set<string>;
-  try {
-    await ensureTable();
-    const rows = await prisma.$queryRawUnsafe<{ space_id: string }[]>(
-      `SELECT space_id FROM filehub_coaching_space WHERE owner_id = $1`,
-      userId,
-    );
-    mapped = new Set(rows.map((r) => r.space_id));
-  } catch {
-    return 0;
+  const [coachings, spaces, links] = await Promise.all([
+    prisma.node.findMany({
+      where: { userId, type: "coaching" }, // corbeille COMPRISE (détection d'ambiguïté)
+      select: { id: true, name: true, content: true, trashed: true },
+    }),
+    prisma.space.findMany({
+      where: { ownerId: userId },
+      select: { id: true, name: true, createdAt: true, _count: { select: { nodes: true } } },
+    }),
+    prisma.coachingSpaceLink.findMany({
+      where: { ownerId: userId },
+      select: { coachingId: true, spaceId: true },
+    }),
+  ]);
+
+  const norm = (s: string) => s.trim().toLowerCase();
+
+  // Combien de coachés (corbeille comprise) portent chaque nom → ambiguïté.
+  const nameCount = new Map<string, number>();
+  for (const c of coachings) {
+    const key = norm(coacheeDisplayName(c.content, c.name));
+    nameCount.set(key, (nameCount.get(key) ?? 0) + 1);
   }
 
-  // 2) Noms des coachés de l'utilisateur (le drive porte le nom du coaché).
-  const coachees = await prisma.node
-    .findMany({ where: { userId, type: "coaching" }, select: { name: true } })
-    .catch(() => [] as { name: string }[]);
-  const coacheeNames = new Set(coachees.map((c) => (c.name || "").trim().toLowerCase()));
+  const linkByCoaching = new Map(links.map((l) => [l.coachingId, l.spaceId]));
 
-  // 3) Espaces possédés, VIDES et NON reliés.
-  const owned = await prisma.space
-    .findMany({
-      where: {
-        ownerId: userId,
-        nodes: { none: {} },
-        ...(mapped.size ? { id: { notIn: [...mapped] } } : {}),
-      },
-      select: { id: true, name: true },
-    })
-    .catch(() => [] as { id: string; name: string }[]);
-
-  // 4) Ne garder que ceux qui ressemblent à un drive de coaché orphelin.
-  const looksCoaching = (name: string) => {
-    const n = (name || "").trim();
-    return coacheeNames.has(n.toLowerCase()) || /^coaching\b/i.test(n);
-  };
-  const orphans = owned.filter((s) => looksCoaching(s.name));
-
-  // 5) Suppression (espaces vides → aucune perte de fichier).
   let removed = 0;
-  for (const s of orphans) {
-    try {
-      await prisma.space.delete({ where: { id: s.id } });
-      removed++;
-    } catch {
-      /* on continue */
+  for (const c of coachings) {
+    if (c.trashed) continue; // on ne relie/consolide que pour les coachés actifs
+    const key = norm(coacheeDisplayName(c.content, c.name));
+    if ((nameCount.get(key) ?? 0) > 1) continue; // ambigu → on ne touche à rien
+
+    // Espaces du coach portant EXACTEMENT ce nom, non reliés à un AUTRE coaché.
+    const linkedElsewhere = new Set(links.filter((l) => l.coachingId !== c.id).map((l) => l.spaceId));
+    const group = spaces.filter((s) => norm(s.name) === key && !linkedElsewhere.has(s.id));
+    if (!group.length) continue;
+
+    const myLink = linkByCoaching.get(c.id);
+    const myLinkInGroup = myLink && group.some((s) => s.id === myLink);
+
+    if (group.length >= 2 || myLinkInGroup) {
+      // Consolidation : signature du bug (doublons) ou reconnexion du drive relié.
+      const target = myLinkInGroup
+        ? group.find((s) => s.id === myLink)!
+        : [...group].sort((a, b) => b._count.nodes - a._count.nodes || +b.createdAt - +a.createdAt)[0];
+
+      // Assure le lien coaché → cible.
+      if (myLink !== target.id) {
+        try {
+          await prisma.coachingSpaceLink.upsert({
+            where: { coachingId: c.id },
+            create: { coachingId: c.id, spaceId: target.id, ownerId: userId },
+            update: { spaceId: target.id },
+          });
+          linkByCoaching.set(c.id, target.id);
+        } catch {
+          continue; // course : on réessaiera au prochain chargement
+        }
+      }
+
+      for (const src of group) {
+        if (src.id === target.id) continue;
+        if (await mergeSpaceInto(src.id, target.id)) removed++;
+      }
+      await removeEmptyStarterFolders(target.id).catch(() => {});
+    } else {
+      // Un seul espace homonyme, non relié : on n'y touche QUE s'il est vide.
+      const only = group[0];
+      if (!myLink && only._count.nodes === 0) {
+        if (await deleteSpaceIfEmpty(only.id)) removed++;
+      }
+    }
+  }
+
+  // Balayage final : enveloppes VIDES au nom système « Nouveau coaché » (nom par
+  // défaut d'un drive fraîchement créé), non reliées et sans fiche homonyme —
+  // ce sont des doublons purs de l'ancien bug. Suppression gardée (aucune donnée).
+  const linkedNow = new Set([...linkByCoaching.values()]);
+  for (const s of spaces) {
+    if (norm(s.name) === "nouveau coaché" && s._count.nodes === 0 && !linkedNow.has(s.id) && !nameCount.has("nouveau coaché")) {
+      if (await deleteSpaceIfEmpty(s.id)) removed++;
     }
   }
   return removed;

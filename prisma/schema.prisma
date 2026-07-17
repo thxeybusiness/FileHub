@@ -209,3 +209,88 @@ model Presence {
   @@index([nodeId])
   @@map("filehub_presence")
 }
+
+// ────────────────────────────────────────────────────────────────────────────
+// Tables auparavant provisionnées « à la volée » (CREATE TABLE IF NOT EXISTS)
+// hors de ce schéma. PIÈGE CRITIQUE : le build exécute
+// `prisma db push --accept-data-loss`, qui SUPPRIME toute table absente de ce
+// fichier — chaque déploiement effaçait donc ces tables et leurs données
+// (liens coaché→espace, membres de coaching, commentaires, versions…), d'où
+// les espaces de coaching en double qui réapparaissaient sans cesse.
+// Elles sont désormais déclarées ici : gérées par le schéma, jamais détruites.
+// Volontairement SANS relations (colonnes texte simples) : parité exacte avec
+// les tables existantes, aucune contrainte ajoutée sur des données en place.
+
+// Lien coaché → espace FileHub caché qui sert de drive au coaché.
+model CoachingSpaceLink {
+  coachingId String   @id @map("coaching_id")
+  spaceId    String   @unique @map("space_id")
+  ownerId    String   @map("owner_id")
+  createdAt  DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  // Index unique historique sur coaching_id (doublon de la PK) : déclaré pour
+  // une parité DDL exacte avec la base existante (évite un DROP INDEX au push).
+  @@unique([coachingId], map: "filehub_coaching_space_coaching_uidx")
+  @@index([spaceId], map: "filehub_coaching_space_space_idx")
+  @@map("filehub_coaching_space")
+}
+
+// Membre invité d'un suivi de coaché (editor | viewer).
+model CoachingMember {
+  id        String   @id
+  nodeId    String   @map("node_id")
+  userId    String   @map("user_id")
+  role      String   @default("editor")
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  @@unique([nodeId, userId], map: "filehub_coaching_member_node_id_user_id_key")
+  @@index([userId], map: "filehub_coaching_member_user_idx")
+  @@index([nodeId], map: "filehub_coaching_member_node_idx")
+  @@map("filehub_coaching_member")
+}
+
+// Commentaires sur les documents.
+model DocComment {
+  id         String   @id
+  nodeId     String   @map("node_id")
+  authorId   String   @map("author_id")
+  authorName String?  @map("author_name")
+  body       String
+  createdAt  DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  @@index([nodeId, createdAt], map: "filehub_comment_node_idx")
+  @@map("filehub_comment")
+}
+
+// Historique de versions du CONTENU des documents (à distinguer de
+// FileVersion, qui versionne les octets des fichiers importés).
+model DocVersion {
+  id         String   @id
+  nodeId     String   @map("node_id")
+  authorName String?  @map("author_name")
+  content    String?
+  size       Int      @default(0)
+  createdAt  DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  @@index([nodeId, createdAt(sort: Desc)], map: "filehub_doc_version_node_idx")
+  @@map("filehub_doc_version")
+}
+
+// Quota quotidien d'utilisation de l'IA (un compteur par utilisateur et jour).
+model AiUsage {
+  userId String   @map("user_id")
+  day    DateTime @db.Date
+  count  Int      @default(0)
+
+  @@id([userId, day])
+  @@map("filehub_ai_usage")
+}
+
+// Limiteur de débit à fenêtre glissante (login, API sensibles…).
+model RateLimit {
+  bucket  String   @id
+  count   Int      @default(0)
+  resetAt DateTime @map("reset_at") @db.Timestamptz(6)
+
+  @@map("filehub_rate_limit")
+}

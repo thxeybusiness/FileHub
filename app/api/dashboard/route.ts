@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { getUserId } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { getMemberSpaceIds } from "@/lib/spaces";
+import { filterCoachingSpaceIds } from "@/lib/coaching-space";
 import { effectivePlan, isFounder, planStorage, FOUNDER_STORAGE } from "@/lib/plans";
 
 export const runtime = "nodejs";
@@ -47,7 +48,9 @@ export async function GET() {
     totalCount += count;
   }
 
-  const spacesCount = memberIds.length;
+  // Les drives de coaché (espaces cachés) ne comptent pas comme des « espaces ».
+  const hiddenCoaching = await filterCoachingSpaceIds(memberIds).catch(() => new Set<string>());
+  const spacesCount = memberIds.filter((sid) => !hiddenCoaching.has(sid)).length;
   const founder = isFounder(user.email);
 
   return NextResponse.json({

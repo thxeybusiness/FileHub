@@ -16,7 +16,7 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ id:
   const { node, role } = await resolveCoachingAccess(userId, id);
   if (!node || !role) return NextResponse.json({ error: "Introuvable" }, { status: 404 });
 
-  const spaceId = await getCoachingSpaceId(id);
+  const spaceId = await getCoachingSpaceId(id).catch(() => null);
   if (!spaceId) return NextResponse.json({ files: [] });
 
   const nodes = await prisma.node
