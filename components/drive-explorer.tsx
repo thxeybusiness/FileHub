@@ -61,30 +61,14 @@ import { ConfirmDialog } from "./confirm-dialog";
 type View = "my" | "starred" | "recent" | "trash";
 type UploadTask = { id: string; name: string; progress: number; error?: boolean };
 
-// Modèle de plan d'action (drive coaching) — base de données de tâches "projet".
+// Modèle de plan d'action (drive coaching) — objectifs + étapes cochables.
 const ACTION_PLAN_TEMPLATE = JSON.stringify({
-  fields: [
-    { id: "f_obj", name: "Objectif", type: "text", primary: true, width: 300 },
-    {
-      id: "f_status", name: "Statut", type: "status", width: 150,
-      options: [
-        { id: "s_todo", name: "À faire", color: "#64748b" },
-        { id: "s_doing", name: "En cours", color: "#3b6dff" },
-        { id: "s_done", name: "Atteint", color: "#22c55e" },
-      ],
-    },
-    { id: "f_prio", name: "Priorité", type: "priority", width: 130 },
-    { id: "f_due", name: "Échéance", type: "date", width: 130 },
-    { id: "f_progress", name: "Avancement", type: "progress", width: 160 },
-  ],
-  rows: [
-    { id: "r1", notes: "", checklist: [], cells: { f_obj: "Premier objectif", f_status: "s_doing", f_prio: "high", f_progress: 20 } },
-    { id: "r2", notes: "", checklist: [], cells: { f_obj: "Deuxième objectif", f_status: "s_todo", f_prio: "medium", f_progress: 0 } },
-  ],
-  views: [
-    { id: "v_table", name: "Objectifs", type: "table" },
-    { id: "v_board", name: "Par statut", type: "board", groupBy: "f_status" },
-    { id: "v_cal", name: "Échéances", type: "calendar", dateField: "f_due" },
+  objectives: [
+    { id: "o1", title: "Premier objectif", status: "doing", due: "", steps: [
+      { id: "o1s1", text: "Première étape", done: true },
+      { id: "o1s2", text: "Deuxième étape", done: false },
+    ] },
+    { id: "o2", title: "Deuxième objectif", status: "todo", due: "", steps: [] },
   ],
 });
 

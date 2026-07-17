@@ -12,7 +12,7 @@ import { NoteEditor } from "@/components/note-editor";
 import { DiagramEditor } from "@/components/diagram-editor";
 import { BoardEditor } from "@/components/board-editor";
 import { SlidesEditor } from "@/components/slides-editor";
-import { ProjectEditor } from "@/components/project-editor";
+import { PlanEditor } from "@/components/plan-editor";
 import { SeanceEditor } from "@/components/seance-editor";
 import type { ChartDoc } from "@/lib/chart-palette";
 
@@ -65,7 +65,9 @@ export default async function Page({ params }: { params: Promise<{ id: string; n
     case "slides":
       return <SlidesEditor id={node.id} initialName={node.name} initialContent={content} backHref={backHref} crumbs={crumbs} shared />;
     case "project":
-      return <ProjectEditor id={node.id} initialName={node.name} initialContent={content} backHref={backHref} crumbs={crumbs} shared />;
+      // Dans le coaching, un « projet » est un Plan d'action → éditeur dédié
+      // (convertit automatiquement l'ancien format base de données).
+      return <PlanEditor id={node.id} initialName={node.name} initialContent={content} backHref={backHref} crumbs={crumbs} canEdit={role !== "viewer"} />;
     case "seance":
       return <SeanceEditor id={node.id} initialName={node.name} initialContent={content} backHref={backHref} crumbs={crumbs} canEdit={role !== "viewer"} />;
     default:
