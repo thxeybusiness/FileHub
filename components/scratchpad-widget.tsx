@@ -6,7 +6,7 @@ import { cn } from "@/lib/utils";
 
 const STORAGE_KEY = "filehub:scratchpad";
 
-export function ScratchpadWidget() {
+export function ScratchpadWidget({ sideOffset = false }: { sideOffset?: boolean }) {
   const [open, setOpen] = useState(false);
   const [text, setText] = useState("");
   const [copied, setCopied] = useState(false);
@@ -89,7 +89,8 @@ export function ScratchpadWidget() {
         onClick={toggle}
         title="Brouillon"
         className={cn(
-          "fixed bottom-6 right-[5.25rem] z-[60] grid size-12 place-items-center rounded-2xl border border-white/10 shadow-xl shadow-black/40 backdrop-blur-xl transition hover:scale-105",
+          "fixed bottom-6 z-[60] grid size-12 place-items-center rounded-2xl border border-white/10 shadow-xl shadow-black/40 backdrop-blur-xl transition hover:scale-105",
+          sideOffset ? "right-[5.25rem] lg:right-[21.25rem]" : "right-[5.25rem]",
           open ? "bg-amber-500 text-white" : "bg-[#0f1017]/85 text-amber-300 hover:text-white",
         )}
       >
@@ -98,7 +99,7 @@ export function ScratchpadWidget() {
 
       {/* Panneau brouillon */}
       {open && (
-        <div className="fixed bottom-24 right-6 z-[60] w-80 max-w-[calc(100vw-3rem)] overflow-hidden rounded-2xl border border-white/10 bg-[#0f1017]/95 backdrop-blur-xl shadow-2xl animate-in">
+        <div className={cn("fixed bottom-24 z-[60] w-80 max-w-[calc(100vw-3rem)] overflow-hidden rounded-2xl border border-white/10 bg-[#0f1017]/95 backdrop-blur-xl shadow-2xl animate-in", sideOffset ? "right-6 lg:right-[17.5rem]" : "right-6")}>
           <div className="flex items-center gap-2 border-b border-white/10 px-4 py-2.5">
             <NotebookPen className="size-4 text-amber-300" />
             <span className="text-sm font-semibold">Brouillon</span>

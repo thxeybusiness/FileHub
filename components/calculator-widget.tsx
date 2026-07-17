@@ -22,7 +22,7 @@ function fmt(n: number): string {
   return s.length > 14 ? Number(n).toExponential(6) : s;
 }
 
-export function CalculatorWidget() {
+export function CalculatorWidget({ sideOffset = false }: { sideOffset?: boolean }) {
   const [open, setOpen] = useState(false);
   const [current, setCurrent] = useState("0");
   const [prev, setPrev] = useState<number | null>(null);
@@ -152,7 +152,8 @@ export function CalculatorWidget() {
         onClick={toggle}
         title="Calculatrice"
         className={cn(
-          "fixed bottom-6 right-6 z-[60] grid size-12 place-items-center rounded-2xl border border-white/10 shadow-xl shadow-black/40 backdrop-blur-xl transition hover:scale-105",
+          "fixed bottom-6 z-[60] grid size-12 place-items-center rounded-2xl border border-white/10 shadow-xl shadow-black/40 backdrop-blur-xl transition hover:scale-105",
+          sideOffset ? "right-6 lg:right-[17.5rem]" : "right-6",
           open ? "bg-brand-600 text-white" : "bg-[#0f1017]/85 text-brand-300 hover:text-white",
         )}
       >
@@ -161,7 +162,7 @@ export function CalculatorWidget() {
 
       {/* Panneau calculatrice */}
       {open && (
-        <div className="fixed bottom-24 right-6 z-[60] w-72 overflow-hidden rounded-2xl border border-white/10 bg-[#0f1017]/95 backdrop-blur-xl shadow-2xl animate-in">
+        <div className={cn("fixed bottom-24 z-[60] w-72 overflow-hidden rounded-2xl border border-white/10 bg-[#0f1017]/95 backdrop-blur-xl shadow-2xl animate-in", sideOffset ? "right-6 lg:right-[17.5rem]" : "right-6")}>
           <div className="flex items-center gap-2 border-b border-white/10 px-4 py-2.5">
             <Calculator className="size-4 text-brand-300" />
             <span className="text-sm font-semibold">Calculatrice</span>
