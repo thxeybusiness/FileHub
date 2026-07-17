@@ -3,8 +3,8 @@
 import { useCallback, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import {
-  ArrowLeft, Check, Loader2, ChevronRight, Home, Target, Plus, X, Calendar,
-  ListChecks, ChevronDown, Trash2, Flag,
+  ArrowLeft, Check, Loader2, ChevronRight, Home, Target, Plus, X,
+  ChevronDown, Trash2,
 } from "lucide-react";
 import { api } from "@/lib/api";
 import { ExportButton } from "./export-button";
@@ -193,7 +193,7 @@ export function PlanEditor({
                       placeholder="Décrire l'objectif…"
                       className="w-full bg-transparent text-[15px] font-semibold outline-none placeholder:text-white/25"
                     />
-                    {/* Méta : statut + échéance */}
+                    {/* Statut */}
                     <div className="mt-2 flex flex-wrap items-center gap-2">
                       <div className="relative inline-flex items-center">
                         <span className="pointer-events-none absolute left-2 size-1.5 rounded-full" style={{ background: m.color }} />
@@ -203,10 +203,6 @@ export function PlanEditor({
                         </select>
                         <ChevronDown className="pointer-events-none absolute right-1.5 size-3.5 text-muted" />
                       </div>
-                      <label className="inline-flex items-center gap-1.5 rounded-lg border border-white/10 bg-white/[0.04] px-2 py-1 text-xs text-muted">
-                        <Calendar className="size-3.5" />
-                        <input type="date" value={o.due} onChange={(e) => patchObjective(o.id, { due: e.target.value })} className="bg-transparent outline-none [color-scheme:dark]" />
-                      </label>
                     </div>
                   </div>
                   {canEdit && (
@@ -258,7 +254,7 @@ function buildPrintHtml(name: string, plan: Plan): string {
     const p = objProgress(o);
     const st = sMeta(o.status).label;
     const steps = o.steps.filter((s) => s.text.trim()).map((s) => `<li>${s.done ? "☑" : "☐"} ${esc(s.text)}</li>`).join("");
-    return `<h2>${esc(o.title || "Objectif")} — ${p}%</h2><p><strong>Statut :</strong> ${st}${o.due ? ` &nbsp; <strong>Échéance :</strong> ${esc(o.due)}` : ""}</p>${steps ? `<ul>${steps}</ul>` : ""}`;
+    return `<h2>${esc(o.title || "Objectif")} — ${p}%</h2><p><strong>Statut :</strong> ${st}</p>${steps ? `<ul>${steps}</ul>` : ""}`;
   }).join("");
   return `<h1>${esc(name || "Plan d'action")}</h1>${blocks}`;
 }
