@@ -50,23 +50,25 @@ export default async function Page({ params }: { params: Promise<{ id: string }>
   return (
     <div className="flex h-full min-h-0 flex-col">
       <CoachingDriveBar id={id} />
-      <CoachingDriveSummary
-        id={id}
-        status={s.status}
-        progress={s.progress}
-        openActions={s.openActions}
-        nextSession={s.nextSession}
-        canEdit={canEditRole(role)}
-      />
-      <div className="flex-1 min-h-0">
-        <DriveExplorer
-          view="my"
-          folderId={null}
-          title={s.name}
-          spaceId={spaceId}
-          basePath={`/drive/coaching/${id}`}
-          nodeBase={`/drive/coaching/${id}/n`}
-          variant="coaching"
+      <div className="flex min-h-0 flex-1">
+        <div className="min-w-0 flex-1">
+          <DriveExplorer
+            view="my"
+            folderId={null}
+            title={s.name}
+            spaceId={spaceId}
+            basePath={`/drive/coaching/${id}`}
+            nodeBase={`/drive/coaching/${id}/n`}
+            variant="coaching"
+          />
+        </div>
+        <CoachingDriveSummary
+          id={id}
+          status={s.status}
+          progress={s.progress}
+          openActions={s.openActions}
+          nextSession={s.nextSession}
+          canEdit={canEditRole(role)}
         />
       </div>
     </div>
