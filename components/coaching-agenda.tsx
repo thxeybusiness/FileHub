@@ -4,7 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import {
   Menu, CalendarDays, ChevronLeft, ChevronRight, Loader2, CalendarClock, ListChecks,
-  Plus, X, Trash2, Check, ExternalLink,
+  Plus, Trash2, ExternalLink,
 } from "lucide-react";
 import { api, type CoachingOverview, type CoachingAgendaItem } from "@/lib/api";
 
@@ -171,15 +171,6 @@ export function CoachingAgenda() {
                 <div ref={detailRef} className="mt-5 scroll-mt-4 rounded-2xl border border-cyan-400/20 bg-white/[0.02] p-4 shadow-lg shadow-cyan-500/5">
                   <div className="mb-3 flex items-center gap-2">
                     <h3 className="text-sm font-semibold capitalize">{fmtLong(selected)}</h3>
-                    {adding ? (
-                      <button onClick={() => setAdding(false)} className="ml-auto inline-flex items-center gap-1.5 rounded-lg border border-white/10 px-3 py-2 text-sm font-medium text-muted transition hover:bg-white/5 hover:text-white">
-                        <X className="size-4" /> Fermer
-                      </button>
-                    ) : (
-                      <button onClick={openAdd} className="ml-auto inline-flex items-center gap-1.5 rounded-lg px-3.5 py-2 text-sm font-semibold text-white shadow-lg shadow-cyan-500/25 transition hover:brightness-110" style={{ background: `linear-gradient(90deg, ${ACCENT}, #3b82f6)` }}>
-                        <Plus className="size-4" /> Ajouter
-                      </button>
-                    )}
                   </div>
 
                   {/* Formulaire d'ajout */}
@@ -204,17 +195,13 @@ export function CoachingAgenda() {
                           placeholder={addKind === "session" ? "Thème de la séance…" : "Action à réaliser…"}
                           className="min-w-0 flex-1 rounded-lg border border-white/10 bg-white/[0.03] px-3 py-2 text-sm outline-none placeholder:text-white/25 focus:border-sky-400/50" />
                         <button onClick={submitAdd} disabled={!addLabel.trim() || busy} className="shrink-0 rounded-lg px-3 py-2 text-sm font-semibold text-white disabled:opacity-50" style={{ background: `linear-gradient(90deg, ${ACCENT}, #3b82f6)` }}>Ajouter</button>
+                        <button onClick={() => setAdding(false)} className="shrink-0 rounded-lg border border-white/10 px-3 py-2 text-sm font-medium text-muted transition hover:bg-white/5 hover:text-white">Annuler</button>
                       </div>
                     </div>
                   )}
 
                   {selectedEvents.length === 0 && !adding ? (
-                    <div className="flex flex-col items-center gap-3 py-6 text-center">
-                      <p className="text-sm text-white/40">Rien de prévu ce jour.</p>
-                      <button onClick={openAdd} className="inline-flex items-center gap-1.5 rounded-lg px-4 py-2.5 text-sm font-semibold text-white shadow-lg shadow-cyan-500/25 transition hover:brightness-110" style={{ background: `linear-gradient(90deg, ${ACCENT}, #3b82f6)` }}>
-                        <Plus className="size-4" /> Ajouter une séance ou une action
-                      </button>
-                    </div>
+                    <p className="py-4 text-center text-sm text-white/40">Rien de prévu ce jour.</p>
                   ) : (
                     <ul className="space-y-1.5">
                       {selectedEvents.map((e) => (
@@ -247,6 +234,13 @@ export function CoachingAgenda() {
                         </li>
                       ))}
                     </ul>
+                  )}
+
+                  {/* Unique bouton d'ajout, bien visible, en bas du panneau. */}
+                  {!adding && (
+                    <button onClick={openAdd} className="mt-3 inline-flex w-full items-center justify-center gap-1.5 rounded-lg px-4 py-2.5 text-sm font-semibold text-white shadow-lg shadow-cyan-500/25 transition hover:brightness-110" style={{ background: `linear-gradient(90deg, ${ACCENT}, #3b82f6)` }}>
+                      <Plus className="size-4" /> Ajouter une séance ou une action
+                    </button>
                   )}
                 </div>
               )}
