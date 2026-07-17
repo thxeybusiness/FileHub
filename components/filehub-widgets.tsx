@@ -5,15 +5,15 @@ import { CommandPalette } from "./command-palette";
 import { ScratchpadWidget } from "./scratchpad-widget";
 import { CalculatorWidget } from "./calculator-widget";
 
-// Widgets propres à FileHub (palette de commandes ⌘K, brouillon, calculatrice).
-// Masqués dans l'espace « Accompagnement », qui est un SaaS séparé.
+// Widgets utilitaires. Dans l'espace « Accompagnement » on garde la note
+// (brouillon) et la calculatrice — pratiques pour un coach — mais on masque la
+// palette de commandes ⌘K, propre à la navigation FileHub.
 export function FileHubWidgets() {
   const pathname = usePathname();
   const inCoaching = pathname.startsWith("/drive/accompagnement") || pathname.startsWith("/drive/coaching");
-  if (inCoaching) return null;
   return (
     <>
-      <CommandPalette />
+      {!inCoaching && <CommandPalette />}
       <ScratchpadWidget />
       <CalculatorWidget />
     </>
