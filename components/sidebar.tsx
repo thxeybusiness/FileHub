@@ -23,6 +23,8 @@ import {
   Settings,
   HeartHandshake,
   CalendarDays,
+  Columns3,
+  BarChart3,
   ChevronDown,
   X,
 } from "lucide-react";
@@ -57,7 +59,9 @@ const NAV = [
 const COACHING_NAV = [
   { href: "/drive/accompagnement", label: "Tableau de bord", icon: LayoutDashboard, exact: true },
   { href: "/drive/accompagnement/coaches", label: "Mes coachés", icon: HeartHandshake, exact: true },
+  { href: "/drive/accompagnement/pipeline", label: "Pipeline", icon: Columns3, exact: true },
   { href: "/drive/accompagnement/agenda", label: "Agenda", icon: CalendarDays, exact: true },
+  { href: "/drive/accompagnement/stats", label: "Statistiques", icon: BarChart3, exact: true },
 ];
 
 // Couleur de la pastille de statut d'un coaché dans la barre latérale.

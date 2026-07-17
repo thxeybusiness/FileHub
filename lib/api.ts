@@ -49,10 +49,14 @@ export type CoachingPendingAction = {
   due: string | null;
 };
 export type CoachingOverview = {
-  stats: { total: number; active: number; avgProgress: number; openActions: number; upcoming: number };
+  stats: {
+    total: number; active: number; avgProgress: number; openActions: number; upcoming: number;
+    doneActions: number; totalActions: number; totalSessions: number; totalObjectives: number;
+  };
   coachees: {
     id: string; coacheeName: string; status: string; progress: number;
-    openActions: number; sessions: number; nextSession: string | null; shared: boolean;
+    openActions: number; doneActions: number; totalActions: number;
+    sessions: number; objectives: number; nextSession: string | null; shared: boolean;
   }[];
   upcoming: CoachingAgendaItem[];
   pendingActions: CoachingPendingAction[];
@@ -362,9 +366,13 @@ export const api = {
   cleanupCoachingSpaces() {
     return req<{ removed: number }>("/api/coaching/cleanup-spaces", { method: "POST" });
   },
-  // Agrégat transversal (dashboard/agenda du coaching).
+  // Agrégat transversal (dashboard/agenda/pipeline/stats du coaching).
   getCoachingOverview() {
     return req<CoachingOverview>("/api/coaching/overview");
+  },
+  // Change le statut d'un coaché (pipeline).
+  setCoachingStatus(id: string, status: "prospect" | "active" | "paused" | "done") {
+    return req<{ ok: boolean }>(`/api/coaching/${id}/status`, jsonInit("PATCH", { status }));
   },
   // Comptes-rendus de séance (documents « seance ») d'un coaché.
   getCoachingSessions(id: string) {

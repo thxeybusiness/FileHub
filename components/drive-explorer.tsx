@@ -650,7 +650,7 @@ export function DriveExplorer({
             <Loader2 className="size-6 animate-spin" />
           </div>
         ) : nodes.length === 0 ? (
-          <EmptyState view={view} searching={searching} variant={variant} quickStart={createItems} />
+          <EmptyState view={view} searching={searching} />
         ) : mode === "grid" ? (
           <GridView
             nodes={nodes}
@@ -952,41 +952,10 @@ function ListView({
 function EmptyState({
   view,
   searching,
-  variant = "filehub",
-  quickStart = [],
 }: {
   view: View;
   searching: boolean;
-  variant?: "filehub" | "coaching";
-  quickStart?: { icon: typeof CloudUpload; tint: string; label: string; desc: string; fn?: () => void }[];
 }) {
-  // Espace du coaché vide : démarrages rapides thématisés coaching plutôt qu'un
-  // simple message « dossier vide ».
-  if (variant === "coaching" && view === "my" && !searching) {
-    const items = quickStart.filter((q) => q.fn);
-    return (
-      <div className="mx-auto max-w-2xl px-2 pt-8 pb-6">
-        <div className="text-center">
-          <div className="mx-auto mb-4 grid size-16 place-items-center rounded-2xl text-white shadow-lg shadow-cyan-500/25" style={{ background: "linear-gradient(135deg, #06b6d4, #3b82f6)" }}>
-            <HeartHandshake className="size-8" />
-          </div>
-          <h3 className="text-lg font-semibold">L&apos;espace de ce coaché est prêt</h3>
-          <p className="mt-1 text-sm text-muted">Créez un compte-rendu, un plan d&apos;action, ou importez ses documents pour démarrer l&apos;accompagnement.</p>
-        </div>
-        <div className="mt-6 grid gap-2.5 text-left sm:grid-cols-2">
-          {items.map((q, i) => (
-            <button key={i} onClick={q.fn} className="group flex items-center gap-3 rounded-xl border border-white/10 bg-white/[0.02] p-3 transition hover:border-white/20 hover:bg-white/[0.05]">
-              <span className="grid size-10 shrink-0 place-items-center rounded-lg" style={{ background: q.tint + "1f", color: q.tint }}><q.icon className="size-5" /></span>
-              <div className="min-w-0">
-                <p className="text-sm font-semibold">{q.label}</p>
-                <p className="truncate text-xs text-muted">{q.desc}</p>
-              </div>
-            </button>
-          ))}
-        </div>
-      </div>
-    );
-  }
   const config: Record<string, { icon: typeof CloudUpload; title: string; sub: string }> = {
     search: { icon: Search, title: "Aucun résultat", sub: "Essayez d'autres mots-clés." },
     my: { icon: CloudUpload, title: "Ce dossier est vide", sub: "Importez des fichiers ou créez un dossier." },

@@ -26,12 +26,18 @@ export type CoacheeCard = {
   status: string;
   progress: number;
   openActions: number;
+  doneActions: number;
+  totalActions: number;
   sessions: number;
+  objectives: number;
   nextSession: string | null; // yyyy-mm-dd
   shared: boolean;
 };
 export type CoachingOverview = {
-  stats: { total: number; active: number; avgProgress: number; openActions: number; upcoming: number };
+  stats: {
+    total: number; active: number; avgProgress: number; openActions: number; upcoming: number;
+    doneActions: number; totalActions: number; totalSessions: number; totalObjectives: number;
+  };
   coachees: CoacheeCard[];
   upcoming: AgendaItem[]; // séances futures triées (dashboard)
   pendingActions: PendingAction[];
@@ -67,6 +73,10 @@ export async function getCoachingOverview(userId: string): Promise<CoachingOverv
   let progressSum = 0;
   let progressCount = 0;
   let openActionsTotal = 0;
+  let doneActionsTotal = 0;
+  let totalActionsTotal = 0;
+  let totalSessionsTotal = 0;
+  let totalObjectivesTotal = 0;
   let activeTotal = 0;
 
   for (const n of nodes) {
@@ -108,11 +118,11 @@ export async function getCoachingOverview(userId: string): Promise<CoachingOverv
       }
     }
 
-    // Actions ouvertes → compteur + liste ; celles avec échéance → agenda.
+    // Actions : ouvertes → liste + agenda ; on compte aussi faites / total.
     let openActions = 0;
+    let doneActions = 0;
     for (const a of actions) {
-      const done = a.done === true;
-      if (done) continue;
+      if (a.done === true) { doneActions++; continue; }
       openActions++;
       const text = asStr(a.text) || "Action";
       const due = isDate(asStr(a.due)) ? asStr(a.due) : null;
@@ -122,10 +132,17 @@ export async function getCoachingOverview(userId: string): Promise<CoachingOverv
       }
     }
     openActionsTotal += openActions;
+    doneActionsTotal += doneActions;
+    totalActionsTotal += actions.length;
+
+    const sessionCount = sessions.filter((s) => isDate(asStr(s.date))).length;
+    totalSessionsTotal += sessionCount;
+    totalObjectivesTotal += objectives.length;
 
     coachees.push({
       id: n.id, coacheeName: name, status, progress, openActions,
-      sessions: sessions.filter((s) => isDate(asStr(s.date))).length,
+      doneActions, totalActions: actions.length,
+      sessions: sessionCount, objectives: objectives.length,
       nextSession, shared: n.userId !== userId,
     });
   }
@@ -147,6 +164,10 @@ export async function getCoachingOverview(userId: string): Promise<CoachingOverv
       avgProgress: progressCount ? Math.round(progressSum / progressCount) : 0,
       openActions: openActionsTotal,
       upcoming: upcoming.length,
+      doneActions: doneActionsTotal,
+      totalActions: totalActionsTotal,
+      totalSessions: totalSessionsTotal,
+      totalObjectives: totalObjectivesTotal,
     },
     coachees,
     upcoming,
