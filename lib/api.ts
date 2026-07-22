@@ -383,6 +383,13 @@ export const api = {
   getCoachingFiles(id: string) {
     return req<{ files: { id: string; name: string; type: string; mimeType: string | null }[] }>(`/api/coaching/${id}/files`);
   },
+  // Crée une note (« carnet ») partagée dans le drive du coaché.
+  createCoachingNote(id: string, name?: string) {
+    return req<{ note: { id: string; name: string; type: string } }>(
+      `/api/coaching/${id}/notebook`,
+      jsonInit("POST", { name }),
+    );
+  },
   // Édition de l'agenda : ajoute/modifie/supprime une séance ou action d'un coaché.
   editCoachingAgenda(id: string, body: {
     op: "add" | "update" | "delete";

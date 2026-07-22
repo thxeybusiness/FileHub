@@ -69,7 +69,7 @@ export default async function Page({ params }: { params: Promise<{ id: string; n
       // (convertit automatiquement l'ancien format base de données).
       return <PlanEditor id={node.id} coachingId={id} initialName={node.name} initialContent={content} backHref={backHref} crumbs={crumbs} canEdit={role !== "viewer"} />;
     case "seance":
-      return <SeanceEditor id={node.id} initialName={node.name} initialContent={content} backHref={backHref} crumbs={crumbs} canEdit={role !== "viewer"} />;
+      return <SeanceEditor id={node.id} coachingId={id} initialName={node.name} initialContent={content} backHref={backHref} crumbs={crumbs} canEdit={role !== "viewer"} />;
     default:
       notFound();
   }

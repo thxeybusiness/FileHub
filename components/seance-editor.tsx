@@ -1,11 +1,11 @@
 "use client";
 
-import { useCallback, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import {
   ArrowLeft, Check, Loader2, ChevronRight, Home, ClipboardList,
   Plus, X, Star, CalendarDays, Clock, CalendarPlus, Target, MessageSquareText,
-  ListChecks, Lock, GripVertical,
+  ListChecks, Lock, GripVertical, NotebookPen, ExternalLink, StickyNote, Unlink,
 } from "lucide-react";
 import { api } from "@/lib/api";
 import { ExportButton } from "./export-button";
@@ -16,6 +16,9 @@ type SaveState = "saved" | "saving" | "idle" | "error";
 
 type Topic = { id: string; text: string };
 type ActionItem = { id: string; text: string; done: boolean };
+// Carnet du coaché : une note partagée du drive du coaché, où le coaché note
+// lui-même ses séances (rattachée au compte-rendu par son id).
+type Notebook = { id: string; name: string };
 type Seance = {
   date: string;
   duration: string;
@@ -27,6 +30,7 @@ type Seance = {
   observations: string;
   actions: ActionItem[];
   privateNotes: string;
+  notebook: Notebook | null;
 };
 
 const ACCENT = "#0ea5e9";
@@ -46,10 +50,11 @@ function parse(content: string): Seance {
   const base: Seance = {
     date: "", duration: "", nextDate: "", objective: "",
     mood: null, rating: null, topics: [], observations: "",
-    actions: [], privateNotes: "",
+    actions: [], privateNotes: "", notebook: null,
   };
   try {
     const raw = JSON.parse(content || "{}") as Partial<Seance>;
+    const nb = raw.notebook;
     return {
       ...base,
       ...raw,
@@ -57,6 +62,7 @@ function parse(content: string): Seance {
       actions: Array.isArray(raw.actions) ? raw.actions.filter((a) => a && typeof a.text === "string") : [],
       mood: typeof raw.mood === "number" ? raw.mood : null,
       rating: typeof raw.rating === "number" ? raw.rating : null,
+      notebook: nb && typeof nb.id === "string" && nb.id ? { id: nb.id, name: typeof nb.name === "string" ? nb.name : "Carnet du coaché" } : null,
     };
   } catch {
     return base;
@@ -64,9 +70,10 @@ function parse(content: string): Seance {
 }
 
 export function SeanceEditor({
-  id, initialName, initialContent, backHref, crumbs, canEdit = true,
+  id, coachingId, initialName, initialContent, backHref, crumbs, canEdit = true,
 }: {
   id: string;
+  coachingId?: string;
   initialName: string;
   initialContent: string;
   backHref: string;
@@ -77,6 +84,8 @@ export function SeanceEditor({
   const [doc, setDoc] = useState<Seance>(() => parse(initialContent));
   const [save, setSave] = useState<SaveState>("saved");
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [nbBusy, setNbBusy] = useState(false);
+  const [nbPicker, setNbPicker] = useState(false);
 
   const persist = useCallback((patch: { content?: string; name?: string }) => {
     setSave("saving");
@@ -117,6 +126,18 @@ export function SeanceEditor({
   const toggleAction = (aid: string) =>
     update((d) => ({ ...d, actions: d.actions.map((a) => (a.id === aid ? { ...a, done: !a.done } : a)) }));
   const delAction = (aid: string) => update((d) => ({ ...d, actions: d.actions.filter((a) => a.id !== aid) }));
+
+  // ── Carnet du coaché (note partagée du drive) ──
+  const setNotebook = (nb: Notebook | null) => update((d) => ({ ...d, notebook: nb }));
+  const createNotebook = () => {
+    if (!coachingId || nbBusy) return;
+    setNbBusy(true);
+    const label = name.trim() ? `Carnet — ${name.trim()}` : "Carnet du coaché";
+    api.createCoachingNote(coachingId, label)
+      .then((r) => setNotebook({ id: r.note.id, name: r.note.name }))
+      .catch(() => setSave("error"))
+      .finally(() => setNbBusy(false));
+  };
 
   const doneCount = doc.actions.filter((a) => a.done).length;
 
@@ -299,6 +320,67 @@ export function SeanceEditor({
             </div>
           </Block>
 
+          {/* Carnet du coaché : note partagée que le coaché remplit lui-même */}
+          {coachingId && (
+            <Block
+              icon={NotebookPen}
+              title="Carnet du coaché"
+              hint="Une note partagée où le coaché note lui-même ses séances. Il la retrouve dans son drive et son portail."
+            >
+              {doc.notebook ? (
+                <div className="flex items-center gap-3 rounded-xl border border-white/10 bg-white/[0.02] p-3">
+                  <span className="grid size-9 shrink-0 place-items-center rounded-lg" style={{ background: ACCENT + "1f", color: ACCENT }}>
+                    <StickyNote className="size-4" />
+                  </span>
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate text-sm font-medium">{doc.notebook.name}</p>
+                    <p className="text-xs text-muted">Note partagée du coaché</p>
+                  </div>
+                  <Link
+                    href={`/drive/coaching/${coachingId}/n/${doc.notebook.id}`}
+                    className="inline-flex shrink-0 items-center gap-1.5 rounded-lg border border-white/10 px-2.5 py-1.5 text-xs font-medium text-muted transition hover:bg-white/5 hover:text-white"
+                  >
+                    <ExternalLink className="size-3.5" /> Ouvrir
+                  </Link>
+                  {canEdit && (
+                    <button
+                      type="button"
+                      onClick={() => setNotebook(null)}
+                      title="Détacher (la note reste dans le drive)"
+                      className="grid size-8 shrink-0 place-items-center rounded-lg text-white/30 transition hover:bg-red-500/10 hover:text-red-400"
+                    >
+                      <Unlink className="size-4" />
+                    </button>
+                  )}
+                </div>
+              ) : (
+                <div className="rounded-xl border border-dashed border-white/10 bg-white/[0.02] p-4">
+                  <p className="mb-3 text-sm text-white/40">Aucun carnet rattaché.</p>
+                  {canEdit && (
+                    <div className="flex flex-wrap gap-2">
+                      <button
+                        type="button"
+                        onClick={createNotebook}
+                        disabled={nbBusy}
+                        className="inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-semibold text-black transition hover:opacity-90 disabled:opacity-50"
+                        style={{ background: ACCENT }}
+                      >
+                        {nbBusy ? <Loader2 className="size-3.5 animate-spin" /> : <Plus className="size-3.5" />} Créer le carnet
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setNbPicker(true)}
+                        className="inline-flex items-center gap-1.5 rounded-lg border border-white/10 px-3 py-1.5 text-xs font-medium text-muted transition hover:bg-white/5 hover:text-white"
+                      >
+                        <StickyNote className="size-3.5" /> Choisir une note existante
+                      </button>
+                    </div>
+                  )}
+                </div>
+              )}
+            </Block>
+          )}
+
           {/* Notes privées du coach */}
           <Block icon={Lock} title="Notes privées" hint="Réservé au coach — pratique pour tes remarques internes.">
             <textarea
@@ -310,6 +392,72 @@ export function SeanceEditor({
             />
           </Block>
         </fieldset>
+      </div>
+
+      {nbPicker && coachingId && (
+        <NotePicker
+          coachingId={coachingId}
+          currentId={doc.notebook?.id ?? null}
+          onClose={() => setNbPicker(false)}
+          onPick={(nb) => { setNotebook(nb); setNbPicker(false); }}
+        />
+      )}
+    </div>
+  );
+}
+
+// Sélecteur de note existante du drive du coaché (pour rattacher un carnet déjà
+// créé plutôt que d'en créer un nouveau).
+function NotePicker({
+  coachingId, currentId, onClose, onPick,
+}: {
+  coachingId: string;
+  currentId: string | null;
+  onClose: () => void;
+  onPick: (nb: Notebook) => void;
+}) {
+  const [notes, setNotes] = useState<Notebook[] | null>(null);
+
+  useEffect(() => {
+    let alive = true;
+    api.getCoachingFiles(coachingId)
+      .then((r) => { if (alive) setNotes(r.files.filter((f) => f.type === "note").map((f) => ({ id: f.id, name: f.name }))); })
+      .catch(() => { if (alive) setNotes([]); });
+    return () => { alive = false; };
+  }, [coachingId]);
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4" onClick={onClose}>
+      <div className="w-full max-w-md rounded-2xl border border-white/10 bg-[#12121a] shadow-2xl" onClick={(e) => e.stopPropagation()}>
+        <div className="flex items-center gap-2 border-b border-white/10 px-4 py-3">
+          <StickyNote className="size-4" style={{ color: ACCENT }} />
+          <h3 className="text-sm font-semibold">Choisir une note</h3>
+          <button type="button" onClick={onClose} className="ml-auto grid size-7 place-items-center rounded-lg text-muted transition hover:bg-white/5 hover:text-white">
+            <X className="size-4" />
+          </button>
+        </div>
+        <div className="max-h-[60vh] overflow-y-auto p-2">
+          {notes === null ? (
+            <div className="flex justify-center py-8 text-muted"><Loader2 className="size-5 animate-spin" /></div>
+          ) : notes.length === 0 ? (
+            <p className="px-3 py-8 text-center text-sm text-muted">Aucune note dans le drive du coaché. Créez-en une avec « Créer le carnet ».</p>
+          ) : (
+            <div className="space-y-1">
+              {notes.map((n) => (
+                <button
+                  key={n.id}
+                  type="button"
+                  onClick={() => onPick(n)}
+                  className="flex w-full items-center gap-3 rounded-lg px-3 py-2 text-left transition hover:bg-white/5"
+                >
+                  <StickyNote className="size-4 shrink-0 text-white/40" />
+                  <span className="min-w-0 flex-1 truncate text-sm">{n.name}</span>
+                  {n.id === currentId && <Check className="size-4 shrink-0 text-emerald-400" />}
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
       </div>
     </div>
   );
@@ -384,6 +532,7 @@ function buildPrintHtml(name: string, d: Seance): string {
     ${topics ? `<h2>Points abordés</h2><ul>${topics}</ul>` : ""}
     ${d.observations.trim() ? `<h2>Ressenti & observations</h2><p>${esc(d.observations).replace(/\n/g, "<br>")}</p>` : ""}
     ${actions ? `<h2>Actions pour la prochaine séance</h2><ul>${actions}</ul>` : ""}
+    ${d.notebook ? `<p><strong>Carnet du coaché :</strong> ${esc(d.notebook.name)}</p>` : ""}
     ${d.privateNotes.trim() ? `<h2>Notes privées</h2><p>${esc(d.privateNotes).replace(/\n/g, "<br>")}</p>` : ""}
   `;
 }
