@@ -6,13 +6,14 @@ import { listMemberCoachingIds } from "./coaching-members";
 // (objectifs, séances, actions) → une seule requête, pas de N+1.
 
 export type AgendaItem = {
-  coachingId: string;
-  itemId: string; // id de la séance / action dans la fiche (pour l'édition)
+  coachingId: string; // "" pour un événement « Général »
+  itemId: string; // id de la séance / action (pour l'édition)
   coacheeName: string;
   date: string; // yyyy-mm-dd
   kind: "session" | "action";
   label: string;
   done: boolean;
+  general?: boolean; // true = événement Général (non rattaché à un coaché)
 };
 export type PendingAction = {
   coachingId: string;
@@ -145,6 +146,21 @@ export async function getCoachingOverview(userId: string): Promise<CoachingOverv
       sessions: sessionCount, objectives: objectives.length,
       nextSession, shared: n.userId !== userId,
     });
+  }
+
+  // Événements « Général » (non rattachés à un coaché) : appels prospects, divers.
+  const generalEvents = await prisma.agendaEvent
+    .findMany({ where: { userId }, select: { id: true, date: true, kind: true, label: true, done: true } })
+    .catch(() => [] as { id: string; date: string; kind: string; label: string; done: boolean }[]);
+  for (const g of generalEvents) {
+    if (!isDate(g.date)) continue;
+    const kind = g.kind === "action" ? "action" : "session";
+    const item: AgendaItem = {
+      coachingId: "", itemId: g.id, coacheeName: "Général", date: g.date, kind,
+      label: g.label || (kind === "action" ? "Action" : "Séance"), done: g.done, general: true,
+    };
+    agenda.push(item);
+    if (kind === "session" && g.date >= today && !g.done) upcoming.push(item);
   }
 
   upcoming.sort((a, b) => a.date.localeCompare(b.date));

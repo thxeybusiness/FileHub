@@ -294,3 +294,18 @@ model RateLimit {
 
   @@map("filehub_rate_limit")
 }
+
+// Événements d'agenda « Général » : séances/actions non rattachées à un coaché
+// (appels prospects, rendez-vous divers). Rattachés à l'utilisateur.
+model AgendaEvent {
+  id        String   @id
+  userId    String   @map("user_id")
+  date      String // yyyy-mm-dd
+  kind      String // "session" | "action"
+  label     String
+  done      Boolean  @default(false)
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  @@index([userId], map: "filehub_agenda_event_user_idx")
+  @@map("filehub_agenda_event")
+}

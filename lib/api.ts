@@ -41,6 +41,7 @@ export type CoachingAgendaItem = {
   kind: "session" | "action";
   label: string;
   done: boolean;
+  general?: boolean;
 };
 export type CoachingPendingAction = {
   coachingId: string;
@@ -392,6 +393,17 @@ export const api = {
     done?: boolean;
   }) {
     return req<{ ok: boolean }>(`/api/coaching/${id}/agenda`, jsonInit("PATCH", body));
+  },
+  // Édition de l'agenda « Général » (événements non rattachés à un coaché).
+  editGeneralAgenda(body: {
+    op: "add" | "update" | "delete";
+    kind?: "session" | "action";
+    itemId?: string;
+    date?: string;
+    label?: string;
+    done?: boolean;
+  }) {
+    return req<{ ok: boolean }>(`/api/agenda/general`, jsonInit("PATCH", body));
   },
   getCoachingMembers(id: string) {
     return req<{ id: string; name: string; isOwner: boolean; myRole: string; members: CoachingMemberInfo[] }>(

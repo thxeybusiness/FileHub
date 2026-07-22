@@ -9,6 +9,7 @@ import {
 import { api, type CoachingOverview, type CoachingAgendaItem } from "@/lib/api";
 
 const ACCENT = "#06b6d4";
+const GENERAL = "__general__"; // valeur sentinelle du bucket « Général »
 const MONTHS = ["janvier", "février", "mars", "avril", "mai", "juin", "juillet", "août", "septembre", "octobre", "novembre", "décembre"];
 const DOW = ["L", "M", "M", "J", "V", "S", "D"];
 
@@ -81,14 +82,15 @@ export function CoachingAgenda() {
     setSelected(date);
     setAdding(false);
     setAddLabel("");
-    if (!addCoaching && coachees.length) setAddCoaching(coachees[0].id);
+    if (!addCoaching) setAddCoaching(coachees[0]?.id ?? GENERAL);
   };
 
-  // ── Mutations ──
+  // ── Mutations ── (coachingId vide ou GENERAL ⇒ agenda « Général »)
   const mutate = async (coachingId: string, body: Parameters<typeof api.editCoachingAgenda>[1]) => {
     setBusy(true);
     try {
-      await api.editCoachingAgenda(coachingId, body);
+      if (!coachingId || coachingId === GENERAL) await api.editGeneralAgenda(body);
+      else await api.editCoachingAgenda(coachingId, body);
       await reload();
     } catch { /* ignore */ } finally { setBusy(false); }
   };
@@ -101,7 +103,7 @@ export function CoachingAgenda() {
 
   const selectedEvents = selected ? byDate.get(selected) ?? [] : [];
   const openAdd = () => {
-    if (!addCoaching && coachees.length) setAddCoaching(coachees[0].id);
+    if (!addCoaching) setAddCoaching(coachees[0]?.id ?? GENERAL);
     setAdding(true);
   };
 
@@ -138,8 +140,6 @@ export function CoachingAgenda() {
 
           {data === null ? (
             <div className="flex items-center justify-center py-24 text-muted"><Loader2 className="size-6 animate-spin" /></div>
-          ) : coachees.length === 0 ? (
-            <p className="rounded-xl border border-dashed border-white/10 px-4 py-12 text-center text-sm text-muted">Ajoutez un coaché pour planifier des séances et des actions.</p>
           ) : (
             <>
               <div className="grid grid-cols-7 gap-1">
@@ -187,6 +187,7 @@ export function CoachingAgenda() {
                           ))}
                         </div>
                         <select value={addCoaching} onChange={(e) => setAddCoaching(e.target.value)} className="rounded-lg border border-white/10 bg-white/[0.03] px-2 py-1.5 text-xs text-white outline-none [color-scheme:dark]">
+                          <option value={GENERAL} className="bg-[#0f1017]">Général</option>
                           {coachees.map((c) => (<option key={c.id} value={c.id} className="bg-[#0f1017]">{c.coacheeName}</option>))}
                         </select>
                       </div>
@@ -227,7 +228,9 @@ export function CoachingAgenda() {
                             <>
                               <input type="date" value={e.date} onChange={(ev) => ev.target.value && mutate(e.coachingId, { op: "update", kind: e.kind, itemId: e.itemId, date: ev.target.value })}
                                 className="hidden shrink-0 rounded-lg border border-white/10 bg-white/[0.03] px-2 py-1 text-xs text-muted outline-none sm:block [color-scheme:dark]" title="Déplacer" />
-                              <button onClick={() => router.push(`/drive/coaching/${e.coachingId}/fiche`)} className="grid size-7 shrink-0 place-items-center rounded-lg text-muted opacity-0 transition hover:bg-white/5 hover:text-white group-hover:opacity-100" title="Ouvrir la fiche"><ExternalLink className="size-3.5" /></button>
+                              {!e.general && e.coachingId && (
+                                <button onClick={() => router.push(`/drive/coaching/${e.coachingId}/fiche`)} className="grid size-7 shrink-0 place-items-center rounded-lg text-muted opacity-0 transition hover:bg-white/5 hover:text-white group-hover:opacity-100" title="Ouvrir la fiche"><ExternalLink className="size-3.5" /></button>
+                              )}
                               <button onClick={() => mutate(e.coachingId, { op: "delete", kind: e.kind, itemId: e.itemId })} className="grid size-7 shrink-0 place-items-center rounded-lg text-muted opacity-0 transition hover:bg-red-500/10 hover:text-red-400 group-hover:opacity-100" title="Supprimer"><Trash2 className="size-3.5" /></button>
                             </>
                           )}
