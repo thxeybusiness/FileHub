@@ -25,9 +25,10 @@ export async function GET(req: NextRequest) {
     }
   }
 
+  // FileHub perso = space_id NULL + scope "filehub" (cloisonné du coaching).
   const rows = await prisma.agendaEvent
     .findMany({
-      where: spaceId ? { spaceId } : { userId, spaceId: null },
+      where: spaceId ? { spaceId } : { userId, spaceId: null, scope: "filehub" },
       select: { id: true, date: true, kind: true, label: true, done: true },
       orderBy: { date: "asc" },
     })
@@ -69,9 +70,9 @@ export async function PATCH(req: NextRequest) {
     }
   }
 
-  // Filtre d'appartenance : espace → {id, spaceId} (tout éditeur) ;
-  // perso → {id, userId, spaceId: null}.
-  const scope = spaceId ? { spaceId } : { userId, spaceId: null };
+  // Filtre d'appartenance STRICT : espace → {spaceId} (tout éditeur) ;
+  // perso → {userId, spaceId: null, scope: "filehub"} (cloisonné du coaching).
+  const belong = spaceId ? { spaceId } : { userId, spaceId: null, scope: "filehub" };
 
   if (op === "add") {
     await prisma.agendaEvent.create({
@@ -79,6 +80,7 @@ export async function PATCH(req: NextRequest) {
         id: randomUUID(),
         userId,
         spaceId: spaceId ?? null,
+        scope: spaceId ? null : "filehub",
         date: date ?? "",
         kind: kind === "action" ? "action" : "session",
         label: label ?? "Événement",
@@ -88,7 +90,7 @@ export async function PATCH(req: NextRequest) {
   } else if (op === "update") {
     if (!itemId) return NextResponse.json({ error: "itemId requis" }, { status: 400 });
     await prisma.agendaEvent.updateMany({
-      where: { id: itemId, ...scope },
+      where: { id: itemId, ...belong },
       data: {
         ...(date !== undefined ? { date } : {}),
         ...(label !== undefined ? { label } : {}),
@@ -97,7 +99,7 @@ export async function PATCH(req: NextRequest) {
     });
   } else if (op === "delete") {
     if (!itemId) return NextResponse.json({ error: "itemId requis" }, { status: 400 });
-    await prisma.agendaEvent.deleteMany({ where: { id: itemId, ...scope } });
+    await prisma.agendaEvent.deleteMany({ where: { id: itemId, ...belong } });
   }
 
   return NextResponse.json({ ok: true });

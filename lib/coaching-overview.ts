@@ -148,9 +148,11 @@ export async function getCoachingOverview(userId: string): Promise<CoachingOverv
     });
   }
 
-  // Événements « Général » (non rattachés à un coaché) : appels prospects, divers.
+  // Événements « Général » de l'Accompagnement (non rattachés à un coaché) :
+  // space_id NULL + scope ≠ "filehub" (cloisonné de l'agenda perso FileHub).
+  // NB : Prisma `not` n'inclut PAS les NULL (scope hérité) → OR explicite.
   const generalEvents = await prisma.agendaEvent
-    .findMany({ where: { userId, spaceId: null }, select: { id: true, date: true, kind: true, label: true, done: true } })
+    .findMany({ where: { userId, spaceId: null, OR: [{ scope: null }, { scope: { not: "filehub" } }] }, select: { id: true, date: true, kind: true, label: true, done: true } })
     .catch(() => [] as { id: string; date: string; kind: string; label: string; done: boolean }[]);
   for (const g of generalEvents) {
     if (!isDate(g.date)) continue;

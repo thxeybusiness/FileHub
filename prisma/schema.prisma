@@ -295,15 +295,19 @@ model RateLimit {
   @@map("filehub_rate_limit")
 }
 
-// Événements d'agenda. Deux portées :
-//  • Personnel (« Général ») : space_id NULL, propre à l'utilisateur (userId).
-//    Sert à la fois à l'agenda perso FileHub et au bucket « Général » du coaching.
-//  • Espace commun : space_id renseigné, partagé entre tous les membres de
-//    l'espace (userId = créateur, à titre informatif).
+// Événements d'agenda. Trois portées STRICTEMENT cloisonnées :
+//  • FileHub perso : space_id NULL + scope = "filehub" — agenda personnel du
+//    SaaS FileHub, propre à l'utilisateur.
+//  • Accompagnement « Général » : space_id NULL + scope = "coaching" (ou NULL
+//    hérité) — bucket Général du SaaS Accompagnement, propre à l'utilisateur.
+//  • Espace commun : space_id renseigné — partagé entre les membres de l'espace.
+// FileHub et Accompagnement sont deux SaaS distincts : leurs agendas persos ne
+// partagent JAMAIS de données (d'où le scope).
 model AgendaEvent {
   id        String   @id
   userId    String   @map("user_id")
   spaceId   String?  @map("space_id")
+  scope     String? // "filehub" | "coaching" (NULL hérité = coaching)
   date      String // yyyy-mm-dd
   kind      String // "session" | "action"
   label     String

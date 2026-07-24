@@ -27,15 +27,19 @@ export async function PATCH(req: NextRequest) {
   if (!parsed.success) return NextResponse.json({ error: "Requête invalide" }, { status: 400 });
   const { op, kind, itemId, date, label, done } = parsed.data;
 
+  // Bucket coaching = space_id NULL + scope ≠ "filehub" (scope "coaching" ou
+  // NULL hérité). NB : Prisma `not` n'inclut PAS les NULL → OR explicite.
+  // Cloisonné de l'agenda perso FileHub (scope "filehub").
+  const belong = { userId, spaceId: null, OR: [{ scope: null }, { scope: { not: "filehub" } }] };
+
   if (op === "add") {
     await prisma.agendaEvent.create({
-      data: { id: randomUUID(), userId, date: date ?? "", kind: kind === "action" ? "action" : "session", label: label ?? "Séance", done: false },
+      data: { id: randomUUID(), userId, spaceId: null, scope: "coaching", date: date ?? "", kind: kind === "action" ? "action" : "session", label: label ?? "Séance", done: false },
     });
   } else if (op === "update") {
     if (!itemId) return NextResponse.json({ error: "itemId requis" }, { status: 400 });
-    // Restreint à l'utilisateur (updateMany avec filtre userId).
     await prisma.agendaEvent.updateMany({
-      where: { id: itemId, userId },
+      where: { id: itemId, ...belong },
       data: {
         ...(date !== undefined ? { date } : {}),
         ...(label !== undefined ? { label } : {}),
@@ -44,7 +48,7 @@ export async function PATCH(req: NextRequest) {
     });
   } else if (op === "delete") {
     if (!itemId) return NextResponse.json({ error: "itemId requis" }, { status: 400 });
-    await prisma.agendaEvent.deleteMany({ where: { id: itemId, userId } });
+    await prisma.agendaEvent.deleteMany({ where: { id: itemId, ...belong } });
   }
 
   return NextResponse.json({ ok: true });
