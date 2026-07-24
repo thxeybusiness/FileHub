@@ -344,6 +344,20 @@ export const api = {
       jsonInit("POST", { email, plan }),
     );
   },
+  // ── Admin Fondateur : générer un code de réduction (-60 %) pour un plan ──
+  adminDiscountCode(plan: "premium" | "business", interval: "month" | "year", maxRedemptions?: number) {
+    return req<{
+      ok: boolean;
+      code: string;
+      percentOff: number;
+      plan: string;
+      interval: string;
+      basePrice: number;
+      discountedPrice: number;
+      maxRedemptions: number | null;
+      checkoutUrl: string;
+    }>("/api/admin/discount-code", jsonInit("POST", { plan, interval, maxRedemptions }));
+  },
 
   saveChart(id: string, patch: { content?: unknown; name?: string }) {
     return req<{ ok: boolean; updatedAt: string }>(`/api/charts/${id}`, jsonInit("PUT", patch));

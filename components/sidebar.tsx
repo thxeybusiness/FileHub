@@ -518,7 +518,7 @@ export function Sidebar({ initial }: { initial: Me }) {
                 href="/drive/admin"
                 className="mt-1 flex h-9 items-center justify-center gap-1.5 rounded-xl border border-white/10 text-xs font-medium text-white/70 transition hover:bg-white/5 hover:text-white"
               >
-                <ShieldCheck className="size-3.5 text-amber-300" /> Admin — grades
+                <ShieldCheck className="size-3.5 text-amber-300" /> Admin — abonnements
               </Link>
             )}
           </>
