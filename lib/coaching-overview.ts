@@ -150,7 +150,7 @@ export async function getCoachingOverview(userId: string): Promise<CoachingOverv
 
   // Événements « Général » (non rattachés à un coaché) : appels prospects, divers.
   const generalEvents = await prisma.agendaEvent
-    .findMany({ where: { userId }, select: { id: true, date: true, kind: true, label: true, done: true } })
+    .findMany({ where: { userId, spaceId: null }, select: { id: true, date: true, kind: true, label: true, done: true } })
     .catch(() => [] as { id: string; date: string; kind: string; label: string; done: boolean }[]);
   for (const g of generalEvents) {
     if (!isDate(g.date)) continue;

@@ -35,6 +35,8 @@ export type CoachingSummary = {
   nextSession: string | null;
   shared: boolean;
 };
+// Événement d'agenda FileHub (perso ou espace commun).
+export type AgendaEventDTO = { id: string; date: string; kind: "session" | "action"; label: string; done: boolean };
 export type CoachingAgendaItem = {
   coachingId: string;
   itemId: string;
@@ -413,6 +415,23 @@ export const api = {
     done?: boolean;
   }) {
     return req<{ ok: boolean }>(`/api/agenda/general`, jsonInit("PATCH", body));
+  },
+
+  // ── Agenda FileHub (perso & espaces communs) ──
+  // Liste les événements : agenda personnel, ou commun d'un espace (`spaceId`).
+  listAgenda(spaceId?: string) {
+    return req<{ events: AgendaEventDTO[] }>(`/api/agenda${spaceId ? `?space=${encodeURIComponent(spaceId)}` : ""}`);
+  },
+  // Ajoute / modifie / supprime un événement (perso si spaceId absent).
+  editAgenda(body: {
+    op: "add" | "update" | "delete";
+    kind?: "session" | "action";
+    itemId?: string;
+    date?: string;
+    label?: string;
+    done?: boolean;
+  }, spaceId?: string) {
+    return req<{ ok: boolean }>(`/api/agenda`, jsonInit("PATCH", { ...body, spaceId: spaceId ?? null }));
   },
   getCoachingMembers(id: string) {
     return req<{ id: string; name: string; isOwner: boolean; myRole: string; members: CoachingMemberInfo[] }>(

@@ -37,6 +37,7 @@ import {
   PieChart,
   Menu,
   CalendarClock,
+  CalendarDays,
   Target,
   HeartHandshake,
 } from "lucide-react";
@@ -425,13 +426,22 @@ export function DriveExplorer({
         </div>
 
         {spaceId && variant !== "coaching" && (
-          <button
-            onClick={() => setMembersOpen(true)}
-            className="hidden sm:flex items-center gap-2 rounded-xl border border-white/10 bg-white/5 px-3 h-10 text-sm font-medium hover:bg-white/10 transition"
-            title="Gérer les membres"
-          >
-            <Users className="size-4 text-brand-300" /> Membres
-          </button>
+          <>
+            <button
+              onClick={() => router.push(`${basePath}/agenda`)}
+              className="hidden sm:flex items-center gap-2 rounded-xl border border-white/10 bg-white/5 px-3 h-10 text-sm font-medium hover:bg-white/10 transition"
+              title="Agenda commun de l'espace"
+            >
+              <CalendarDays className="size-4 text-brand-300" /> Agenda
+            </button>
+            <button
+              onClick={() => setMembersOpen(true)}
+              className="hidden sm:flex items-center gap-2 rounded-xl border border-white/10 bg-white/5 px-3 h-10 text-sm font-medium hover:bg-white/10 transition"
+              title="Gérer les membres"
+            >
+              <Users className="size-4 text-brand-300" /> Membres
+            </button>
+          </>
         )}
 
         {/* Search */}
