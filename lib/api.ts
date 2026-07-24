@@ -29,8 +29,10 @@ export type CoachingSummary = {
   coacheeName: string;
   status: string;
   progress: number;
+  objectives: number;
   sessions: number;
   openActions: number;
+  nextSession: string | null;
   shared: boolean;
 };
 export type CoachingAgendaItem = {

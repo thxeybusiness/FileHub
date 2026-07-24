@@ -25,19 +25,23 @@ type Summary = {
   coacheeName: string;
   status: string;
   progress: number;
+  objectives: number;
   sessions: number;
   openActions: number;
+  nextSession: string | null;
   shared: boolean;
 };
 
+const isDate = (s: unknown): s is string => typeof s === "string" && /^\d{4}-\d{2}-\d{2}$/.test(s);
+
 function summarize(content: string | null): Omit<Summary, "id" | "name" | "updatedAt" | "shared"> {
-  const fallback = { coacheeName: "", status: "active", progress: 0, sessions: 0, openActions: 0 };
+  const fallback = { coacheeName: "", status: "active", progress: 0, objectives: 0, sessions: 0, openActions: 0, nextSession: null };
   if (!content) return fallback;
   try {
     const c = JSON.parse(content) as Record<string, unknown>;
     const coachee = (c.coachee ?? {}) as Record<string, unknown>;
     const objectives = Array.isArray(c.objectives) ? (c.objectives as Record<string, unknown>[]) : [];
-    const sessions = Array.isArray(c.sessions) ? c.sessions.length : 0;
+    const sessionsArr = Array.isArray(c.sessions) ? (c.sessions as Record<string, unknown>[]) : [];
     const actions = Array.isArray(c.actions) ? (c.actions as Record<string, unknown>[]) : [];
     const progress = objectives.length
       ? Math.round(
@@ -45,12 +49,23 @@ function summarize(content: string | null): Omit<Summary, "id" | "name" | "updat
             objectives.length,
         )
       : 0;
+
+    // Prochaine séance : date planifiée la plus proche dans le futur.
+    const today = new Date().toISOString().slice(0, 10);
+    let nextSession: string | null = null;
+    for (const s of sessionsArr) {
+      const d = s.date;
+      if (isDate(d) && d >= today && (!nextSession || d < nextSession)) nextSession = d;
+    }
+
     return {
       coacheeName: typeof coachee.name === "string" ? coachee.name : "",
       status: typeof coachee.status === "string" ? coachee.status : "active",
       progress,
-      sessions,
+      objectives: objectives.length,
+      sessions: sessionsArr.length,
       openActions: actions.filter((a) => !a.done).length,
+      nextSession,
     };
   } catch {
     return fallback;
