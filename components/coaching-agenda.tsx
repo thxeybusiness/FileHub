@@ -4,7 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import {
   Menu, CalendarDays, ChevronLeft, ChevronRight, Loader2, CalendarClock, ListChecks,
-  Plus, Trash2, ExternalLink,
+  Plus, Trash2, ExternalLink, Clock, X,
 } from "lucide-react";
 import { api, type CoachingOverview, type CoachingAgendaItem } from "@/lib/api";
 
@@ -39,6 +39,7 @@ export function CoachingAgenda() {
   const [addKind, setAddKind] = useState<"session" | "action">("session");
   const [addCoaching, setAddCoaching] = useState("");
   const [addLabel, setAddLabel] = useState("");
+  const [addTime, setAddTime] = useState("");
 
   const reload = useCallback(() => api.getCoachingOverview().then(setData).catch(() => setData(null)), []);
   useEffect(() => { reload(); }, [reload]);
@@ -53,6 +54,8 @@ export function CoachingAgenda() {
       arr.push(e);
       map.set(e.date, arr);
     }
+    // Dans chaque journée : par heure croissante, sans heure en premier.
+    for (const arr of map.values()) arr.sort((a, b) => (a.time ?? "").localeCompare(b.time ?? ""));
     return map;
   }, [agenda]);
 
@@ -82,6 +85,7 @@ export function CoachingAgenda() {
     setSelected(date);
     setAdding(false);
     setAddLabel("");
+    setAddTime("");
     if (!addCoaching) setAddCoaching(coachees[0]?.id ?? GENERAL);
   };
 
@@ -97,8 +101,8 @@ export function CoachingAgenda() {
 
   const submitAdd = async () => {
     if (!selected || !addCoaching || !addLabel.trim()) return;
-    await mutate(addCoaching, { op: "add", kind: addKind, date: selected, label: addLabel.trim() });
-    setAddLabel(""); setAdding(false);
+    await mutate(addCoaching, { op: "add", kind: addKind, date: selected, time: addTime, label: addLabel.trim() });
+    setAddLabel(""); setAddTime(""); setAdding(false);
   };
 
   const selectedEvents = selected ? byDate.get(selected) ?? [] : [];
@@ -157,6 +161,7 @@ export function CoachingAgenda() {
                       <div className="mt-0.5 space-y-0.5 overflow-hidden">
                         {events.slice(0, 2).map((e, j) => (
                           <div key={j} className="flex items-center gap-1 truncate rounded px-1 py-0.5 text-[10px]" style={{ background: (e.kind === "session" ? ACCENT : "#f59e0b") + "22", color: e.kind === "session" ? "#67e8f9" : "#fcd34d" }}>
+                            {e.time && <span className="shrink-0 font-semibold tabular-nums">{e.time}</span>}
                             <span className="truncate">{e.coacheeName}</span>
                           </div>
                         ))}
@@ -190,6 +195,21 @@ export function CoachingAgenda() {
                           <option value={GENERAL} className="bg-[#0f1017]">Général</option>
                           {coachees.map((c) => (<option key={c.id} value={c.id} className="bg-[#0f1017]">{c.coacheeName}</option>))}
                         </select>
+                        <label className="flex items-center gap-1.5 text-xs text-muted">
+                          <Clock className="size-3.5" />
+                          <input
+                            type="time"
+                            value={addTime}
+                            onChange={(e) => setAddTime(e.target.value)}
+                            className="rounded-lg border border-white/10 bg-white/[0.03] px-2 py-1.5 text-xs text-white outline-none focus:border-sky-400/50 [color-scheme:dark]"
+                            title="Heure (facultatif)"
+                          />
+                          {addTime && (
+                            <button type="button" onClick={() => setAddTime("")} className="text-white/40 transition hover:text-white" title="Retirer l'heure">
+                              <X className="size-3.5" />
+                            </button>
+                          )}
+                        </label>
                       </div>
                       <div className="mt-2 flex items-center gap-2">
                         <input value={addLabel} onChange={(e) => setAddLabel(e.target.value)} onKeyDown={(e) => e.key === "Enter" && submitAdd()} autoFocus
@@ -222,10 +242,13 @@ export function CoachingAgenda() {
                             ) : (
                               <p className="truncate text-sm font-medium">{e.label}</p>
                             )}
-                            <p className="truncate text-xs text-muted">{e.coacheeName}</p>
+                            <p className="truncate text-xs text-muted">{e.coacheeName}{e.time ? ` · ${e.time}` : " · toute la journée"}</p>
                           </div>
                           {e.itemId && (
                             <>
+                              {/* Heure modifiable (vide = toute la journée) */}
+                              <input type="time" value={e.time ?? ""} onChange={(ev) => mutate(e.coachingId, { op: "update", kind: e.kind, itemId: e.itemId, time: ev.target.value })}
+                                className="shrink-0 rounded-lg border border-white/10 bg-white/[0.03] px-2 py-1 text-xs text-white/80 outline-none focus:border-sky-400/50 [color-scheme:dark]" title="Heure (vide = toute la journée)" />
                               <input type="date" value={e.date} onChange={(ev) => ev.target.value && mutate(e.coachingId, { op: "update", kind: e.kind, itemId: e.itemId, date: ev.target.value })}
                                 className="hidden shrink-0 rounded-lg border border-white/10 bg-white/[0.03] px-2 py-1 text-xs text-muted outline-none sm:block [color-scheme:dark]" title="Déplacer" />
                               {!e.general && e.coachingId && (

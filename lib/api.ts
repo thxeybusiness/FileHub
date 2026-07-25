@@ -36,12 +36,13 @@ export type CoachingSummary = {
   shared: boolean;
 };
 // Événement d'agenda FileHub (perso ou espace commun).
-export type AgendaEventDTO = { id: string; date: string; kind: "session" | "action"; label: string; done: boolean };
+export type AgendaEventDTO = { id: string; date: string; time: string | null; kind: "session" | "action"; label: string; done: boolean };
 export type CoachingAgendaItem = {
   coachingId: string;
   itemId: string;
   coacheeName: string;
   date: string;
+  time: string | null; // hh:mm (null = toute la journée)
   kind: "session" | "action";
   label: string;
   done: boolean;
@@ -414,6 +415,7 @@ export const api = {
     kind: "session" | "action";
     itemId?: string;
     date?: string;
+    time?: string;
     label?: string;
     done?: boolean;
   }) {
@@ -425,6 +427,7 @@ export const api = {
     kind?: "session" | "action";
     itemId?: string;
     date?: string;
+    time?: string;
     label?: string;
     done?: boolean;
   }) {
@@ -442,6 +445,7 @@ export const api = {
     kind?: "session" | "action";
     itemId?: string;
     date?: string;
+    time?: string;
     label?: string;
     done?: boolean;
   }, spaceId?: string) {

@@ -10,6 +10,7 @@ export type AgendaItem = {
   itemId: string; // id de la séance / action (pour l'édition)
   coacheeName: string;
   date: string; // yyyy-mm-dd
+  time: string | null; // hh:mm (null = toute la journée)
   kind: "session" | "action";
   label: string;
   done: boolean;
@@ -48,10 +49,15 @@ export type CoachingOverview = {
 const asStr = (v: unknown) => (typeof v === "string" ? v.trim() : "");
 const clampPct = (v: unknown) => Math.max(0, Math.min(100, Math.round(Number(v) || 0)));
 const isDate = (s: string) => /^\d{4}-\d{2}-\d{2}$/.test(s);
+// Heure hh:mm ; toute valeur invalide ⇒ null (« toute la journée »).
+const asTime = (v: unknown): string | null => {
+  const s = typeof v === "string" ? v.trim() : "";
+  return /^\d{2}:\d{2}$/.test(s) ? s : null;
+};
 
 type RawObjective = { done?: unknown; progress?: unknown };
-type RawSession = { id?: unknown; date?: unknown; title?: unknown };
-type RawAction = { id?: unknown; text?: unknown; due?: unknown; done?: unknown };
+type RawSession = { id?: unknown; date?: unknown; time?: unknown; title?: unknown };
+type RawAction = { id?: unknown; text?: unknown; due?: unknown; time?: unknown; done?: unknown };
 
 export async function getCoachingOverview(userId: string): Promise<CoachingOverview> {
   const memberIds = await listMemberCoachingIds(userId).catch(() => [] as string[]);
@@ -109,7 +115,7 @@ export async function getCoachingOverview(userId: string): Promise<CoachingOverv
       const date = asStr(s.date);
       if (!isDate(date)) continue;
       const item: AgendaItem = {
-        coachingId: n.id, itemId: asStr(s.id), coacheeName: name, date, kind: "session",
+        coachingId: n.id, itemId: asStr(s.id), coacheeName: name, date, time: asTime(s.time), kind: "session",
         label: asStr(s.title) || "Séance", done: date < today,
       };
       agenda.push(item);
@@ -129,7 +135,7 @@ export async function getCoachingOverview(userId: string): Promise<CoachingOverv
       const due = isDate(asStr(a.due)) ? asStr(a.due) : null;
       pendingActions.push({ coachingId: n.id, coacheeName: name, text, due });
       if (due) {
-        agenda.push({ coachingId: n.id, itemId: asStr(a.id), coacheeName: name, date: due, kind: "action", label: text, done: false });
+        agenda.push({ coachingId: n.id, itemId: asStr(a.id), coacheeName: name, date: due, time: asTime(a.time), kind: "action", label: text, done: false });
       }
     }
     openActionsTotal += openActions;
@@ -152,21 +158,24 @@ export async function getCoachingOverview(userId: string): Promise<CoachingOverv
   // space_id NULL + scope ≠ "filehub" (cloisonné de l'agenda perso FileHub).
   // NB : Prisma `not` n'inclut PAS les NULL (scope hérité) → OR explicite.
   const generalEvents = await prisma.agendaEvent
-    .findMany({ where: { userId, spaceId: null, OR: [{ scope: null }, { scope: { not: "filehub" } }] }, select: { id: true, date: true, kind: true, label: true, done: true } })
-    .catch(() => [] as { id: string; date: string; kind: string; label: string; done: boolean }[]);
+    .findMany({ where: { userId, spaceId: null, OR: [{ scope: null }, { scope: { not: "filehub" } }] }, select: { id: true, date: true, time: true, kind: true, label: true, done: true } })
+    .catch(() => [] as { id: string; date: string; time: string | null; kind: string; label: string; done: boolean }[]);
   for (const g of generalEvents) {
     if (!isDate(g.date)) continue;
     const kind = g.kind === "action" ? "action" : "session";
     const item: AgendaItem = {
-      coachingId: "", itemId: g.id, coacheeName: "Général", date: g.date, kind,
+      coachingId: "", itemId: g.id, coacheeName: "Général", date: g.date, time: asTime(g.time), kind,
       label: g.label || (kind === "action" ? "Action" : "Séance"), done: g.done, general: true,
     };
     agenda.push(item);
     if (kind === "session" && g.date >= today && !g.done) upcoming.push(item);
   }
 
-  upcoming.sort((a, b) => a.date.localeCompare(b.date));
-  agenda.sort((a, b) => a.date.localeCompare(b.date));
+  // Tri par date puis par heure (les événements sans heure en premier).
+  const byDateTime = (a: AgendaItem, b: AgendaItem) =>
+    a.date.localeCompare(b.date) || (a.time ?? "").localeCompare(b.time ?? "");
+  upcoming.sort(byDateTime);
+  agenda.sort(byDateTime);
   // Actions en attente : échéance la plus proche d'abord, sans échéance à la fin.
   pendingActions.sort((a, b) => {
     if (a.due && b.due) return a.due.localeCompare(b.due);

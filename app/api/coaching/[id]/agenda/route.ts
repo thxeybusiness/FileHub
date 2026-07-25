@@ -8,18 +8,21 @@ import { resolveCoachingAccess, canEditRole } from "@/lib/coaching-members";
 export const runtime = "nodejs";
 
 const DATE = /^\d{4}-\d{2}-\d{2}$/;
+const TIME = /^\d{2}:\d{2}$/; // hh:mm ("" = pas d'heure)
 
 const schema = z.object({
   op: z.enum(["add", "update", "delete"]),
   kind: z.enum(["session", "action"]),
   itemId: z.string().optional(),
   date: z.string().regex(DATE).optional(),
+  // "" efface l'heure (événement « toute la journée »).
+  time: z.union([z.string().regex(TIME), z.literal("")]).optional(),
   label: z.string().max(300).optional(),
   done: z.boolean().optional(),
 });
 
-type Session = { id: string; date: string; title: string; notes: string; mood: string; done: boolean };
-type Action = { id: string; text: string; due: string; done: boolean };
+type Session = { id: string; date: string; time?: string; title: string; notes: string; mood: string; done: boolean };
+type Action = { id: string; text: string; due: string; time?: string; done: boolean };
 
 // PATCH /api/coaching/:id/agenda — ajoute / modifie / supprime une séance ou une
 // action de la fiche d'un coaché depuis l'agenda (lecture-modif-écriture du
@@ -36,7 +39,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
   const body = await req.json().catch(() => null);
   const parsed = schema.safeParse(body);
   if (!parsed.success) return NextResponse.json({ error: "Requête invalide" }, { status: 400 });
-  const { op, kind, itemId, date, label, done } = parsed.data;
+  const { op, kind, itemId, date, time, label, done } = parsed.data;
 
   let content: Record<string, unknown> = {};
   try {
@@ -49,11 +52,12 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
 
   if (kind === "session") {
     if (op === "add") {
-      sessions.push({ id: randomUUID(), date: date ?? "", title: label ?? "Séance", notes: "", mood: "", done: false });
+      sessions.push({ id: randomUUID(), date: date ?? "", time: time || "", title: label ?? "Séance", notes: "", mood: "", done: false });
     } else if (op === "update") {
       const s = sessions.find((x) => x.id === itemId);
       if (!s) return NextResponse.json({ error: "Séance introuvable" }, { status: 404 });
       if (date !== undefined) s.date = date;
+      if (time !== undefined) s.time = time; // "" ⇒ toute la journée
       if (label !== undefined) s.title = label;
       if (done !== undefined) s.done = done;
     } else if (op === "delete") {
@@ -63,11 +67,12 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
     content.sessions = sessions;
   } else {
     if (op === "add") {
-      actions.push({ id: randomUUID(), text: label ?? "Action", due: date ?? "", done: false });
+      actions.push({ id: randomUUID(), text: label ?? "Action", due: date ?? "", time: time || "", done: false });
     } else if (op === "update") {
       const a = actions.find((x) => x.id === itemId);
       if (!a) return NextResponse.json({ error: "Action introuvable" }, { status: 404 });
       if (date !== undefined) a.due = date;
+      if (time !== undefined) a.time = time; // "" ⇒ toute la journée
       if (label !== undefined) a.text = label;
       if (done !== undefined) a.done = done;
     } else if (op === "delete") {

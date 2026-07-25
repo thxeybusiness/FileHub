@@ -7,11 +7,14 @@ import { prisma } from "@/lib/prisma";
 export const runtime = "nodejs";
 
 const DATE = /^\d{4}-\d{2}-\d{2}$/;
+const TIME = /^\d{2}:\d{2}$/; // hh:mm ("" = pas d'heure)
 const schema = z.object({
   op: z.enum(["add", "update", "delete"]),
   kind: z.enum(["session", "action"]).optional(),
   itemId: z.string().optional(),
   date: z.string().regex(DATE).optional(),
+  // "" efface l'heure (événement « toute la journée »).
+  time: z.union([z.string().regex(TIME), z.literal("")]).optional(),
   label: z.string().max(300).optional(),
   done: z.boolean().optional(),
 });
@@ -25,7 +28,7 @@ export async function PATCH(req: NextRequest) {
   const body = await req.json().catch(() => null);
   const parsed = schema.safeParse(body);
   if (!parsed.success) return NextResponse.json({ error: "Requête invalide" }, { status: 400 });
-  const { op, kind, itemId, date, label, done } = parsed.data;
+  const { op, kind, itemId, date, time, label, done } = parsed.data;
 
   // Bucket coaching = space_id NULL + scope ≠ "filehub" (scope "coaching" ou
   // NULL hérité). NB : Prisma `not` n'inclut PAS les NULL → OR explicite.
@@ -34,7 +37,7 @@ export async function PATCH(req: NextRequest) {
 
   if (op === "add") {
     await prisma.agendaEvent.create({
-      data: { id: randomUUID(), userId, spaceId: null, scope: "coaching", date: date ?? "", kind: kind === "action" ? "action" : "session", label: label ?? "Séance", done: false },
+      data: { id: randomUUID(), userId, spaceId: null, scope: "coaching", date: date ?? "", time: time ? time : null, kind: kind === "action" ? "action" : "session", label: label ?? "Séance", done: false },
     });
   } else if (op === "update") {
     if (!itemId) return NextResponse.json({ error: "itemId requis" }, { status: 400 });
@@ -42,6 +45,8 @@ export async function PATCH(req: NextRequest) {
       where: { id: itemId, ...belong },
       data: {
         ...(date !== undefined ? { date } : {}),
+        // "" ⇒ retire l'heure (toute la journée).
+        ...(time !== undefined ? { time: time ? time : null } : {}),
         ...(label !== undefined ? { label } : {}),
         ...(done !== undefined ? { done } : {}),
       },

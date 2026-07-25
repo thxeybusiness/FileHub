@@ -108,7 +108,7 @@ export function CoachingDashboard() {
                               <p className="truncate text-xs text-muted">{u.label}</p>
                             </div>
                             <div className="text-right">
-                              <p className="text-sm font-semibold tabular-nums">{fmtDate(u.date)}</p>
+                              <p className="text-sm font-semibold tabular-nums">{fmtDate(u.date)}{u.time ? ` · ${u.time}` : ""}</p>
                               <p className="text-[11px] text-muted">{relDays(u.date)}</p>
                             </div>
                           </button>

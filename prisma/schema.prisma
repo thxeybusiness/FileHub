@@ -309,6 +309,7 @@ model AgendaEvent {
   spaceId   String?  @map("space_id")
   scope     String? // "filehub" | "coaching" (NULL hérité = coaching)
   date      String // yyyy-mm-dd
+  time      String? // hh:mm (facultatif : événement sans heure = « toute la journée »)
   kind      String // "session" | "action"
   label     String
   done      Boolean  @default(false)

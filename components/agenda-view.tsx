@@ -4,7 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import {
   Menu, CalendarDays, ChevronLeft, ChevronRight, Loader2, CalendarClock, ListChecks,
-  Plus, Trash2, Check, Users, ArrowLeft,
+  Plus, Trash2, Check, Users, ArrowLeft, Clock, X,
 } from "lucide-react";
 import { api, type AgendaEventDTO } from "@/lib/api";
 
@@ -35,6 +35,7 @@ export function AgendaView({ spaceId, title, subtitle, shared, backHref }: { spa
   const [adding, setAdding] = useState(false);
   const [addKind, setAddKind] = useState<"session" | "action">("session");
   const [addLabel, setAddLabel] = useState("");
+  const [addTime, setAddTime] = useState("");
 
   const reload = useCallback(
     () => api.listAgenda(spaceId).then((r) => setEvents(r.events)).catch(() => setEvents([])),
@@ -53,6 +54,8 @@ export function AgendaView({ spaceId, title, subtitle, shared, backHref }: { spa
       arr.push(e);
       map.set(e.date, arr);
     }
+    // Dans chaque journée : par heure croissante, sans heure en premier.
+    for (const arr of map.values()) arr.sort((a, b) => (a.time ?? "").localeCompare(b.time ?? ""));
     return map;
   }, [events]);
 
@@ -78,7 +81,7 @@ export function AgendaView({ spaceId, title, subtitle, shared, backHref }: { spa
   };
   const goToday = () => { setCursor({ y: now.getFullYear(), m: now.getMonth() }); pickDay(today); };
 
-  const pickDay = (date: string) => { setSelected(date); setAdding(false); setAddLabel(""); };
+  const pickDay = (date: string) => { setSelected(date); setAdding(false); setAddLabel(""); setAddTime(""); };
 
   const mutate = async (body: Parameters<typeof api.editAgenda>[0]) => {
     setBusy(true);
@@ -88,8 +91,8 @@ export function AgendaView({ spaceId, title, subtitle, shared, backHref }: { spa
 
   const submitAdd = async () => {
     if (!selected || !addLabel.trim()) return;
-    await mutate({ op: "add", kind: addKind, date: selected, label: addLabel.trim() });
-    setAddLabel(""); setAdding(false);
+    await mutate({ op: "add", kind: addKind, date: selected, time: addTime, label: addLabel.trim() });
+    setAddLabel(""); setAddTime(""); setAdding(false);
   };
 
   const selectedEvents = selected ? byDate.get(selected) ?? [] : [];
@@ -152,6 +155,7 @@ export function AgendaView({ spaceId, title, subtitle, shared, backHref }: { spa
                       <div className="mt-0.5 space-y-0.5 overflow-hidden">
                         {evs.slice(0, 2).map((e, j) => (
                           <div key={j} className="flex items-center gap-1 truncate rounded px-1 py-0.5 text-[10px]" style={{ background: KIND_COLOR[e.kind] + "22", color: KIND_TEXT[e.kind] }}>
+                            {e.time && <span className="shrink-0 font-semibold tabular-nums">{e.time}</span>}
                             <span className={`truncate ${e.done ? "line-through opacity-60" : ""}`}>{e.label || KIND_LABEL[e.kind]}</span>
                           </div>
                         ))}
@@ -180,6 +184,21 @@ export function AgendaView({ spaceId, title, subtitle, shared, backHref }: { spa
                             </button>
                           ))}
                         </div>
+                        <label className="flex items-center gap-1.5 text-xs text-muted">
+                          <Clock className="size-3.5" />
+                          <input
+                            type="time"
+                            value={addTime}
+                            onChange={(e) => setAddTime(e.target.value)}
+                            className="rounded-lg border border-white/10 bg-white/[0.03] px-2 py-1.5 text-xs text-white outline-none focus:border-brand-400/50 [color-scheme:dark]"
+                            title="Heure (facultatif)"
+                          />
+                          {addTime && (
+                            <button type="button" onClick={() => setAddTime("")} className="text-white/40 transition hover:text-white" title="Retirer l'heure">
+                              <X className="size-3.5" />
+                            </button>
+                          )}
+                        </label>
                       </div>
                       <div className="mt-2 flex items-center gap-2">
                         <input value={addLabel} onChange={(e) => setAddLabel(e.target.value)} onKeyDown={(e) => e.key === "Enter" && submitAdd()} autoFocus
@@ -216,8 +235,11 @@ export function AgendaView({ spaceId, title, subtitle, shared, backHref }: { spa
                               onKeyDown={(ev) => ev.key === "Enter" && (ev.target as HTMLInputElement).blur()}
                               className={`w-full bg-transparent text-sm font-medium outline-none focus:text-white ${e.done ? "text-muted line-through" : ""}`}
                             />
-                            <p className="truncate text-xs text-muted">{KIND_LABEL[e.kind]}</p>
+                            <p className="truncate text-xs text-muted">{KIND_LABEL[e.kind]}{e.time ? ` · ${e.time}` : " · toute la journée"}</p>
                           </div>
+                          {/* Heure modifiable (vide = toute la journée) */}
+                          <input type="time" value={e.time ?? ""} onChange={(ev) => mutate({ op: "update", itemId: e.id, time: ev.target.value })}
+                            className="shrink-0 rounded-lg border border-white/10 bg-white/[0.03] px-2 py-1 text-xs text-white/80 outline-none focus:border-brand-400/50 [color-scheme:dark]" title="Heure (vide = toute la journée)" />
                           <input type="date" value={e.date} onChange={(ev) => ev.target.value && mutate({ op: "update", itemId: e.id, date: ev.target.value })}
                             className="hidden shrink-0 rounded-lg border border-white/10 bg-white/[0.03] px-2 py-1 text-xs text-muted outline-none sm:block [color-scheme:dark]" title="Déplacer" />
                           <button onClick={() => mutate({ op: "delete", itemId: e.id })} className="grid size-7 shrink-0 place-items-center rounded-lg text-muted opacity-0 transition hover:bg-red-500/10 hover:text-red-400 group-hover:opacity-100" title="Supprimer"><Trash2 className="size-3.5" /></button>

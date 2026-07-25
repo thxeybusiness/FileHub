@@ -8,8 +8,9 @@ import { getSpaceRole, canEditRole } from "@/lib/spaces";
 export const runtime = "nodejs";
 
 const DATE = /^\d{4}-\d{2}-\d{2}$/;
+const TIME = /^\d{2}:\d{2}$/; // hh:mm ("" = pas d'heure)
 
-type AgendaEventDTO = { id: string; date: string; kind: "session" | "action"; label: string; done: boolean };
+type AgendaEventDTO = { id: string; date: string; time: string | null; kind: "session" | "action"; label: string; done: boolean };
 
 // GET /api/agenda            → agenda personnel (space_id NULL, propre à l'user)
 // GET /api/agenda?space=<id> → agenda commun d'un espace (membre requis)
@@ -29,14 +30,18 @@ export async function GET(req: NextRequest) {
   const rows = await prisma.agendaEvent
     .findMany({
       where: spaceId ? { spaceId } : { userId, spaceId: null, scope: "filehub" },
-      select: { id: true, date: true, kind: true, label: true, done: true },
-      orderBy: { date: "asc" },
+      select: { id: true, date: true, time: true, kind: true, label: true, done: true },
+      orderBy: [{ date: "asc" }, { time: "asc" }],
     })
-    .catch(() => [] as { id: string; date: string; kind: string; label: string; done: boolean }[]);
+    .catch(() => [] as { id: string; date: string; time: string | null; kind: string; label: string; done: boolean }[]);
 
   const events: AgendaEventDTO[] = rows
     .filter((r) => DATE.test(r.date))
-    .map((r) => ({ id: r.id, date: r.date, kind: r.kind === "action" ? "action" : "session", label: r.label, done: r.done }));
+    .map((r) => ({
+      id: r.id, date: r.date,
+      time: r.time && TIME.test(r.time) ? r.time : null,
+      kind: r.kind === "action" ? "action" : "session", label: r.label, done: r.done,
+    }));
 
   return NextResponse.json({ events });
 }
@@ -46,6 +51,8 @@ const schema = z.object({
   kind: z.enum(["session", "action"]).optional(),
   itemId: z.string().optional(),
   date: z.string().regex(DATE).optional(),
+  // "" efface l'heure (événement « toute la journée »).
+  time: z.union([z.string().regex(TIME), z.literal("")]).optional(),
   label: z.string().max(300).optional(),
   done: z.boolean().optional(),
   spaceId: z.string().nullable().optional(),
@@ -61,7 +68,7 @@ export async function PATCH(req: NextRequest) {
   const body = await req.json().catch(() => null);
   const parsed = schema.safeParse(body);
   if (!parsed.success) return NextResponse.json({ error: "Requête invalide" }, { status: 400 });
-  const { op, kind, itemId, date, label, done, spaceId } = parsed.data;
+  const { op, kind, itemId, date, time, label, done, spaceId } = parsed.data;
 
   // Portée espace : droit d'édition requis. Portée perso : rien de plus.
   if (spaceId) {
@@ -82,6 +89,7 @@ export async function PATCH(req: NextRequest) {
         spaceId: spaceId ?? null,
         scope: spaceId ? null : "filehub",
         date: date ?? "",
+        time: time ? time : null,
         kind: kind === "action" ? "action" : "session",
         label: label ?? "Événement",
         done: false,
@@ -93,6 +101,8 @@ export async function PATCH(req: NextRequest) {
       where: { id: itemId, ...belong },
       data: {
         ...(date !== undefined ? { date } : {}),
+        // "" ⇒ retire l'heure (toute la journée).
+        ...(time !== undefined ? { time: time ? time : null } : {}),
         ...(label !== undefined ? { label } : {}),
         ...(done !== undefined ? { done } : {}),
       },
