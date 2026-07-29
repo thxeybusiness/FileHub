@@ -25,6 +25,7 @@ import {
   type LucideIcon,
 } from "lucide-react";
 import { api } from "@/lib/api";
+import { useAutosave } from "./use-autosave";
 import { AiAssistant } from "./ai-assistant";
 import { RealtimeEngine, type Actions } from "./realtime";
 import { CollabBar } from "./collab-bar";
@@ -624,7 +625,15 @@ export function SlidesEditor({
   const [sel, setSel] = useState<string | null>(null);
   const [editing, setEditing] = useState<string | null>(null);
   const [present, setPresent] = useState<number | null>(null);
-  const [save, setSave] = useState<SaveState>("saved");
+  // Sauvegarde automatique fiable : envoyee aussi des que la page est masquee
+  // ou fermee (mobile verrouille, changement d'app) -> aucune perte.
+  const doSave = useCallback(
+    (p: { content?: string; name?: string }, keepalive: boolean) => api.saveContent(id, p, keepalive),
+    [id],
+  );
+  const { state: save, schedule } = useAutosave(doSave, {
+    onSaved: (u) => { dirty.current = false; if (u) actions.current.syncVersion(u); },
+  });
   const [flash, setFlash] = useState(false);
   const [scale, setScale] = useState(0.6);
   const [shapeMenu, setShapeMenu] = useState(false);
@@ -634,7 +643,6 @@ export function SlidesEditor({
 
   const deckRef = useRef(deck);
   useEffect(() => { deckRef.current = deck; }, [deck]);
-  const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const stageRef = useRef<HTMLDivElement>(null);
   const wrapRef = useRef<HTMLDivElement>(null);
   const fileRef = useRef<HTMLInputElement>(null);
@@ -669,16 +677,10 @@ export function SlidesEditor({
   const serializedDeck = useMemo(() => JSON.stringify(deck), [deck]);
 
   const persist = useCallback((content: string, patch?: { name?: string }) => {
-    setSave("saving");
     dirty.current = true;
     actions.current.markEditing();
-    if (timer.current) clearTimeout(timer.current);
-    timer.current = setTimeout(() => {
-      api.saveContent(id, { content, ...patch })
-        .then((r) => { setSave("saved"); dirty.current = false; if (r?.updatedAt) actions.current.syncVersion(r.updatedAt); })
-        .catch(() => setSave("error"));
-    }, 500);
-  }, [id]);
+    schedule({ content, ...patch });
+  }, [schedule]);
 
   const commit = useCallback(() => { persist(JSON.stringify(deckRef.current)); }, [persist]);
   const pushHistory = () => { past.current.push(JSON.stringify(deckRef.current)); if (past.current.length > 60) past.current.shift(); future.current = []; };

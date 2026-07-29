@@ -15,6 +15,14 @@ const jsonInit = (method: string, body: unknown): RequestInit => ({
   body: JSON.stringify(body),
 });
 
+// Variante « keepalive » : le navigateur termine la requête MÊME si la page est
+// masquée, fermée ou déchargée (téléphone verrouillé, changement d'app…).
+// Indispensable pour ne perdre aucune modification sur mobile.
+const jsonInitKeepalive = (method: string, body: unknown): RequestInit => ({
+  ...jsonInit(method, body),
+  keepalive: true,
+});
+
 export type SpaceSummary = {
   id: string;
   name: string;
@@ -162,8 +170,8 @@ export const api = {
     );
   },
 
-  saveDoc(id: string, patch: { content?: string; name?: string }) {
-    return req<{ ok: boolean; updatedAt: string }>(`/api/docs/${id}`, jsonInit("PUT", patch));
+  saveDoc(id: string, patch: { content?: string; name?: string }, keepalive = false) {
+    return req<{ ok: boolean; updatedAt: string }>(`/api/docs/${id}`, (keepalive ? jsonInitKeepalive : jsonInit)("PUT", patch));
   },
 
   createSheet(name: string, parentId: string | null, spaceId?: string | null) {
@@ -173,8 +181,8 @@ export const api = {
     );
   },
 
-  saveSheet(id: string, patch: { content?: unknown; name?: string }) {
-    return req<{ ok: boolean; updatedAt: string }>(`/api/sheets/${id}`, jsonInit("PUT", patch));
+  saveSheet(id: string, patch: { content?: unknown; name?: string }, keepalive = false) {
+    return req<{ ok: boolean; updatedAt: string }>(`/api/sheets/${id}`, (keepalive ? jsonInitKeepalive : jsonInit)("PUT", patch));
   },
 
   createChart(name: string, parentId: string | null, spaceId?: string | null) {
@@ -191,8 +199,8 @@ export const api = {
     );
   },
 
-  saveDraw(id: string, patch: { content?: unknown; name?: string }) {
-    return req<{ ok: boolean; updatedAt: string }>(`/api/draws/${id}`, jsonInit("PUT", patch));
+  saveDraw(id: string, patch: { content?: unknown; name?: string }, keepalive = false) {
+    return req<{ ok: boolean; updatedAt: string }>(`/api/draws/${id}`, (keepalive ? jsonInitKeepalive : jsonInit)("PUT", patch));
   },
 
   // ── Types génériques (note, diagram, board, slides) ──
@@ -205,8 +213,8 @@ export const api = {
   getContent(id: string) {
     return req<{ id: string; name: string; type: string; content: string }>(`/api/content/${id}`);
   },
-  saveContent(id: string, patch: { content?: string; name?: string }) {
-    return req<{ ok: boolean; updatedAt: string }>(`/api/content/${id}`, jsonInit("PUT", patch));
+  saveContent(id: string, patch: { content?: string; name?: string }, keepalive = false) {
+    return req<{ ok: boolean; updatedAt: string }>(`/api/content/${id}`, (keepalive ? jsonInitKeepalive : jsonInit)("PUT", patch));
   },
   // Heartbeat de collaboration temps réel (présence + version du document).
   collab(id: string, body: { editing?: boolean; leave?: boolean }) {
@@ -360,8 +368,8 @@ export const api = {
     }>("/api/admin/discount-code", jsonInit("POST", { plan, interval, maxRedemptions }));
   },
 
-  saveChart(id: string, patch: { content?: unknown; name?: string }) {
-    return req<{ ok: boolean; updatedAt: string }>(`/api/charts/${id}`, jsonInit("PUT", patch));
+  saveChart(id: string, patch: { content?: unknown; name?: string }, keepalive = false) {
+    return req<{ ok: boolean; updatedAt: string }>(`/api/charts/${id}`, (keepalive ? jsonInitKeepalive : jsonInit)("PUT", patch));
   },
 
   update(id: string, patch: Partial<Pick<SerializedNode, "name" | "starred" | "trashed" | "color" | "parentId">>) {

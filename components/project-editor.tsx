@@ -13,6 +13,7 @@ import {
   Eye, EyeOff, Pencil, Settings2, ListChecks, AlignLeft, SlidersHorizontal, Palette, History, MessageSquare,
 } from "lucide-react";
 import { api } from "@/lib/api";
+import { useAutosave } from "./use-autosave";
 import { AiAssistant } from "./ai-assistant";
 import { RealtimeEngine, type Actions } from "./realtime";
 import { CollabBar } from "./collab-bar";
@@ -258,7 +259,15 @@ export function ProjectEditor({
 }) {
   const [name, setName] = useState(initialName);
   const [proj, setProj] = useState<Project>(() => parse(initialContent));
-  const [save, setSave] = useState<SaveState>("saved");
+  // Sauvegarde automatique fiable : envoyee aussi des que la page est masquee
+  // ou fermee (mobile verrouille, changement d'app) -> aucune perte.
+  const doSave = useCallback(
+    (p: { content?: string; name?: string }, keepalive: boolean) => api.saveContent(id, p, keepalive),
+    [id],
+  );
+  const { state: save, schedule } = useAutosave(doSave, {
+    onSaved: (u) => { dirty.current = false; if (u) actions.current.syncVersion(u); },
+  });
   const [flash, setFlash] = useState(false);
   const [activeView, setActiveView] = useState<string>(() => parse(initialContent).views[0]?.id ?? "v_table");
   const [query, setQuery] = useState("");
@@ -269,22 +278,15 @@ export function ProjectEditor({
   const [histOpen, setHistOpen] = useState(false);
   const [comOpen, setComOpen] = useState(false);
   const actions = useRef<Actions>({ markEditing: () => {}, syncVersion: () => {} });
-  const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const dirty = useRef(false);
 
   const serialize = useCallback((p: Project) => JSON.stringify(p), []);
 
   const persist = useCallback((next: Project, nextName?: string) => {
-    setSave("saving");
     dirty.current = true;
     actions.current.markEditing();
-    if (timer.current) clearTimeout(timer.current);
-    timer.current = setTimeout(() => {
-      api.saveContent(id, { content: serialize(next), ...(nextName != null ? { name: nextName } : {}) })
-        .then((r) => { setSave("saved"); dirty.current = false; if (r?.updatedAt) actions.current.syncVersion(r.updatedAt); })
-        .catch(() => setSave("error"));
-    }, 550);
-  }, [id, serialize]);
+    schedule({ content: serialize(next), ...(nextName != null ? { name: nextName } : {}) });
+  }, [serialize, schedule]);
 
   const update = useCallback((fn: (p: Project) => Project) => {
     setProj((prev) => { const next = fn(prev); persist(next); return next; });

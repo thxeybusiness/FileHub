@@ -346,6 +346,28 @@ export async function syncSpaceMember(spaceId: string, userId: string, role: "ed
     .catch(() => {});
 }
 
+/**
+ * AUTO-RÉPARATION de l'accès d'un membre au drive du coaché.
+ *
+ * Le miroir suivi → espace est posé à l'invitation, mais il pouvait manquer :
+ * synchronisation silencieusement échouée, ou espace recréé/fusionné après
+ * coup. Résultat : la personne voyait bien sa fiche mais ne pouvait RIEN créer
+ * ni enregistrer dans le drive (403 côté API), sans message explicite.
+ *
+ * Appelée à chaque ouverture du drive du coaché : le rôle dans l'espace est
+ * réaligné sur celui du suivi (source de vérité). Idempotente et silencieuse.
+ */
+export async function ensureCoachingMemberAccess(
+  spaceId: string,
+  userId: string,
+  role: "owner" | "editor" | "viewer",
+): Promise<void> {
+  // Le propriétaire a sa ligne « owner » depuis la création de l'espace : on ne
+  // la réécrit pas (ce rôle n'existe pas côté suivi).
+  if (role !== "editor" && role !== "viewer") return;
+  await syncSpaceMember(spaceId, userId, role);
+}
+
 /** Retire un membre de l'espace du coaché. */
 export async function unsyncSpaceMember(spaceId: string, userId: string): Promise<void> {
   await prisma.spaceMember

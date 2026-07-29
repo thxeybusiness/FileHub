@@ -39,6 +39,7 @@ import {
   BarChart3,
 } from "lucide-react";
 import { api, type AiChart } from "@/lib/api";
+import { useAutosave } from "./use-autosave";
 import { cn } from "@/lib/utils";
 import { AiAssistant } from "./ai-assistant";
 import {
@@ -80,26 +81,21 @@ export function ChartEditor({
 }) {
   const [name, setName] = useState(initialName);
   const [doc, setDoc] = useState<ChartDoc>(initialDoc ?? defaultChartDoc());
-  const [save, setSave] = useState<SaveState>("saved");
   const [typeOpen, setTypeOpen] = useState(false);
   const [mounted, setMounted] = useState(false);
-  const contentTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const nameTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // Sauvegarde automatique fiable : envoyee aussi des que la page est masquee
+  // ou fermee (mobile verrouille, changement d'app) -> aucune perte.
+  const doSave = useCallback(
+    (p: { content?: ChartDoc; name?: string }, keepalive: boolean) => api.saveChart(id, p, keepalive),
+    [id],
+  );
+  const { state: save, schedule } = useAutosave(doSave, { delay: 600 });
 
   useEffect(() => setMounted(true), []);
 
   const persistContent = useCallback(
-    (next: ChartDoc) => {
-      setSave("saving");
-      if (contentTimer.current) clearTimeout(contentTimer.current);
-      contentTimer.current = setTimeout(() => {
-        api
-          .saveChart(id, { content: next })
-          .then(() => setSave("saved"))
-          .catch(() => setSave("error"));
-      }, 600);
-    },
-    [id],
+    (next: ChartDoc) => { schedule({ content: next }); },
+    [schedule],
   );
 
   const update = useCallback(
@@ -115,14 +111,7 @@ export function ChartEditor({
 
   const onName = (v: string) => {
     setName(v);
-    setSave("saving");
-    if (nameTimer.current) clearTimeout(nameTimer.current);
-    nameTimer.current = setTimeout(() => {
-      api
-        .saveChart(id, { name: v.trim() || "Graphique sans titre" })
-        .then(() => setSave("saved"))
-        .catch(() => setSave("error"));
-    }, 600);
+    schedule({ name: v.trim() || "Graphique sans titre" });
   };
 
   const currentType = CHART_TYPES.find((t) => t.id === doc.type)!;

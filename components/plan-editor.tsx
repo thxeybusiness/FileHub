@@ -8,6 +8,7 @@ import {
   Search, ExternalLink,
 } from "lucide-react";
 import { api } from "@/lib/api";
+import { useAutosave } from "./use-autosave";
 import { NodeIcon } from "./file-icon";
 import { ExportButton } from "./export-button";
 import { openPrintWindow, safeFilename } from "@/lib/export-doc";
@@ -128,20 +129,23 @@ export function PlanEditor({
 }) {
   const [name, setName] = useState(initialName);
   const [plan, setPlan] = useState<Plan>(() => parsePlan(initialContent));
-  const [save, setSave] = useState<SaveState>("saved");
-  const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // Sauvegarde automatique fiable : envoyee aussi des que la page est masquee
+  // ou fermee (mobile verrouille, changement d'app) -> aucune perte.
+  const doSave = useCallback(
+    (p: { content?: string; name?: string }, keepalive: boolean) => api.saveContent(id, p, keepalive),
+    [id],
+  );
+  const { state: save, schedule } = useAutosave(doSave, {
+    onSaved: () => {},
+  });
 
   // Menu d'attache ouvert (par étape) + sélecteur de document du drive.
   const [menuStep, setMenuStep] = useState<string | null>(null);
   const [picker, setPicker] = useState<{ oid: string; sid: string } | null>(null);
 
   const persist = useCallback((patch: { content?: string; name?: string }) => {
-    setSave("saving");
-    if (timer.current) clearTimeout(timer.current);
-    timer.current = setTimeout(() => {
-      api.saveContent(id, patch).then(() => setSave("saved")).catch(() => setSave("error"));
-    }, 600);
-  }, [id]);
+    schedule(patch);
+  }, [schedule]);
 
   const update = useCallback((fn: (p: Plan) => Plan) => {
     if (!canEdit) return;

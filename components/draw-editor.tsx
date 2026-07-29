@@ -19,6 +19,7 @@ import {
   MousePointer2,
 } from "lucide-react";
 import { api } from "@/lib/api";
+import { useAutosave } from "./use-autosave";
 import { beautifyStroke } from "@/lib/shape-recognizer";
 import { ConfirmDialog } from "./confirm-dialog";
 import { AiAssistant } from "./ai-assistant";
@@ -122,7 +123,6 @@ export function DrawEditor({
   const nameTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const [name, setName] = useState(initialName);
-  const [save, setSave] = useState<SaveState>("saved");
   const [tool, setTool] = useState<Tool>("pen");
   const [color, setColor] = useState(initialDoc?.strokes?.[0]?.color ?? "#5b8bff");
   const [size, setSize] = useState(4);
@@ -244,15 +244,17 @@ export function DrawEditor({
   }, [resize]);
 
   // ── Persistance ─────────────────────────────────────────────────────────
-  const persist = useCallback(
-    (patch: { content?: DrawDoc; name?: string }) => {
-      setSave("saving");
-      api
-        .saveDraw(id, patch)
-        .then(() => setSave("saved"))
-        .catch(() => setSave("idle"));
-    },
+  // Sauvegarde automatique fiable : envoyee aussi des que la page est masquee
+  // ou fermee (mobile verrouille, changement d'app) -> aucune perte.
+  const doSave = useCallback(
+    (p: { content?: DrawDoc; name?: string }, keepalive: boolean) => api.saveDraw(id, p, keepalive),
     [id],
+  );
+  const { state: save, setState: setSave, schedule, flush } = useAutosave(doSave, { delay: 600 });
+
+  const persist = useCallback(
+    (patch: { content?: DrawDoc; name?: string }) => { schedule(patch); flush(false); },
+    [schedule, flush],
   );
 
   const scheduleSave = useCallback(() => {

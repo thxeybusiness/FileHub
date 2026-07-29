@@ -12,6 +12,7 @@ import {
   Archive, ChevronLeft, ChevronRight, Timer, RotateCcw, Eye, EyeOff, Minimize2, History, MessageSquare,
 } from "lucide-react";
 import { api } from "@/lib/api";
+import { useAutosave } from "./use-autosave";
 import { AiAssistant } from "./ai-assistant";
 import { RealtimeEngine, type Actions } from "./realtime";
 import { CollabBar } from "./collab-bar";
@@ -146,7 +147,15 @@ export function BoardEditor({
 }) {
   const [name, setName] = useState(initialName);
   const [board, setBoard] = useState<Board>(() => parse(initialContent));
-  const [save, setSave] = useState<SaveState>("saved");
+  // Sauvegarde automatique fiable : envoyee aussi des que la page est masquee
+  // ou fermee (mobile verrouille, changement d'app) -> aucune perte.
+  const doSave = useCallback(
+    (p: { content?: string; name?: string }, keepalive: boolean) => api.saveContent(id, p, keepalive),
+    [id],
+  );
+  const { state: save, schedule } = useAutosave(doSave, {
+    onSaved: (u) => { dirty.current = false; if (u) actions.current.syncVersion(u); },
+  });
   const [flash, setFlash] = useState(false);
   const [view, setView] = useState<View>("board");
   const [sort, setSort] = useState<SortKey>("manual");
@@ -166,7 +175,6 @@ export function BoardEditor({
   const [dropCol, setDropCol] = useState<string | null>(null);
   const [pos, setPos] = useState({ x: 0, y: 0 });
 
-  const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const dirty = useRef(false);
   const boardRef = useRef<HTMLDivElement>(null);
   const dragRef = useRef<Drag>(null);
@@ -190,16 +198,10 @@ export function BoardEditor({
   }, [id, applyRemoteString]);
 
   const persist = useCallback((content: string) => {
-    setSave("saving");
     dirty.current = true;
     actions.current.markEditing();
-    if (timer.current) clearTimeout(timer.current);
-    timer.current = setTimeout(() => {
-      api.saveContent(id, { content })
-        .then((r) => { setSave("saved"); dirty.current = false; if (r?.updatedAt) actions.current.syncVersion(r.updatedAt); })
-        .catch(() => setSave("error"));
-    }, 500);
-  }, [id]);
+    schedule({ content });
+  }, [schedule]);
 
   const update = useCallback((mut: (b: Board) => void) => {
     setBoard((prev) => { const next = structuredClone(prev); mut(next); persist(JSON.stringify(next)); return next; });

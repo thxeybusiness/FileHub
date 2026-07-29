@@ -1,7 +1,7 @@
 import { notFound, redirect } from "next/navigation";
 import { getUserId } from "@/lib/auth";
 import { resolveCoachingAccess, canEditRole } from "@/lib/coaching-members";
-import { ensureCoachingSpace } from "@/lib/coaching-space";
+import { ensureCoachingSpace, ensureCoachingMemberAccess } from "@/lib/coaching-space";
 import { DriveExplorer } from "@/components/drive-explorer";
 import { CoachingDriveBar } from "@/components/coaching-drive-bar";
 import { CoachingDriveSummary } from "@/components/coaching-drive-summary";
@@ -46,6 +46,8 @@ export default async function Page({ params }: { params: Promise<{ id: string }>
 
   const s = summarize(node.content, node.name);
   const spaceId = await ensureCoachingSpace(id, node.userId, s.name);
+  // Auto-repare l'acces du membre a ce drive (sinon : rien ne s'enregistre).
+  await ensureCoachingMemberAccess(spaceId, userId, role);
 
   return (
     <div className="flex h-full min-h-0 flex-col">

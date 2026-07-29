@@ -3,7 +3,7 @@ import { getUserId } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { getBreadcrumb } from "@/lib/nodes";
 import { resolveCoachingAccess } from "@/lib/coaching-members";
-import { ensureCoachingSpace } from "@/lib/coaching-space";
+import { ensureCoachingSpace, ensureCoachingMemberAccess } from "@/lib/coaching-space";
 import { DocEditor } from "@/components/doc-editor";
 import { ExcelBoardLazy } from "@/components/excel-board-lazy";
 import { ChartEditor } from "@/components/chart-editor";
@@ -37,6 +37,8 @@ export default async function Page({ params }: { params: Promise<{ id: string; n
   if (!coaching || !role) notFound();
 
   const spaceId = await ensureCoachingSpace(id, coaching.userId, coaching.name);
+  // Auto-repare l'acces du membre a ce drive (sinon : rien ne s'enregistre).
+  await ensureCoachingMemberAccess(spaceId, userId, role);
   const node = await prisma.node.findFirst({
     where: { id: nodeId, spaceId },
     select: { id: true, name: true, content: true, parentId: true, type: true },

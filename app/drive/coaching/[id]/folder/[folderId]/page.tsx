@@ -3,7 +3,7 @@ import { getUserId } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { getBreadcrumb } from "@/lib/nodes";
 import { resolveCoachingAccess } from "@/lib/coaching-members";
-import { ensureCoachingSpace } from "@/lib/coaching-space";
+import { ensureCoachingSpace, ensureCoachingMemberAccess } from "@/lib/coaching-space";
 import { DriveExplorer } from "@/components/drive-explorer";
 import { CoachingDriveBar } from "@/components/coaching-drive-bar";
 
@@ -16,6 +16,8 @@ export default async function Page({ params }: { params: Promise<{ id: string; f
   if (!node || !role) notFound();
 
   const spaceId = await ensureCoachingSpace(id, node.userId, node.name);
+  // Auto-repare l'acces du membre a ce drive (sinon : rien ne s'enregistre).
+  await ensureCoachingMemberAccess(spaceId, userId, role);
   const folder = await prisma.node.findFirst({
     where: { id: folderId, spaceId, type: "folder" },
     select: { id: true, name: true },

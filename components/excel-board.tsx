@@ -71,6 +71,9 @@ export function ExcelBoard({
   const [ready, setReady] = useState(false);
   const nameTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const snapshotRef = useRef<unknown>(null);
+  // Modification pas encore confirmee par le serveur : sert de filet quand la
+  // page est masquee/fermee (mobile verrouille, changement d'app).
+  const pendingRef = useRef<{ content?: unknown; name?: string } | null>(null);
 
   useEffect(() => {
     let disposed = false;
@@ -183,14 +186,18 @@ export function ExcelBoard({
         if (serialized === lastSerialized) return;
         lastSerialized = serialized;
         snapshotRef.current = snap;
+        pendingRef.current = { ...(pendingRef.current ?? {}), content: snap };
         setSaveState("saving");
         if (saveTimeout) clearTimeout(saveTimeout);
         saveTimeout = setTimeout(async () => {
+          const payload = pendingRef.current;
+          if (!payload) return;
           try {
-            await api.saveSheet(sheetId, { content: snap });
+            await api.saveSheet(sheetId, payload);
+            if (pendingRef.current === payload) pendingRef.current = null;
             setSaveState("saved");
           } catch {
-            setSaveState("error");
+            setSaveState("error"); // charge utile conservee -> reessai
           }
         }, 600);
       };
@@ -213,17 +220,39 @@ export function ExcelBoard({
 
   const onNameChange = (v: string) => {
     setName(v);
+    pendingRef.current = { ...(pendingRef.current ?? {}), name: v.trim() || "Feuille sans titre" };
     setSaveState("saving");
     if (nameTimer.current) clearTimeout(nameTimer.current);
     nameTimer.current = setTimeout(async () => {
+      const payload = pendingRef.current;
+      if (!payload) return;
       try {
-        await api.saveSheet(sheetId, { name: v.trim() || "Feuille sans titre" });
+        await api.saveSheet(sheetId, payload);
+        if (pendingRef.current === payload) pendingRef.current = null;
         setSaveState("saved");
       } catch {
         setSaveState("error");
       }
     }, 600);
   };
+
+  // Filet de securite : page masquee / fermee / composant demonte -> on envoie
+  // tout de suite ce qui attend, en keepalive (la requete survit a la page).
+  useEffect(() => {
+    const flush = () => {
+      const payload = pendingRef.current;
+      if (!payload) return;
+      api.saveSheet(sheetId, payload, true).then(() => { pendingRef.current = null; }).catch(() => {});
+    };
+    const onVis = () => { if (document.visibilityState === "hidden") flush(); };
+    document.addEventListener("visibilitychange", onVis);
+    window.addEventListener("pagehide", flush);
+    return () => {
+      document.removeEventListener("visibilitychange", onVis);
+      window.removeEventListener("pagehide", flush);
+      flush();
+    };
+  }, [sheetId]);
 
   return (
     <div className="flex h-full min-h-0 flex-col">

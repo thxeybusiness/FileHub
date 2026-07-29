@@ -6,6 +6,7 @@ import { marked } from "marked";
 import { ArrowLeft, Check, Loader2, ChevronRight, Home, StickyNote, Eye, Pencil, RefreshCw, History, MessageSquare } from "lucide-react";
 import { sanitizeRichHtml } from "@/lib/sanitize-html";
 import { api } from "@/lib/api";
+import { useAutosave } from "./use-autosave";
 import { AiAssistant } from "./ai-assistant";
 import { RealtimeEngine, type Actions } from "./realtime";
 import { CollabBar } from "./collab-bar";
@@ -30,10 +31,17 @@ export function NoteEditor({
 }) {
   const [name, setName] = useState(initialName);
   const [content, setContent] = useState(initialContent);
-  const [save, setSave] = useState<SaveState>("saved");
+  // Sauvegarde automatique fiable : envoyee aussi des que la page est masquee
+  // ou fermee (mobile verrouille, changement d'app) -> aucune perte.
+  const doSave = useCallback(
+    (p: { content?: string; name?: string }, keepalive: boolean) => api.saveContent(id, p, keepalive),
+    [id],
+  );
+  const { state: save, schedule } = useAutosave(doSave, {
+    onSaved: (u) => { dirty.current = false; if (u) actions.current.syncVersion(u); },
+  });
   const [flash, setFlash] = useState(false);
   const [mobilePreview, setMobilePreview] = useState(false);
-  const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const dirty = useRef(false);
   const taRef = useRef<HTMLTextAreaElement | null>(null);
   const [peers, setPeers] = useState<Peer[]>([]);
@@ -70,16 +78,10 @@ export function NoteEditor({
   }, [id, applyRemoteString]);
 
   const persist = useCallback((patch: { content?: string; name?: string }) => {
-    setSave("saving");
     dirty.current = true;
     actions.current.markEditing();
-    if (timer.current) clearTimeout(timer.current);
-    timer.current = setTimeout(() => {
-      api.saveContent(id, patch)
-        .then((r) => { setSave("saved"); dirty.current = false; if (r?.updatedAt) actions.current.syncVersion(r.updatedAt); })
-        .catch(() => setSave("error"));
-    }, 600);
-  }, [id]);
+    schedule(patch);
+  }, [schedule]);
 
   const onContent = (v: string) => { setContent(v); persist({ content: v }); };
   const onName = (v: string) => { setName(v); persist({ name: v.trim() || "Note sans titre" }); };

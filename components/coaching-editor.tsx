@@ -10,6 +10,7 @@ import {
   Contact, Smile, Meh, Frown, History, MessageSquare, Eye, Pencil, Users, Lock,
 } from "lucide-react";
 import { api } from "@/lib/api";
+import { useAutosave } from "./use-autosave";
 import { RealtimeEngine, type Actions } from "./realtime";
 import { CollabBar } from "./collab-bar";
 import { VersionHistory } from "./version-history";
@@ -22,7 +23,6 @@ import type { Peer } from "./use-collab";
 
 /* ───────────────────────── Types ───────────────────────── */
 type Crumb = { id: string; name: string };
-type SaveState = "saved" | "saving" | "idle" | "error";
 
 type Status = "prospect" | "active" | "paused" | "done";
 type Mood = "" | "good" | "neutral" | "low";
@@ -163,7 +163,6 @@ export function CoachingEditor({
 }) {
   const [name, setName] = useState(initialName);
   const [data, setData] = useState<Coaching>(() => parse(initialContent));
-  const [save, setSave] = useState<SaveState>("saved");
   const [flash, setFlash] = useState(false);
   const [notePreview, setNotePreview] = useState(false);
   const [membersOpen, setMembersOpen] = useState(false);
@@ -172,23 +171,26 @@ export function CoachingEditor({
   const [histOpen, setHistOpen] = useState(false);
   const [comOpen, setComOpen] = useState(false);
   const actions = useRef<Actions>({ markEditing: () => {}, syncVersion: () => {} });
-  const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const dirty = useRef(false);
 
   const serialize = useCallback((c: Coaching) => JSON.stringify(c), []);
 
+  // Sauvegarde automatique fiable : vidée dès que la page est masquée/fermée
+  // (téléphone verrouillé, changement d'app) → aucune modification perdue.
+  const doSave = useCallback(
+    (p: { content: string; name?: string }, keepalive: boolean) =>
+      api.saveContent(id, p, keepalive),
+    [id],
+  );
+  const { state: save, schedule, isDirty } = useAutosave(doSave, {
+    onSaved: (updatedAt) => { if (updatedAt) actions.current.syncVersion(updatedAt); },
+  });
+  const dirty = { get current() { return isDirty(); } };
+
   const persist = useCallback((next: Coaching, nextName?: string) => {
     if (!canEdit) return; // lecture seule : aucune écriture
-    setSave("saving");
-    dirty.current = true;
     actions.current.markEditing();
-    if (timer.current) clearTimeout(timer.current);
-    timer.current = setTimeout(() => {
-      api.saveContent(id, { content: serialize(next), ...(nextName != null ? { name: nextName } : {}) })
-        .then((r) => { setSave("saved"); dirty.current = false; if (r?.updatedAt) actions.current.syncVersion(r.updatedAt); })
-        .catch(() => setSave("error"));
-    }, 550);
-  }, [id, serialize, canEdit]);
+    schedule({ content: serialize(next), ...(nextName != null ? { name: nextName } : {}) });
+  }, [serialize, canEdit, schedule]);
 
   const update = useCallback((fn: (c: Coaching) => Coaching) => {
     setData((prev) => { const next = fn(prev); persist(next); return next; });

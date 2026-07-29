@@ -8,6 +8,7 @@ import {
   ListChecks, Lock, GripVertical, NotebookPen, ExternalLink, StickyNote, Unlink,
 } from "lucide-react";
 import { api } from "@/lib/api";
+import { useAutosave } from "./use-autosave";
 import { ExportButton } from "./export-button";
 import { openPrintWindow, safeFilename } from "@/lib/export-doc";
 
@@ -82,20 +83,21 @@ export function SeanceEditor({
 }) {
   const [name, setName] = useState(initialName);
   const [doc, setDoc] = useState<Seance>(() => parse(initialContent));
-  const [save, setSave] = useState<SaveState>("saved");
-  const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // Sauvegarde automatique fiable : envoyee aussi des que la page est masquee
+  // ou fermee (mobile verrouille, changement d'app) -> aucune perte.
+  const doSave = useCallback(
+    (p: { content?: string; name?: string }, keepalive: boolean) => api.saveContent(id, p, keepalive),
+    [id],
+  );
+  const { state: save, schedule, setState: setSave } = useAutosave(doSave, {
+    onSaved: () => {},
+  });
   const [nbBusy, setNbBusy] = useState(false);
   const [nbPicker, setNbPicker] = useState(false);
 
   const persist = useCallback((patch: { content?: string; name?: string }) => {
-    setSave("saving");
-    if (timer.current) clearTimeout(timer.current);
-    timer.current = setTimeout(() => {
-      api.saveContent(id, patch)
-        .then(() => setSave("saved"))
-        .catch(() => setSave("error"));
-    }, 600);
-  }, [id]);
+    schedule(patch);
+  }, [schedule]);
 
   // Applique une modification du contenu structuré + déclenche la sauvegarde.
   const update = useCallback((fn: (d: Seance) => Seance) => {

@@ -10,8 +10,11 @@ export const runtime = "nodejs";
 
 // Route générique de contenu pour les types "simples" stockés en texte/JSON
 // dans node.content : note (Markdown), diagram (Mermaid), board (Kanban),
-// slides (présentation).
-const TYPES = ["note", "diagram", "board", "slides", "project", "coaching"];
+// slides (présentation), project (plan d'action), coaching (fiche du coaché),
+// seance (compte-rendu de séance).
+// ATTENTION : tout type enregistré via api.saveContent DOIT figurer ici, sinon
+// la sauvegarde renvoie 404 et le travail est perdu silencieusement.
+const TYPES = ["note", "diagram", "board", "slides", "project", "coaching", "seance"];
 
 // GET /api/content/:id — renvoie le contenu brut (texte).
 export async function GET(

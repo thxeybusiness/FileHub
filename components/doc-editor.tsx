@@ -33,6 +33,7 @@ import {
   ArrowRightToLine,
 } from "lucide-react";
 import { api } from "@/lib/api";
+import { useAutosave } from "./use-autosave";
 import { cn } from "@/lib/utils";
 import { AiAssistant } from "./ai-assistant";
 
@@ -54,10 +55,14 @@ export function DocEditor({
 }) {
   const editorRef = useRef<HTMLDivElement>(null);
   const [name, setName] = useState(initialName);
-  const [save, setSave] = useState<SaveState>("saved");
   const [words, setWords] = useState(0);
-  const contentTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const nameTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // Sauvegarde automatique fiable : envoyee aussi des que la page est masquee
+  // ou fermee (mobile verrouille, changement d'app) -> aucune perte.
+  const doSave = useCallback(
+    (p: { content?: string; name?: string }, keepalive: boolean) => api.saveDoc(id, p, keepalive),
+    [id],
+  );
+  const { state: save, setState: setSave, schedule, flush } = useAutosave(doSave, { delay: 700 });
 
   // Injecte le contenu initial une seule fois (non contrôlé, pour ne pas
   // casser la position du curseur pendant la frappe). On répare au passage les
@@ -82,25 +87,21 @@ export function DocEditor({
     setWords(w);
   }, []);
 
+  // Envoi immediat (Ctrl+S, reparation du HTML) : passe par la file d'attente
+  // puis la vide tout de suite, pour ne jamais court-circuiter une modification
+  // deja en attente.
   const persist = useCallback(
     (patch: { content?: string; name?: string }) => {
-      setSave("saving");
-      api
-        .saveDoc(id, patch)
-        .then(() => setSave("saved"))
-        .catch(() => setSave("idle"));
+      schedule(patch);
+      flush(false);
     },
-    [id],
+    [schedule, flush],
   );
 
   const scheduleContentSave = useCallback(() => {
-    setSave("saving");
     countWords();
-    if (contentTimer.current) clearTimeout(contentTimer.current);
-    contentTimer.current = setTimeout(() => {
-      persist({ content: editorRef.current?.innerHTML ?? "" });
-    }, 700);
-  }, [persist, countWords]);
+    schedule({ content: editorRef.current?.innerHTML ?? "" });
+  }, [schedule, countWords]);
 
   // Collage propre : on retire les styles importés (couleurs, fonds, classes…)
   // pour rester dans le thème de l'éditeur et éviter le « tout blanc ».
@@ -120,9 +121,7 @@ export function DocEditor({
 
   const onNameChange = (v: string) => {
     setName(v);
-    setSave("saving");
-    if (nameTimer.current) clearTimeout(nameTimer.current);
-    nameTimer.current = setTimeout(() => persist({ name: v.trim() || "Document sans titre" }), 600);
+    schedule({ name: v.trim() || "Document sans titre" });
   };
 
   // Ctrl/Cmd+S → sauvegarde immédiate
