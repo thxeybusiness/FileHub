@@ -11,7 +11,6 @@ import {
   LayoutDashboard,
   Trash2,
   Cloud,
-  LogOut,
   ChevronRight,
   Users,
   Plus,
@@ -86,11 +85,6 @@ export function Sidebar({ initial }: { initial: Me }) {
   const inAccompagnement = pathname.startsWith("/drive/accompagnement") || pathname.startsWith("/drive/coaching");
   const goApp = (href: string) => { setSwitcherOpen(false); setMobileOpen(false); router.push(href); };
 
-  async function logout() {
-    await fetch("/api/auth/logout", { method: "POST" }).catch(() => {});
-    router.push("/login");
-    router.refresh();
-  }
 
   const loadSpaces = () => {
     api
@@ -489,13 +483,6 @@ export function Sidebar({ initial }: { initial: Me }) {
           >
             <Settings className="size-4" />
           </Link>
-          <button
-            onClick={logout}
-            title="Se déconnecter"
-            className="size-8 grid place-items-center rounded-lg text-muted hover:bg-white/5 hover:text-red-600 transition"
-          >
-            <LogOut className="size-4" />
-          </button>
         </div>
 
         {/* Abonnement & admin : options FileHub, masquées dans l'espace Coaching */}

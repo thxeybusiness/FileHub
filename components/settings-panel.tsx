@@ -2,7 +2,8 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { ArrowLeft, Settings, User, AtSign, Check, Loader2, Lock, Mail, ShieldCheck } from "lucide-react";
+import { useRouter } from "next/navigation";
+import { ArrowLeft, Settings, User, AtSign, Check, Loader2, Lock, Mail, ShieldCheck, LogOut } from "lucide-react";
 import { api } from "@/lib/api";
 
 export function SettingsPanel({
@@ -10,10 +11,19 @@ export function SettingsPanel({
 }: {
   initialName: string; initialUsername: string; email: string; plan: string;
 }) {
+  const router = useRouter();
   const [name, setName] = useState(initialName);
   const [username, setUsername] = useState(initialUsername);
   const [savingP, setSavingP] = useState(false);
   const [profileMsg, setProfileMsg] = useState<{ ok: boolean; text: string } | null>(null);
+  const [loggingOut, setLoggingOut] = useState(false);
+
+  const logout = async () => {
+    setLoggingOut(true);
+    await fetch("/api/auth/logout", { method: "POST" }).catch(() => {});
+    router.push("/login");
+    router.refresh();
+  };
 
   const [cur, setCur] = useState("");
   const [next, setNext] = useState("");
@@ -110,6 +120,19 @@ export function SettingsPanel({
             )}
             <button onClick={savePassword} disabled={savingPw || !cur || !next} className="mt-4 inline-flex h-11 w-full items-center justify-center gap-2 rounded-xl border border-white/15 bg-white/5 text-sm font-semibold hover:bg-white/10 transition disabled:opacity-50">
               {savingPw ? <Loader2 className="size-4 animate-spin" /> : <Lock className="size-4" />} Mettre à jour le mot de passe
+            </button>
+          </section>
+
+          {/* Session */}
+          <section className="rounded-3xl border border-white/10 bg-white/[0.03] p-6">
+            <div className="mb-1 flex items-center gap-2 text-sm font-semibold"><LogOut className="size-4 text-red-400" /> Session</div>
+            <p className="mb-4 text-xs text-muted">Se déconnecter de votre compte sur cet appareil.</p>
+            <button
+              onClick={logout}
+              disabled={loggingOut}
+              className="inline-flex h-11 w-full items-center justify-center gap-2 rounded-xl border border-red-500/30 bg-red-500/10 text-sm font-semibold text-red-300 transition hover:bg-red-500/20 disabled:opacity-50"
+            >
+              {loggingOut ? <Loader2 className="size-4 animate-spin" /> : <LogOut className="size-4" />} Se déconnecter
             </button>
           </section>
         </div>
