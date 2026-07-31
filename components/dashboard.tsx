@@ -143,14 +143,18 @@ export function Dashboard() {
                   const meta = TYPE_META[t];
                   const d = stats.byType[t];
                   const count = d?.count ?? 0;
+                  const size = d?.size ?? 0;
                   const Icon = meta.icon;
                   return (
                     <div key={t} className="flex items-center gap-3 rounded-xl border border-white/10 bg-white/[0.02] px-3.5 py-3">
                       <span className={`grid size-9 shrink-0 place-items-center rounded-xl ${meta.tint}`}>
                         <Icon className="size-[18px]" />
                       </span>
-                      <div className="min-w-0">
-                        <p className="text-sm font-semibold">{count}</p>
+                      <div className="min-w-0 flex-1">
+                        <div className="flex items-baseline justify-between gap-2">
+                          <p className="text-sm font-semibold">{count}</p>
+                          <p className="shrink-0 text-xs font-medium tabular-nums text-cyan-300">{formatBytes(size)}</p>
+                        </div>
                         <p className="truncate text-xs text-muted">{meta.label}</p>
                       </div>
                     </div>

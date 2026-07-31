@@ -5,12 +5,13 @@ export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
 }
 
-const UNITS = ["B", "KB", "MB", "GB", "TB"];
+// Unités françaises (octets) : o, Ko, Mo, Go, To.
+const UNITS = ["o", "Ko", "Mo", "Go", "To"];
 
-/** Human-readable byte size, e.g. 1536 -> "1.5 KB". */
+/** Taille lisible, ex. 1536 -> "1.5 Ko". */
 export function formatBytes(bytes: number | bigint, decimals = 1): string {
   const n = typeof bytes === "bigint" ? Number(bytes) : bytes;
-  if (!n) return "0 B";
+  if (!n) return "0 o";
   const i = Math.min(Math.floor(Math.log(n) / Math.log(1024)), UNITS.length - 1);
   const value = n / Math.pow(1024, i);
   return `${value.toFixed(i === 0 ? 0 : decimals)} ${UNITS[i]}`;
