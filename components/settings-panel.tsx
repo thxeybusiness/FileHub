@@ -73,7 +73,8 @@ export function SettingsPanel({
 
       <div className="flex-1 min-h-0 overflow-auto px-6 py-8">
         <div className="mx-auto w-full max-w-lg space-y-6">
-          {/* Raccourcis : Favoris & Activité (déplacés depuis la navigation) */}
+          {/* Raccourcis FileHub : Favoris & Activité (masqués dans l'Accompagnement) */}
+          {!fromAccompagnement && (
           <section className="grid grid-cols-1 gap-3 sm:grid-cols-2">
             <Link href="/drive/starred" className="group flex items-center gap-3 rounded-2xl border border-white/10 bg-white/[0.03] p-4 transition hover:border-white/20 hover:bg-white/[0.05]">
               <span className="grid size-10 shrink-0 place-items-center rounded-xl" style={{ background: "#f59e0b1f", color: "#f59e0b" }}><Star className="size-5" /></span>
@@ -92,6 +93,7 @@ export function SettingsPanel({
               <ChevronRight className="size-4 shrink-0 text-muted transition group-hover:translate-x-0.5" />
             </Link>
           </section>
+          )}
 
           {/* Compte */}
           <section className="rounded-3xl border border-white/10 bg-white/[0.03] p-6">
