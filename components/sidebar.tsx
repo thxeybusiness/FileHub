@@ -53,7 +53,6 @@ const NAV = [
   { href: "/drive/starred", label: "Favoris", icon: Star },
   { href: "/drive/activite", label: "Activité", icon: ActivityIcon },
   { href: "/drive/trash", label: "Corbeille", icon: Trash2 },
-  { href: "/drive/settings", label: "Paramètres", icon: Settings },
 ];
 
 // Navigation de l'espace « Accompagnement » (SaaS séparé : aucune option FileHub).
@@ -478,6 +477,18 @@ export function Sidebar({ initial }: { initial: Me }) {
             <p className="text-xs text-muted truncate">{me.email}</p>
           </div>
           <NotificationCenter />
+          <Link
+            href="/drive/settings"
+            title="Paramètres"
+            className={cn(
+              "size-8 grid place-items-center rounded-lg transition",
+              pathname.startsWith("/drive/settings")
+                ? "bg-white/10 text-white"
+                : "text-muted hover:bg-white/5 hover:text-white",
+            )}
+          >
+            <Settings className="size-4" />
+          </Link>
           <button
             onClick={logout}
             title="Se déconnecter"
