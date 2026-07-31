@@ -8,6 +8,7 @@ import { sanitizeRichHtml } from "@/lib/sanitize-html";
 import { api } from "@/lib/api";
 import { useAutosave } from "./use-autosave";
 import { AiAssistant } from "./ai-assistant";
+import { MicButton } from "./mic-button";
 import { RealtimeEngine, type Actions } from "./realtime";
 import { CollabBar } from "./collab-bar";
 import { VersionHistory } from "./version-history";
@@ -86,6 +87,28 @@ export function NoteEditor({
   const onContent = (v: string) => { setContent(v); persist({ content: v }); };
   const onName = (v: string) => { setName(v); persist({ name: v.trim() || "Note sans titre" }); };
 
+  // Insertion du texte dicté à la position du curseur (en fin de note si le
+  // champ n'a pas le focus), avec l'espace manquant. Le curseur est replacé
+  // juste après pour que la suite de la dictée s'enchaîne au bon endroit.
+  // La position est relue à CHAQUE insertion : si un collaborateur modifie la
+  // note entre deux phrases, on écrit là où le curseur se trouve réellement.
+  const insertDictated = useCallback((text: string) => {
+    const el = taRef.current;
+    const focused = !!el && document.activeElement === el;
+    const at = focused ? el.selectionStart ?? content.length : content.length;
+    const end = focused ? el.selectionEnd ?? at : content.length;
+    const before = content.slice(0, at);
+    const after = content.slice(end);
+    const sep = before && !/\s$/.test(before) ? " " : "";
+    const next = before + sep + text + after;
+    const caret = (before + sep + text).length;
+    setContent(next);
+    persist({ content: next });
+    requestAnimationFrame(() => {
+      try { el?.focus(); el?.setSelectionRange(caret, caret); } catch { /* ignore */ }
+    });
+  }, [content, persist]);
+
   const html = (() => {
     try { return sanitizeRichHtml(marked.parse(content || "*Note vide.*", { async: false }) as string); } catch { return ""; }
   })();
@@ -128,6 +151,7 @@ export function NoteEditor({
         <button onClick={() => setMobilePreview((v) => !v)} className="grid size-9 place-items-center rounded-lg border border-white/10 bg-white/5 text-white/80 hover:bg-white/10 sm:hidden" title="Aperçu">
           {mobilePreview ? <Pencil className="size-4" /> : <Eye className="size-4" />}
         </button>
+        <MicButton onText={insertDictated} title="Dicter la note" />
         <AiAssistant
           kind="note" title="Assistant note" accent="#eab308"
           getContext={() => content}

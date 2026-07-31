@@ -36,6 +36,7 @@ import { api } from "@/lib/api";
 import { useAutosave } from "./use-autosave";
 import { cn } from "@/lib/utils";
 import { AiAssistant } from "./ai-assistant";
+import { MicButton } from "./mic-button";
 
 type Crumb = { id: string; name: string };
 type SaveState = "saved" | "saving" | "idle";
@@ -179,6 +180,13 @@ export function DocEditor({
     scheduleContentSave();
   };
 
+  // Dictée : même chemin d'insertion que l'assistant IA — restauration du
+  // curseur mémorisé, insertion, sauvegarde. Le texte dicté est du texte brut,
+  // il doit donc être échappé avant de passer par `insertHTML`. L'espace final
+  // enchaîne proprement les phrases successives ; les insertions suivantes se
+  // font au curseur laissé par la précédente.
+  const insertDictated = (text: string) => applyAiHtml(escapeHtml(text) + " ");
+
   const exportHtml = () => {
     const html = `<!doctype html><meta charset="utf-8"><title>${escapeHtml(name)}</title><body style="font-family:system-ui;max-width:720px;margin:40px auto;line-height:1.6">${editorRef.current?.innerHTML ?? ""}`;
     const blob = new Blob([html], { type: "text/html" });
@@ -239,6 +247,8 @@ export function DocEditor({
         >
           <Download className="size-4" /> Exporter
         </button>
+
+        <MicButton onText={insertDictated} title="Dicter le document" />
 
         <AiAssistant
           kind="doc"
