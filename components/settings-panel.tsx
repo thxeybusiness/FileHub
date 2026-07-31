@@ -3,7 +3,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { ArrowLeft, Settings, User, AtSign, Check, Loader2, Lock, Mail, ShieldCheck, LogOut } from "lucide-react";
+import { ArrowLeft, Settings, User, AtSign, Check, Loader2, Lock, Mail, ShieldCheck, LogOut, Star, Activity, ChevronRight } from "lucide-react";
 import { api } from "@/lib/api";
 
 export function SettingsPanel({
@@ -70,6 +70,26 @@ export function SettingsPanel({
 
       <div className="flex-1 min-h-0 overflow-auto px-6 py-8">
         <div className="mx-auto w-full max-w-lg space-y-6">
+          {/* Raccourcis : Favoris & Activité (déplacés depuis la navigation) */}
+          <section className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+            <Link href="/drive/starred" className="group flex items-center gap-3 rounded-2xl border border-white/10 bg-white/[0.03] p-4 transition hover:border-white/20 hover:bg-white/[0.05]">
+              <span className="grid size-10 shrink-0 place-items-center rounded-xl" style={{ background: "#f59e0b1f", color: "#f59e0b" }}><Star className="size-5" /></span>
+              <div className="min-w-0 flex-1">
+                <p className="text-sm font-semibold">Favoris</p>
+                <p className="text-xs text-muted">Vos éléments épinglés</p>
+              </div>
+              <ChevronRight className="size-4 shrink-0 text-muted transition group-hover:translate-x-0.5" />
+            </Link>
+            <Link href="/drive/activite" className="group flex items-center gap-3 rounded-2xl border border-white/10 bg-white/[0.03] p-4 transition hover:border-white/20 hover:bg-white/[0.05]">
+              <span className="grid size-10 shrink-0 place-items-center rounded-xl" style={{ background: "#3b6dff1f", color: "#7aa2ff" }}><Activity className="size-5" /></span>
+              <div className="min-w-0 flex-1">
+                <p className="text-sm font-semibold">Activité</p>
+                <p className="text-xs text-muted">Historique des actions</p>
+              </div>
+              <ChevronRight className="size-4 shrink-0 text-muted transition group-hover:translate-x-0.5" />
+            </Link>
+          </section>
+
           {/* Compte */}
           <section className="rounded-3xl border border-white/10 bg-white/[0.03] p-6">
             <div className="flex items-center gap-3">

@@ -5,9 +5,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
   HardDrive,
-  Star,
   Clock,
-  Activity as ActivityIcon,
   LayoutDashboard,
   Trash2,
   Cloud,
@@ -49,8 +47,6 @@ const NAV = [
   { href: "/drive/tableau-de-bord", label: "Tableau de bord", icon: LayoutDashboard },
   { href: "/drive/agenda", label: "Agenda", icon: CalendarDays, exact: true },
   { href: "/drive/recent", label: "Récents", icon: Clock },
-  { href: "/drive/starred", label: "Favoris", icon: Star },
-  { href: "/drive/activite", label: "Activité", icon: ActivityIcon },
   { href: "/drive/trash", label: "Corbeille", icon: Trash2 },
 ];
 
