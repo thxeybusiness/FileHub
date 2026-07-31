@@ -44,7 +44,6 @@ type Me = {
 const NAV = [
   { href: "/drive", label: "Mon Drive", icon: HardDrive, exact: true },
   { href: "/drive/assistant", label: "Assistant IA", icon: Sparkles },
-  { href: "/drive/tableau-de-bord", label: "Tableau de bord", icon: LayoutDashboard },
   { href: "/drive/agenda", label: "Agenda", icon: CalendarDays, exact: true },
   { href: "/drive/recent", label: "Récents", icon: Clock },
   { href: "/drive/trash", label: "Corbeille", icon: Trash2 },
@@ -402,12 +401,22 @@ export function Sidebar({ initial }: { initial: Me }) {
       {/* Chrome FileHub : masqué dans l'espace Coaching (SaaS séparé) */}
       {!inAccompagnement && (
         <>
-          {/* Storage meter */}
+          {/* Stockage → ouvre le tableau de bord (stats détaillées) */}
           <div className="px-4 pb-3">
-            <div className="rounded-2xl border border-white/10 p-4 bg-white/[0.03]">
+            <Link
+              href="/drive/tableau-de-bord"
+              title="Voir le tableau de bord"
+              className={cn(
+                "block rounded-2xl border p-4 transition",
+                pathname.startsWith("/drive/tableau-de-bord")
+                  ? "border-brand-400/40 bg-brand-500/10"
+                  : "border-white/10 bg-white/[0.03] hover:border-white/20 hover:bg-white/[0.05]",
+              )}
+            >
               <div className="flex items-center gap-2 text-sm font-medium mb-2">
                 <Cloud className="size-4 text-cyan-300" />
                 Stockage
+                <ChevronRight className="ml-auto size-4 text-muted" />
               </div>
               <div className="h-2 rounded-full bg-white/10 overflow-hidden">
                 <div
@@ -423,7 +432,7 @@ export function Sidebar({ initial }: { initial: Me }) {
                   ? `${formatBytes(me.storageUsed)} · Illimité`
                   : `${formatBytes(me.storageUsed)} sur ${formatBytes(me.storageLimit)}`}
               </p>
-            </div>
+            </Link>
           </div>
 
           {/* Installer l'application (masqué si déjà installé) */}
