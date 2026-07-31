@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { getUserId } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { getMemberSpaceIds } from "@/lib/spaces";
-import { filterCoachingSpaceIds } from "@/lib/coaching-space";
+import { filterCoachingSpaceIds, ownerCoachingSpaceIds } from "@/lib/coaching-space";
 import { effectivePlan, isFounder, planStorage, FOUNDER_STORAGE } from "@/lib/plans";
 
 export const runtime = "nodejs";
@@ -53,6 +53,26 @@ export async function GET() {
   const spacesCount = memberIds.filter((sid) => !hiddenCoaching.has(sid)).length;
   const founder = isFounder(user.email);
 
+  // ── Stockage consommé par l'Accompagnement (SaaS séparé) ──
+  // = fiches des coachés (nodes « coaching ») + tout le contenu de leurs drives
+  //   dédiés (espaces cachés dont je suis propriétaire).
+  const coachingSpaceIds = await ownerCoachingSpaceIds(userId).catch(() => [] as string[]);
+  const [coachees, fiches, driveAgg, driveDocs] = await Promise.all([
+    prisma.node.count({ where: { userId, type: "coaching", trashed: false } }),
+    prisma.node.aggregate({ _sum: { size: true }, where: { userId, type: "coaching" } }),
+    coachingSpaceIds.length
+      ? prisma.node.aggregate({ _sum: { size: true }, where: { spaceId: { in: coachingSpaceIds } } })
+      : Promise.resolve({ _sum: { size: null as bigint | null } }),
+    coachingSpaceIds.length
+      ? prisma.node.count({ where: { spaceId: { in: coachingSpaceIds }, type: { not: "folder" }, trashed: false } })
+      : Promise.resolve(0),
+  ]);
+  const accompagnement = {
+    coachees,
+    documents: driveDocs,
+    size: Number(fiches._sum.size ?? 0n) + Number(driveAgg._sum.size ?? 0n),
+  };
+
   return NextResponse.json({
     plan: effectivePlan(user.email, user.plan),
     storageUsed: Number(user.storageUsed),
@@ -62,6 +82,7 @@ export async function GET() {
     sharesCount,
     spacesCount,
     byType,
+    accompagnement,
     biggest: biggest.map((b) => ({
       id: b.id,
       name: b.name,

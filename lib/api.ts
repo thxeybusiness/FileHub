@@ -117,6 +117,7 @@ export type DashboardStats = {
   sharesCount: number;
   spacesCount: number;
   byType: Record<string, { count: number; size: number }>;
+  accompagnement?: { coachees: number; documents: number; size: number };
   biggest: { id: string; name: string; size: number; mimeType: string | null }[];
 };
 

@@ -135,6 +135,33 @@ export function Dashboard() {
               <StatCard icon={Trash2} label="Corbeille" value={stats.trashedCount} tint="text-amber-300 bg-amber-500/10" />
             </section>
 
+            {/* Accompagnement : stockage consommé par le SaaS coaching (à part) */}
+            {stats.accompagnement && (
+              <Link
+                href="/drive/accompagnement"
+                className="group block rounded-2xl border border-cyan-400/25 bg-gradient-to-br from-cyan-500/[0.12] to-blue-500/[0.05] p-5 transition hover:border-cyan-400/40 sm:p-6"
+              >
+                <div className="flex items-center gap-4">
+                  <span className="grid size-12 shrink-0 place-items-center rounded-2xl bg-gradient-to-br from-[#06b6d4] to-[#3b82f6] text-white shadow-lg shadow-cyan-500/30">
+                    <HeartHandshake className="size-6" />
+                  </span>
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-center gap-2 text-sm font-semibold text-cyan-100">
+                      Accompagnement
+                      <span className="rounded-full border border-cyan-400/30 bg-white/5 px-2 py-0.5 text-[10px] font-medium text-cyan-200">SaaS coaching</span>
+                    </div>
+                    <p className="mt-0.5 text-xs text-muted">
+                      {stats.accompagnement.coachees} coaché{stats.accompagnement.coachees > 1 ? "s" : ""} · {stats.accompagnement.documents} document{stats.accompagnement.documents > 1 ? "s" : ""} dans leurs drives
+                    </p>
+                  </div>
+                  <div className="text-right">
+                    <p className="text-2xl font-bold tabular-nums text-white">{formatBytes(stats.accompagnement.size)}</p>
+                    <p className="text-[11px] text-muted">de stockage</p>
+                  </div>
+                </div>
+              </Link>
+            )}
+
             {/* Répartition par type */}
             <section className="rounded-2xl border border-white/10 bg-white/[0.03] p-5 sm:p-6">
               <h2 className="mb-4 text-sm font-semibold">Répartition</h2>
