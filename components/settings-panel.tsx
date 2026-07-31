@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { ArrowLeft, Settings, User, AtSign, Check, Loader2, Lock, Mail, ShieldCheck, LogOut, Star, Activity, ChevronRight } from "lucide-react";
 import { api } from "@/lib/api";
 
@@ -12,6 +12,9 @@ export function SettingsPanel({
   initialName: string; initialUsername: string; email: string; plan: string;
 }) {
   const router = useRouter();
+  // Ouverte depuis l'Accompagnement ? Le retour revient dans ce SaaS, pas FileHub.
+  const fromAccompagnement = useSearchParams().get("from") === "accompagnement";
+  const backHref = fromAccompagnement ? "/drive/accompagnement" : "/drive";
   const [name, setName] = useState(initialName);
   const [username, setUsername] = useState(initialUsername);
   const [savingP, setSavingP] = useState(false);
@@ -59,7 +62,7 @@ export function SettingsPanel({
   return (
     <div className="flex h-full min-h-0 flex-col">
       <header className="h-16 shrink-0 border-b border-white/10 bg-white/[0.03] backdrop-blur-xl px-4 sm:px-6 flex items-center gap-3">
-        <Link href="/drive" className="grid size-9 shrink-0 place-items-center rounded-lg text-muted hover:bg-white/5 hover:text-white transition" title="Retour">
+        <Link href={backHref} className="grid size-9 shrink-0 place-items-center rounded-lg text-muted hover:bg-white/5 hover:text-white transition" title="Retour">
           <ArrowLeft className="size-5" />
         </Link>
         <div className="flex items-center gap-2">

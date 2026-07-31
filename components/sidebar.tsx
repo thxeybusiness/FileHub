@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useSearchParams } from "next/navigation";
 import {
   HardDrive,
   Clock,
@@ -68,6 +68,7 @@ const COACHEE_STATUS_COLOR: Record<string, string> = {
 
 export function Sidebar({ initial }: { initial: Me }) {
   const pathname = usePathname();
+  const searchParams = useSearchParams();
   const router = useRouter();
   const [me, setMe] = useState<Me>(initial);
   const [spaces, setSpaces] = useState<SpaceSummary[]>([]);
@@ -77,7 +78,14 @@ export function Sidebar({ initial }: { initial: Me }) {
   const [mobileOpen, setMobileOpen] = useState(false);
   // Sélecteur d'application (FileHub / extension Accompagnement).
   const [switcherOpen, setSwitcherOpen] = useState(false);
-  const inAccompagnement = pathname.startsWith("/drive/accompagnement") || pathname.startsWith("/drive/coaching");
+  // Contexte Accompagnement : les pages du SaaS coaching, mais aussi les pages
+  // « transverses » (Paramètres) ouvertes depuis l'Accompagnement — pour ne pas
+  // rebasculer sur FileHub. Le contexte est transporté par ?from=accompagnement.
+  const fromAccompagnement = searchParams.get("from") === "accompagnement";
+  const inAccompagnement =
+    pathname.startsWith("/drive/accompagnement") ||
+    pathname.startsWith("/drive/coaching") ||
+    (pathname.startsWith("/drive/settings") && fromAccompagnement);
   const goApp = (href: string) => { setSwitcherOpen(false); setMobileOpen(false); router.push(href); };
 
 
@@ -477,7 +485,7 @@ export function Sidebar({ initial }: { initial: Me }) {
           </div>
           <NotificationCenter />
           <Link
-            href="/drive/settings"
+            href={inAccompagnement ? "/drive/settings?from=accompagnement" : "/drive/settings"}
             title="Paramètres"
             className={cn(
               "size-8 grid place-items-center rounded-lg transition",
