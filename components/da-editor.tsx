@@ -4,7 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import {
   ArrowLeft, Home, ChevronRight, Check, Loader2, Palette, Plus, Trash2, Copy,
-  Wand2, X, Lock, Sparkles, Shuffle,
+  Wand2, X, Lock, Sparkles, Shuffle, Undo2, Redo2,
 } from "lucide-react";
 import { api } from "@/lib/api";
 import { useAutosave } from "./use-autosave";
@@ -335,13 +335,18 @@ export function DAEditor({
     update((d) => ({ ...d, palettes: d.palettes.map((p) => p.id === pid && p.colors.length < MAX ? { ...p, colors: [...p.colors, "#94a3b8"] } : p) }));
   const delColor = (pid: string, idx: number) =>
     update((d) => ({ ...d, palettes: d.palettes.map((p) => p.id === pid && p.colors.length > MIN ? { ...p, colors: p.colors.filter((_, i) => i !== idx) } : p) }));
+  // Régénère une palette DIFFÉRENTE à chaque fois (nouvelle teinte + harmonie
+  // au hasard) : de quoi explorer et comparer des directions.
   const shufflePalette = (pid: string) =>
     update((d) => ({ ...d, palettes: d.palettes.map((p) => {
       if (p.id !== pid) return p;
-      const base = p.colors[Math.floor(p.colors.length / 2)] ?? "#3b82f6";
-      const harmony = HARMONIES[Math.floor((p.name.length + p.colors.length) % HARMONIES.length)].id;
+      const base = hsvToHex(Math.random() * 360, 55 + Math.random() * 30, 60 + Math.random() * 30);
+      const harmony = HARMONIES[Math.floor(Math.random() * HARMONIES.length)].id;
       return { ...p, colors: generate(base, harmony, p.colors.length) };
     }) }));
+  // Remplace toutes les couleurs d'une palette (utilisé par l'historique).
+  const setColors = (pid: string, colors: string[]) =>
+    update((d) => ({ ...d, palettes: d.palettes.map((p) => p.id === pid ? { ...p, colors } : p) }));
 
   const copyHex = (hex: string) => {
     navigator.clipboard?.writeText(hex).then(() => { setCopied(hex); setTimeout(() => setCopied((c) => (c === hex ? null : c)), 1200); }).catch(() => {});
@@ -438,6 +443,7 @@ export function DAEditor({
                   key={p.id} palette={p} canEdit={canEdit} brand={doc.brand} copied={copied}
                   onRename={(v) => renamePalette(p.id, v)} onDelete={() => delPalette(p.id)} onDuplicate={() => dupPalette(p.id)}
                   onShuffle={() => shufflePalette(p.id)} onSetColor={(i, hex) => setColor(p.id, i, hex)}
+                  onSetColors={(cols) => setColors(p.id, cols)}
                   onAddColor={() => addColor(p.id)} onDelColor={(i) => delColor(p.id, i)} onCopy={copyHex}
                 />
               ))}
@@ -459,11 +465,12 @@ export function DAEditor({
 /* ─────────────── Carte palette ─────────────── */
 function PaletteCard({
   palette, canEdit, brand, copied,
-  onRename, onDelete, onDuplicate, onShuffle, onSetColor, onAddColor, onDelColor, onCopy,
+  onRename, onDelete, onDuplicate, onShuffle, onSetColor, onSetColors, onAddColor, onDelColor, onCopy,
 }: {
   palette: PaletteT; canEdit: boolean; brand: string; copied: string | null;
   onRename: (v: string) => void; onDelete: () => void; onDuplicate: () => void; onShuffle: () => void;
-  onSetColor: (i: number, hex: string) => void; onAddColor: () => void; onDelColor: (i: number) => void; onCopy: (hex: string) => void;
+  onSetColor: (i: number, hex: string) => void; onSetColors: (colors: string[]) => void;
+  onAddColor: () => void; onDelColor: (i: number) => void; onCopy: (hex: string) => void;
 }) {
   const c = palette.colors;
   // Choix d'un rôle de couleur pour l'aperçu marque.
@@ -477,6 +484,26 @@ function PaletteCard({
     if (!canEdit) return;
     const r = (e.currentTarget as HTMLElement).getBoundingClientRect();
     setPick({ i, x: r.left, y: r.bottom + 6 });
+  };
+
+  // Historique des régénérations : permet de revenir en arrière (et re-avancer)
+  // pour comparer les palettes générées.
+  const [hist, setHist] = useState<string[][]>([]);
+  const [fut, setFut] = useState<string[][]>([]);
+  const doShuffle = () => { setHist((h) => [...h, c]); setFut([]); onShuffle(); };
+  const undo = () => {
+    if (!hist.length) return;
+    const prev = hist[hist.length - 1];
+    setHist((h) => h.slice(0, -1));
+    setFut((f) => [c, ...f]);
+    onSetColors(prev);
+  };
+  const redo = () => {
+    if (!fut.length) return;
+    const next = fut[0];
+    setFut((f) => f.slice(1));
+    setHist((h) => [...h, c]);
+    onSetColors(next);
   };
 
   return (
@@ -498,7 +525,10 @@ function PaletteCard({
             className="min-w-0 flex-1 bg-transparent text-sm font-semibold outline-none placeholder:text-white/30 disabled:opacity-100" placeholder="Nom de la palette" />
           {canEdit && (
             <>
-              <button type="button" onClick={onShuffle} title="Régénérer harmonieusement" className="grid size-7 place-items-center rounded-lg text-muted transition hover:bg-white/5 hover:text-white"><Shuffle className="size-3.5" /></button>
+              <button type="button" onClick={undo} disabled={!hist.length} title="Palette précédente" className="grid size-7 place-items-center rounded-lg text-muted transition hover:bg-white/5 hover:text-white disabled:opacity-30 disabled:hover:bg-transparent"><Undo2 className="size-3.5" /></button>
+              <button type="button" onClick={redo} disabled={!fut.length} title="Palette suivante" className="grid size-7 place-items-center rounded-lg text-muted transition hover:bg-white/5 hover:text-white disabled:opacity-30 disabled:hover:bg-transparent"><Redo2 className="size-3.5" /></button>
+              <span className="mx-0.5 h-4 w-px bg-white/10" />
+              <button type="button" onClick={doShuffle} title="Régénérer une nouvelle palette" className="grid size-7 place-items-center rounded-lg text-muted transition hover:bg-white/5 hover:text-white"><Shuffle className="size-3.5" /></button>
               <button type="button" onClick={onDuplicate} title="Dupliquer" className="grid size-7 place-items-center rounded-lg text-muted transition hover:bg-white/5 hover:text-white"><Copy className="size-3.5" /></button>
               <button type="button" onClick={onDelete} title="Supprimer" className="grid size-7 place-items-center rounded-lg text-muted transition hover:bg-red-500/10 hover:text-red-400"><Trash2 className="size-3.5" /></button>
             </>
