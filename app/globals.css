@@ -42,14 +42,15 @@ body {
   -webkit-font-smoothing: antialiased;
 }
 
-/* Surlignage de sélection de texte cohérent avec le thème (au lieu du bleu
-   par défaut du navigateur, illisible sur fond sombre). Appliqué à tout FileHub. */
+/* Surlignage de sélection de texte : gris clair neutre translucide (au lieu du
+   bleu par défaut du navigateur, illisible sur fond sombre et qui jure avec les
+   couleurs chaudes). Neutre = ne clashe avec aucune couleur. Tout FileHub. */
 ::selection {
-  background: rgba(91, 139, 255, 0.35);
+  background: rgba(255, 255, 255, 0.22);
   color: #ffffff;
 }
 ::-moz-selection {
-  background: rgba(91, 139, 255, 0.35);
+  background: rgba(255, 255, 255, 0.22);
   color: #ffffff;
 }
 
