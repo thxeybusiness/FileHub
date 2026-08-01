@@ -426,9 +426,8 @@ function ExportModal({ title, subtitle, formats, sheet, filename, onClose }: { t
         <div className="flex items-center gap-2 border-t border-white/10 px-4 py-3">
           <p className="flex-1 text-[11px] text-muted">Image, codes détaillés (HEX · RGB · HSL), CSS, JSON… à envoyer à un graphiste ou coller dans un site / une IA.</p>
           <button type="button" onClick={copy}
-            className="inline-flex h-10 items-center justify-center gap-2 rounded-xl px-4 text-sm font-semibold text-white shadow-lg shadow-pink-500/25 transition hover:brightness-110"
-            style={{ background: `linear-gradient(90deg, ${ACCENT}, #8b5cf6)` }}>
-            {copied ? <Check className="size-4" /> : <Copy className="size-4" />} {copied ? "Copié !" : `Copier ${cur.label}`}
+            className="inline-flex h-10 items-center justify-center gap-2 rounded-xl border border-white/15 bg-white/10 px-4 text-sm font-semibold text-white transition hover:bg-white/15">
+            {copied ? <Check className="size-4 text-emerald-300" /> : <Copy className="size-4" />} {copied ? "Copié !" : "Copier"}
           </button>
         </div>
       </div>
