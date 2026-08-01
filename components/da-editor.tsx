@@ -347,16 +347,6 @@ export function DAEditor({
   // Remplace toutes les couleurs d'une palette (utilisé par l'historique).
   const setColors = (pid: string, colors: string[]) =>
     update((d) => ({ ...d, palettes: d.palettes.map((p) => p.id === pid ? { ...p, colors } : p) }));
-  // Déplace une nuance (glisser-déposer) : change son rôle (principal, secondaire…).
-  const moveColor = (pid: string, from: number, to: number) =>
-    update((d) => ({ ...d, palettes: d.palettes.map((p) => {
-      if (p.id !== pid) return p;
-      if (from < 0 || to < 0 || from >= p.colors.length || to >= p.colors.length || from === to) return p;
-      const cols = [...p.colors];
-      const [m] = cols.splice(from, 1);
-      cols.splice(to, 0, m);
-      return { ...p, colors: cols };
-    }) }));
 
   const copyHex = (hex: string) => {
     navigator.clipboard?.writeText(hex).then(() => { setCopied(hex); setTimeout(() => setCopied((c) => (c === hex ? null : c)), 1200); }).catch(() => {});
@@ -454,7 +444,6 @@ export function DAEditor({
                   onRename={(v) => renamePalette(p.id, v)} onDelete={() => delPalette(p.id)} onDuplicate={() => dupPalette(p.id)}
                   onShuffle={() => shufflePalette(p.id)} onSetColor={(i, hex) => setColor(p.id, i, hex)}
                   onSetColors={(cols) => setColors(p.id, cols)}
-                  onReorder={(from, to) => moveColor(p.id, from, to)}
                   onAddColor={() => addColor(p.id)} onDelColor={(i) => delColor(p.id, i)} onCopy={copyHex}
                 />
               ))}
@@ -476,26 +465,73 @@ export function DAEditor({
 /* ─────────────── Carte palette ─────────────── */
 function PaletteCard({
   palette, canEdit, brand, copied,
-  onRename, onDelete, onDuplicate, onShuffle, onSetColor, onSetColors, onReorder, onAddColor, onDelColor, onCopy,
+  onRename, onDelete, onDuplicate, onShuffle, onSetColor, onSetColors, onAddColor, onDelColor, onCopy,
 }: {
   palette: PaletteT; canEdit: boolean; brand: string; copied: string | null;
   onRename: (v: string) => void; onDelete: () => void; onDuplicate: () => void; onShuffle: () => void;
   onSetColor: (i: number, hex: string) => void; onSetColors: (colors: string[]) => void;
-  onReorder: (from: number, to: number) => void;
   onAddColor: () => void; onDelColor: (i: number) => void; onCopy: (hex: string) => void;
 }) {
   const c = palette.colors;
-  // Choix d'un rôle de couleur pour l'aperçu marque.
-  const bg = c[0] ?? "#0f172a";
-  const accent = c[Math.min(1, c.length - 1)] ?? "#3b82f6";
-  const light = c[c.length - 1] ?? "#e2e8f0";
+  // Ordre local pendant le glisser (aperçu live) ; sinon l'ordre réel.
+  const [order, setOrder] = useState<string[] | null>(null);
+  const [dragPos, setDragPos] = useState<number | null>(null);
+  const displayColors = order ?? c;
+
+  // Choix d'un rôle de couleur pour l'aperçu marque (suit l'ordre affiché).
+  const bg = displayColors[0] ?? "#0f172a";
+  const accent = displayColors[Math.min(1, displayColors.length - 1)] ?? "#3b82f6";
+  const light = displayColors[displayColors.length - 1] ?? "#e2e8f0";
 
   // Sélecteur intégré : quelle nuance édite-t-on, et où l'ancrer.
   const [pick, setPick] = useState<{ i: number; x: number; y: number } | null>(null);
-  const openPicker = (i: number, e: React.MouseEvent) => {
+  const openPickerEl = (i: number, el: HTMLElement) => {
     if (!canEdit) return;
-    const r = (e.currentTarget as HTMLElement).getBoundingClientRect();
+    const r = el.getBoundingClientRect();
     setPick({ i, x: r.left, y: r.bottom + 6 });
+  };
+
+  // Réordonnancement fluide au pointeur : réordonne en direct sous le curseur,
+  // sans image fantôme (source de latence du drag HTML5) et sans écrire dans
+  // le document tant qu'on n'a pas relâché (une seule sauvegarde à la fin).
+  const workRef = useRef<{ cols: string[]; pos: number; moved: boolean; sx: number; sy: number; el: HTMLElement; i: number } | null>(null);
+
+  const beginPointer = (i: number, e: React.PointerEvent) => {
+    if (!canEdit || e.button !== 0) return;
+    const st = { cols: [...c], pos: i, moved: false, sx: e.clientX, sy: e.clientY, el: e.currentTarget as HTMLElement, i };
+    workRef.current = st;
+    const move = (ev: PointerEvent) => {
+      const s = workRef.current; if (!s) return;
+      if (!s.moved) {
+        if (Math.abs(ev.clientX - s.sx) < 5 && Math.abs(ev.clientY - s.sy) < 5) return;
+        s.moved = true;
+        setOrder(s.cols); setDragPos(s.pos);
+        document.body.style.userSelect = "none";
+      }
+      const under = document.elementFromPoint(ev.clientX, ev.clientY) as HTMLElement | null;
+      const card = under?.closest("[data-swatch]") as HTMLElement | null;
+      if (card) {
+        const target = Number(card.getAttribute("data-swatch"));
+        if (!Number.isNaN(target) && target !== s.pos) {
+          const [m] = s.cols.splice(s.pos, 1);
+          s.cols.splice(target, 0, m);
+          s.pos = target;
+          setOrder([...s.cols]); setDragPos(target);
+        }
+      }
+    };
+    const up = () => {
+      window.removeEventListener("pointermove", move);
+      window.removeEventListener("pointerup", up);
+      document.body.style.userSelect = "";
+      const s = workRef.current; workRef.current = null;
+      setOrder(null); setDragPos(null);
+      if (!s) return;
+      if (s.moved) { if (s.cols.join() !== c.join()) onSetColors(s.cols); }
+      else openPickerEl(s.i, s.el); // simple clic → sélecteur
+    };
+    window.addEventListener("pointermove", move);
+    window.addEventListener("pointerup", up);
   };
 
   // Historique des régénérations : permet de revenir en arrière (et re-avancer)
@@ -518,25 +554,11 @@ function PaletteCard({
     onSetColors(next);
   };
 
-  // Glisser-déposer pour réordonner les nuances (change leur rôle).
-  // L'index source est aussi gardé dans une ref : le « drop » peut survenir
-  // avant le re-render du « dragstart », donc l'état seul serait périmé.
-  const dragRef = useRef<number | null>(null);
-  const [dragIdx, setDragIdx] = useState<number | null>(null);
-  const [overIdx, setOverIdx] = useState<number | null>(null);
-  const startDrag = (i: number) => { dragRef.current = i; setDragIdx(i); };
-  const endDrag = () => { dragRef.current = null; setDragIdx(null); setOverIdx(null); };
-  const dropOn = (i: number) => {
-    const from = dragRef.current;
-    if (from !== null && from !== i) onReorder(from, i);
-    endDrag();
-  };
-
   return (
     <section className="overflow-hidden rounded-2xl border border-white/10 bg-white/[0.03]">
       {/* Bandeau de couleurs */}
       <div className="flex h-24 w-full">
-        {c.map((col, i) => (
+        {displayColors.map((col, i) => (
           <button key={i} type="button" onClick={() => onCopy(col)} className="group relative flex-1 transition-[flex] hover:flex-[1.4]" style={{ background: col }} title="Copier">
             <span className="absolute inset-x-0 bottom-1 text-center text-[10px] font-semibold uppercase tracking-wide opacity-0 transition group-hover:opacity-100" style={{ color: readableOn(col) }}>
               {copied === col ? "Copié !" : col}
@@ -562,24 +584,19 @@ function PaletteCard({
         </div>
 
         <div className="grid gap-4 lg:grid-cols-[1fr_240px]">
-          {/* Nuances éditables — glisser pour réordonner (rôles principal/secondaire…) */}
+          {/* Nuances éditables — glisser une pastille pour réordonner (rôles). */}
           <div className="flex flex-wrap gap-2">
-            {c.map((col, i) => (
-              <div key={i}
-                onDragOver={canEdit ? (e) => { e.preventDefault(); if (overIdx !== i) setOverIdx(i); } : undefined}
-                onDrop={canEdit ? (e) => { e.preventDefault(); dropOn(i); } : undefined}
+            {displayColors.map((col, i) => (
+              <div key={i} data-swatch={i}
                 className={`group relative w-[104px] rounded-xl border bg-white/[0.02] p-2 transition ${
-                  overIdx === i && dragIdx !== null && dragIdx !== i ? "border-pink-400/60 ring-1 ring-pink-400/40" : "border-white/10"
-                } ${dragIdx === i ? "opacity-40" : ""}`}>
-                {/* Sélecteur intégré (clic) — glisser la pastille pour déplacer. */}
+                  dragPos === i ? "border-pink-400/60 ring-2 ring-pink-400/50 scale-[1.04] shadow-lg shadow-black/40" : "border-white/10"
+                }`}>
+                {/* Glisser la pastille pour déplacer ; simple clic = sélecteur. */}
                 <button type="button"
-                  draggable={canEdit}
-                  onDragStart={canEdit ? (e) => { startDrag(i); e.dataTransfer.effectAllowed = "move"; } : undefined}
-                  onDragEnd={endDrag}
-                  onClick={(e) => openPicker(i, e)} disabled={!canEdit}
+                  onPointerDown={(e) => beginPointer(i, e)} disabled={!canEdit}
                   aria-label="Modifier la couleur (glisser pour déplacer)"
-                  className="block h-12 w-full rounded-lg ring-1 ring-black/30 transition disabled:cursor-default enabled:cursor-grab enabled:active:cursor-grabbing enabled:hover:ring-2 enabled:hover:ring-white/40"
-                  style={{ background: col }} />
+                  style={{ background: col, touchAction: "none" }}
+                  className="block h-12 w-full rounded-lg ring-1 ring-black/30 transition disabled:cursor-default enabled:cursor-grab enabled:active:cursor-grabbing enabled:hover:ring-2 enabled:hover:ring-white/40" />
                 <input value={col} onChange={(e) => onSetColor(i, e.target.value)} disabled={!canEdit}
                   className="mt-1.5 w-full bg-transparent text-center text-[11px] font-medium uppercase tracking-wide text-white/80 outline-none" />
                 {canEdit && c.length > MIN && (
