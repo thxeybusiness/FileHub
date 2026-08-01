@@ -380,10 +380,14 @@ function PaletteCard({
           <div className="flex flex-wrap gap-2">
             {c.map((col, i) => (
               <div key={i} className="group relative w-[104px] rounded-xl border border-white/10 bg-white/[0.02] p-2">
-                <label className="block cursor-pointer">
-                  <span className="block h-12 w-full rounded-lg ring-1 ring-black/30" style={{ background: col }} />
-                  <input type="color" value={col} onChange={(e) => onSetColor(i, e.target.value)} disabled={!canEdit} className="sr-only" />
-                </label>
+                {/* L'input couleur recouvre la pastille : le sélecteur natif
+                    s'ouvre AU BON ENDROIT (avant, caché en coin → bas-gauche). */}
+                <div className="relative h-12 w-full">
+                  <span className="block h-full w-full rounded-lg ring-1 ring-black/30" style={{ background: col }} />
+                  <input type="color" value={col} onChange={(e) => onSetColor(i, e.target.value)} disabled={!canEdit}
+                    aria-label="Choisir la couleur"
+                    className="absolute inset-0 h-full w-full cursor-pointer opacity-0 disabled:cursor-default" />
+                </div>
                 <input value={col} onChange={(e) => onSetColor(i, e.target.value)} disabled={!canEdit}
                   className="mt-1.5 w-full bg-transparent text-center text-[11px] font-medium uppercase tracking-wide text-white/80 outline-none" />
                 {canEdit && c.length > MIN && (
