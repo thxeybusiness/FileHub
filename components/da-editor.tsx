@@ -4,7 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import {
   ArrowLeft, Home, ChevronRight, Check, Loader2, Palette, Plus, Trash2, Copy,
-  Wand2, X, Lock, Sparkles, Shuffle, Undo2, Redo2,
+  Wand2, X, Lock, Sparkles, Shuffle, Undo2, Redo2, Share2,
 } from "lucide-react";
 import { api } from "@/lib/api";
 import { useAutosave } from "./use-autosave";
@@ -282,6 +282,89 @@ function ColorPopover({
   );
 }
 
+/* ─────────────── Export / copie d'une palette ─────────────── */
+const ROLE = ["Principale", "Secondaire", "Tertiaire", "Accent", "Claire"];
+const slug = (s: string) => (s || "palette").toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "").replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "") || "palette";
+
+type Fmt = { key: string; label: string; content: string };
+
+function paletteFormats(brand: string, p: PaletteT): Fmt[] {
+  const cols = p.colors;
+  const base = slug(p.name);
+  return [
+    { key: "hex", label: "Hex", content: cols.join("\n") },
+    { key: "css", label: "CSS", content: `:root {\n${cols.map((c, i) => `  --${base}-${i + 1}: ${c};`).join("\n")}\n}` },
+    { key: "tw", label: "Tailwind", content: `colors: {\n${cols.map((c, i) => `  "${base}-${i + 1}": "${c}",`).join("\n")}\n}` },
+    { key: "json", label: "JSON", content: JSON.stringify({ name: p.name, colors: cols }, null, 2) },
+    { key: "brief", label: "Brief", content:
+      `Palette « ${p.name} »${brand ? ` — ${brand}` : ""}\n` +
+      cols.map((c, i) => `• ${ROLE[i] ?? `Couleur ${i + 1}`} : ${c}`).join("\n") },
+  ];
+}
+
+function projectFormats(name: string, doc: DA): Fmt[] {
+  const project = doc.brand.trim() || name;
+  const hex = doc.palettes.map((p) => `# ${p.name}\n${p.colors.join("\n")}`).join("\n\n");
+  const css = `:root {\n${doc.palettes.map((p) => `  /* ${p.name} */\n` + p.colors.map((c, i) => `  --${slug(p.name)}-${i + 1}: ${c};`).join("\n")).join("\n")}\n}`;
+  const json = JSON.stringify({ project, brief: doc.brief, palettes: doc.palettes.map((p) => ({ name: p.name, colors: p.colors })) }, null, 2);
+  const brief =
+    `Direction artistique — ${project}\n` +
+    (doc.brief.trim() ? `Ambiance / secteur : ${doc.brief.trim()}\n` : "") +
+    `\n` + doc.palettes.map((p) =>
+      `Palette « ${p.name} »\n` + p.colors.map((c, i) => `  • ${ROLE[i] ?? `Couleur ${i + 1}`} : ${c}`).join("\n"),
+    ).join("\n\n");
+  return [
+    { key: "brief", label: "Brief", content: brief },
+    { key: "hex", label: "Hex", content: hex },
+    { key: "css", label: "CSS", content: css },
+    { key: "json", label: "JSON", content: json },
+  ];
+}
+
+function ExportModal({ title, subtitle, formats, onClose }: { title: string; subtitle: string; formats: Fmt[]; onClose: () => void }) {
+  const [tab, setTab] = useState(0);
+  const [copied, setCopied] = useState(false);
+  const cur = formats[tab] ?? formats[0];
+  const copy = () => {
+    navigator.clipboard?.writeText(cur.content).then(() => { setCopied(true); setTimeout(() => setCopied(false), 1500); }).catch(() => {});
+  };
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4" onClick={onClose}>
+      <div className="flex max-h-[85vh] w-full max-w-lg flex-col rounded-2xl border border-white/10 bg-[#12121a] shadow-2xl" onClick={(e) => e.stopPropagation()}>
+        <div className="flex items-center gap-2 border-b border-white/10 px-4 py-3">
+          <Share2 className="size-4" style={{ color: ACCENT }} />
+          <div className="min-w-0 flex-1">
+            <h3 className="truncate text-sm font-semibold">{title}</h3>
+            <p className="truncate text-[11px] text-muted">{subtitle}</p>
+          </div>
+          <button type="button" onClick={onClose} className="grid size-7 place-items-center rounded-lg text-muted transition hover:bg-white/5 hover:text-white"><X className="size-4" /></button>
+        </div>
+        <div className="flex flex-wrap gap-1.5 border-b border-white/10 px-4 py-2.5">
+          {formats.map((f, i) => (
+            <button key={f.key} type="button" onClick={() => setTab(i)}
+              className={`rounded-lg px-2.5 py-1 text-xs font-medium transition ${tab === i ? "bg-white/10 text-white" : "text-muted hover:bg-white/5 hover:text-white"}`}>
+              {f.label}
+            </button>
+          ))}
+        </div>
+        <div className="min-h-0 flex-1 overflow-auto p-4">
+          <textarea readOnly value={cur.content}
+            onFocus={(e) => e.currentTarget.select()}
+            className="h-64 w-full resize-none rounded-xl border border-white/10 bg-black/30 p-3 font-mono text-xs leading-relaxed text-white/90 outline-none" />
+        </div>
+        <div className="flex items-center gap-2 border-t border-white/10 px-4 py-3">
+          <p className="flex-1 text-[11px] text-muted">Copie prête à envoyer à un graphiste ou à coller dans un site / une IA.</p>
+          <button type="button" onClick={copy}
+            className="inline-flex h-10 items-center justify-center gap-2 rounded-xl px-4 text-sm font-semibold text-white shadow-lg shadow-pink-500/25 transition hover:brightness-110"
+            style={{ background: `linear-gradient(90deg, ${ACCENT}, #8b5cf6)` }}>
+            {copied ? <Check className="size-4" /> : <Copy className="size-4" />} {copied ? "Copié !" : "Copier"}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 /* ─────────────── Composant principal ─────────────── */
 export function DAEditor({
   id, initialName, initialContent, backHref, crumbs, canEdit = true,
@@ -297,6 +380,8 @@ export function DAEditor({
   const [doc, setDoc] = useState<DA>(() => parse(initialContent));
   const [genOpen, setGenOpen] = useState(false);
   const [copied, setCopied] = useState<string | null>(null);
+  const [exportPalette, setExportPalette] = useState<PaletteT | null>(null);
+  const [exportProject, setExportProject] = useState(false);
 
   const doSave = useCallback(
     (p: { content?: string; name?: string }, keepalive: boolean) => api.saveContent(id, p, keepalive),
@@ -413,6 +498,12 @@ export function DAEditor({
                 className="inline-flex items-center gap-1.5 rounded-lg border border-white/10 px-3 py-2 text-sm font-medium text-muted transition hover:bg-white/5 hover:text-white disabled:opacity-50">
                 <Plus className="size-4" /> Palette vide
               </button>
+              {doc.palettes.length > 0 && (
+                <button type="button" onClick={() => setExportProject(true)}
+                  className="ml-auto inline-flex items-center gap-1.5 rounded-lg border border-white/10 px-3 py-2 text-sm font-medium text-muted transition hover:bg-white/5 hover:text-white">
+                  <Share2 className="size-4" /> Exporter le projet
+                </button>
+              )}
             </div>
             <p className="mb-2 flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wide text-muted"><Sparkles className="size-3" /> Ambiances</p>
             <div className="flex flex-wrap gap-1.5">
@@ -445,6 +536,7 @@ export function DAEditor({
                   onShuffle={() => shufflePalette(p.id)} onSetColor={(i, hex) => setColor(p.id, i, hex)}
                   onSetColors={(cols) => setColors(p.id, cols)}
                   onAddColor={() => addColor(p.id)} onDelColor={(i) => delColor(p.id, i)} onCopy={copyHex}
+                  onExport={() => setExportPalette(p)}
                 />
               ))}
             </div>
@@ -458,6 +550,23 @@ export function DAEditor({
           onCreate={(pal) => { addPalette(pal); setGenOpen(false); }}
         />
       )}
+
+      {exportPalette && (
+        <ExportModal
+          title={`Exporter « ${exportPalette.name} »`}
+          subtitle="Codes couleur à copier"
+          formats={paletteFormats(doc.brand, exportPalette)}
+          onClose={() => setExportPalette(null)}
+        />
+      )}
+      {exportProject && (
+        <ExportModal
+          title="Exporter le projet"
+          subtitle={`${doc.palettes.length} palette${doc.palettes.length > 1 ? "s" : ""} · ${doc.brand.trim() || name}`}
+          formats={projectFormats(name, doc)}
+          onClose={() => setExportProject(false)}
+        />
+      )}
     </div>
   );
 }
@@ -465,12 +574,12 @@ export function DAEditor({
 /* ─────────────── Carte palette ─────────────── */
 function PaletteCard({
   palette, canEdit, brand, copied,
-  onRename, onDelete, onDuplicate, onShuffle, onSetColor, onSetColors, onAddColor, onDelColor, onCopy,
+  onRename, onDelete, onDuplicate, onShuffle, onSetColor, onSetColors, onAddColor, onDelColor, onCopy, onExport,
 }: {
   palette: PaletteT; canEdit: boolean; brand: string; copied: string | null;
   onRename: (v: string) => void; onDelete: () => void; onDuplicate: () => void; onShuffle: () => void;
   onSetColor: (i: number, hex: string) => void; onSetColors: (colors: string[]) => void;
-  onAddColor: () => void; onDelColor: (i: number) => void; onCopy: (hex: string) => void;
+  onAddColor: () => void; onDelColor: (i: number) => void; onCopy: (hex: string) => void; onExport: () => void;
 }) {
   const c = palette.colors;
   // Ordre local pendant le glisser (aperçu live) ; sinon l'ordre réel.
@@ -571,8 +680,10 @@ function PaletteCard({
         <div className="mb-3 flex items-center gap-2">
           <input value={palette.name} onChange={(e) => onRename(e.target.value)} disabled={!canEdit}
             className="min-w-0 flex-1 bg-transparent text-sm font-semibold outline-none placeholder:text-white/30 disabled:opacity-100" placeholder="Nom de la palette" />
+          <button type="button" onClick={onExport} title="Exporter / copier cette palette" className="grid size-7 place-items-center rounded-lg text-muted transition hover:bg-white/5 hover:text-white"><Share2 className="size-3.5" /></button>
           {canEdit && (
             <>
+              <span className="mx-0.5 h-4 w-px bg-white/10" />
               <button type="button" onClick={undo} disabled={!hist.length} title="Palette précédente" className="grid size-7 place-items-center rounded-lg text-muted transition hover:bg-white/5 hover:text-white disabled:opacity-30 disabled:hover:bg-transparent"><Undo2 className="size-3.5" /></button>
               <button type="button" onClick={redo} disabled={!fut.length} title="Palette suivante" className="grid size-7 place-items-center rounded-lg text-muted transition hover:bg-white/5 hover:text-white disabled:opacity-30 disabled:hover:bg-transparent"><Redo2 className="size-3.5" /></button>
               <span className="mx-0.5 h-4 w-px bg-white/10" />
