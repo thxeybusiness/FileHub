@@ -205,7 +205,7 @@ export const api = {
   },
 
   // ── Types génériques (note, diagram, board, slides) ──
-  createNode(type: "note" | "diagram" | "board" | "slides" | "project" | "coaching" | "seance", name: string, parentId: string | null, spaceId?: string | null) {
+  createNode(type: "note" | "diagram" | "board" | "slides" | "project" | "coaching" | "seance" | "da", name: string, parentId: string | null, spaceId?: string | null) {
     return req<{ node: SerializedNode }>(
       "/api/nodes",
       jsonInit("POST", { name, parentId, type, spaceId: spaceId ?? null }),

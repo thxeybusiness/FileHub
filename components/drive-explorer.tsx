@@ -40,6 +40,7 @@ import {
   CalendarDays,
   Target,
   HeartHandshake,
+  Palette,
 } from "lucide-react";
 import type { SerializedNode } from "@/lib/nodes";
 import { api, notifyRefresh } from "@/lib/api";
@@ -241,8 +242,8 @@ export function DriveExplorer({
     router.push(editorHref("draw", node.id));
   };
 
-  const createTyped = async (type: "note" | "diagram" | "board" | "slides" | "project") => {
-    const label = { note: "Note sans titre", diagram: "Diagramme sans titre", board: "Tableau kanban", slides: "Présentation sans titre", project: "Tableau sans titre" }[type];
+  const createTyped = async (type: "note" | "diagram" | "board" | "slides" | "project" | "da") => {
+    const label = { note: "Note sans titre", diagram: "Diagramme sans titre", board: "Tableau kanban", slides: "Présentation sans titre", project: "Tableau sans titre", da: "Direction artistique" }[type];
     const { node } = await api.createNode(type, label, folderId, spaceId);
     router.push(editorHref(type, node.id));
   };
@@ -282,7 +283,8 @@ export function DriveExplorer({
         { icon: FolderKanban, tint: "#8b5cf6", label: "Tableau", desc: "Base de tâches multi-vues", fn: () => createTyped("project") },
         { icon: StickyNote, tint: "#eab308", label: "Note", desc: "Markdown rapide", fn: () => createTyped("note") },
         { icon: Workflow, tint: "#14b8a6", label: "Diagramme", desc: "Schéma Mermaid", fn: () => createTyped("diagram") },
-        { icon: Brush, tint: "#ec4899", label: "Dessin", desc: "Tablette graphique", fn: createDraw },
+        { icon: Palette, tint: "#ec4899", label: "Direction Artistique", desc: "Palettes de couleurs d'une marque", fn: () => createTyped("da") },
+        { icon: Brush, tint: "#f43f5e", label: "Dessin", desc: "Tablette graphique", fn: createDraw },
         { icon: FolderPlus, tint: "#a78bff", label: "Nouveau dossier", desc: "Organisez vos fichiers", fn: () => setNewFolder(true) },
       ];
 

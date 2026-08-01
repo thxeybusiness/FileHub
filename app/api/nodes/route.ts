@@ -48,6 +48,15 @@ const DEFAULT_SEANCE = JSON.stringify({
   actions: [{ id: "a1", text: "", done: false }],
   privateNotes: "",
 });
+// Direction Artistique : identité visuelle d'un projet / d'une entreprise via
+// des palettes de couleurs customisables (2 à 5 nuances chacune).
+const DEFAULT_DA = JSON.stringify({
+  brand: "",
+  brief: "",
+  palettes: [
+    { id: "p1", name: "Palette principale", colors: ["#0f172a", "#3b82f6", "#e2e8f0"] },
+  ],
+});
 // Projet : base de données de tâches (champs typés + lignes + vues).
 const DEFAULT_PROJECT = JSON.stringify({
   fields: [
@@ -128,7 +137,7 @@ export async function GET(req: NextRequest) {
     where.trashed = true;
   } else if (view === "recent") {
     where.trashed = false;
-    where.type = { in: ["file", "doc", "sheet", "chart", "draw", "note", "diagram", "board", "slides", "project"] };
+    where.type = { in: ["file", "doc", "sheet", "chart", "draw", "note", "diagram", "board", "slides", "project", "da"] };
   } else {
     where.trashed = false;
     where.parentId = parent && parent !== "root" ? parent : null;
@@ -188,7 +197,7 @@ const createSchema = z.object({
   parentId: z.string().nullable().optional(),
   color: z.string().optional(),
   type: z
-    .enum(["folder", "doc", "sheet", "chart", "draw", "note", "diagram", "board", "slides", "project", "coaching", "seance"])
+    .enum(["folder", "doc", "sheet", "chart", "draw", "note", "diagram", "board", "slides", "project", "coaching", "seance", "da"])
     .optional(),
   spaceId: z.string().nullable().optional(),
 });
@@ -250,6 +259,9 @@ export async function POST(req: NextRequest) {
         : {}),
       ...(type === "seance"
         ? { content: DEFAULT_SEANCE, mimeType: "application/vnd.filehub.seance" }
+        : {}),
+      ...(type === "da"
+        ? { content: DEFAULT_DA, mimeType: "application/vnd.filehub.da" }
         : {}),
     },
     include: { _count: { select: { children: true } } },
