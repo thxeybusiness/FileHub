@@ -768,11 +768,12 @@ function PaletteCard({
         </div>
 
         <div className="grid gap-4 lg:grid-cols-[1fr_240px]">
-          {/* Nuances éditables — glisser une pastille pour réordonner (rôles). */}
-          <div className="flex flex-wrap gap-2">
+          {/* Nuances éditables — toutes sur une seule ligne (colonnes flexibles).
+              Glisser une pastille pour réordonner (rôles). */}
+          <div className="grid gap-2" style={{ gridTemplateColumns: `repeat(${displayColors.length + (canEdit && c.length < MAX ? 1 : 0)}, minmax(0, 1fr))` }}>
             {displayColors.map((col, i) => (
               <div key={i} data-swatch={i}
-                className={`group relative w-[104px] rounded-xl border bg-white/[0.02] p-2 transition ${
+                className={`group relative min-w-0 rounded-xl border bg-white/[0.02] p-2 transition ${
                   dragPos === i ? "border-pink-400/60 ring-2 ring-pink-400/50 scale-[1.04] shadow-lg shadow-black/40" : "border-white/10"
                 }`}>
                 {/* Glisser la pastille pour déplacer ; simple clic = sélecteur. */}
@@ -782,7 +783,7 @@ function PaletteCard({
                   style={{ background: col, touchAction: "none" }}
                   className="block h-12 w-full rounded-lg ring-1 ring-black/30 transition disabled:cursor-default enabled:cursor-grab enabled:active:cursor-grabbing enabled:hover:ring-2 enabled:hover:ring-white/40" />
                 <input value={col} onChange={(e) => onSetColor(i, e.target.value)} disabled={!canEdit}
-                  className="mt-1.5 w-full bg-transparent text-center text-[11px] font-medium uppercase tracking-wide text-white/80 outline-none" />
+                  className="mt-1.5 w-full min-w-0 bg-transparent text-center text-[11px] font-medium uppercase tracking-wide text-white/80 outline-none" />
                 {canEdit && c.length > MIN && (
                   <button type="button" onClick={() => onDelColor(i)} title="Retirer" className="absolute -right-1.5 -top-1.5 grid size-5 place-items-center rounded-full border border-white/15 bg-[#12121a] text-muted opacity-0 transition hover:text-red-400 group-hover:opacity-100">
                     <X className="size-3" />
@@ -791,7 +792,7 @@ function PaletteCard({
               </div>
             ))}
             {canEdit && c.length < MAX && (
-              <button type="button" onClick={onAddColor} className="grid h-[92px] w-[104px] place-items-center rounded-xl border border-dashed border-white/15 text-muted transition hover:border-white/30 hover:text-white" title="Ajouter une nuance">
+              <button type="button" onClick={onAddColor} className="grid min-h-[92px] w-full place-items-center rounded-xl border border-dashed border-white/15 text-muted transition hover:border-white/30 hover:text-white" title="Ajouter une nuance">
                 <Plus className="size-5" />
               </button>
             )}
