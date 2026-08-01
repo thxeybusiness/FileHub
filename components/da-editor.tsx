@@ -4,7 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import {
   ArrowLeft, Home, ChevronRight, Check, Loader2, Palette, Plus, Trash2, Copy,
-  Wand2, X, Lock, Sparkles, Shuffle, Undo2, Redo2, Share2,
+  Wand2, X, Lock, Sparkles, Shuffle, Undo2, Redo2, Share2, Download,
 } from "lucide-react";
 import { api } from "@/lib/api";
 import { useAutosave } from "./use-autosave";
@@ -288,32 +288,47 @@ const slug = (s: string) => (s || "palette").toLowerCase().normalize("NFD").repl
 
 type Fmt = { key: string; label: string; content: string };
 
+const roleOf = (i: number) => ROLE[i] ?? `Couleur ${i + 1}`;
+const rgbStr = (hex: string) => { const [r, g, b] = hexToRgb(hex); return `${r}, ${g}, ${b}`; };
+const hslStr = (hex: string) => { const [h, s, l] = rgbToHsl(...hexToRgb(hex)); return `${Math.round(h)}°, ${Math.round(s)}%, ${Math.round(l)}%`; };
+const colorSpec = (hex: string) => ({
+  hex: hex.toUpperCase(),
+  rgb: hexToRgb(hex),
+  hsl: (() => { const [h, s, l] = rgbToHsl(...hexToRgb(hex)); return [Math.round(h), Math.round(s), Math.round(l)]; })(),
+});
+// Fiche détaillée d'une couleur (rôle + HEX + RGB + HSL).
+const detailLines = (cols: string[]) =>
+  cols.map((c, i) => `${roleOf(i)}\n  HEX  ${c.toUpperCase()}\n  RGB  ${rgbStr(c)}\n  HSL  ${hslStr(c)}`).join("\n\n");
+
 function paletteFormats(brand: string, p: PaletteT): Fmt[] {
   const cols = p.colors;
   const base = slug(p.name);
+  const title = `${brand.trim() ? brand.trim() + " — " : ""}${p.name}`;
   return [
-    { key: "hex", label: "Hex", content: cols.join("\n") },
-    { key: "css", label: "CSS", content: `:root {\n${cols.map((c, i) => `  --${base}-${i + 1}: ${c};`).join("\n")}\n}` },
-    { key: "tw", label: "Tailwind", content: `colors: {\n${cols.map((c, i) => `  "${base}-${i + 1}": "${c}",`).join("\n")}\n}` },
-    { key: "json", label: "JSON", content: JSON.stringify({ name: p.name, colors: cols }, null, 2) },
-    { key: "brief", label: "Brief", content:
-      `Palette « ${p.name} »${brand ? ` — ${brand}` : ""}\n` +
-      cols.map((c, i) => `• ${ROLE[i] ?? `Couleur ${i + 1}`} : ${c}`).join("\n") },
+    { key: "details", label: "Détails", content: `${title}\n\n${detailLines(cols)}` },
+    { key: "hex", label: "Hex", content: cols.map((c) => c.toUpperCase()).join("\n") },
+    { key: "css", label: "CSS", content: `:root {\n${cols.map((c, i) => `  --${base}-${i + 1}: ${c}; /* ${roleOf(i)} — rgb(${rgbStr(c)}) */`).join("\n")}\n}` },
+    { key: "tw", label: "Tailwind", content: `// ${title}\ncolors: {\n${cols.map((c, i) => `  "${base}-${i + 1}": "${c}", // ${roleOf(i)}`).join("\n")}\n}` },
+    { key: "json", label: "JSON", content: JSON.stringify({ name: p.name, brand: brand.trim() || undefined, colors: cols.map((c, i) => ({ role: roleOf(i), ...colorSpec(c) })) }, null, 2) },
+    { key: "brief", label: "Brief", content: `Palette « ${p.name} »${brand.trim() ? ` — ${brand.trim()}` : ""}\n` + cols.map((c, i) => `• ${roleOf(i)} : ${c.toUpperCase()}  (rgb ${rgbStr(c)})`).join("\n") },
   ];
 }
 
 function projectFormats(name: string, doc: DA): Fmt[] {
   const project = doc.brand.trim() || name;
-  const hex = doc.palettes.map((p) => `# ${p.name}\n${p.colors.join("\n")}`).join("\n\n");
-  const css = `:root {\n${doc.palettes.map((p) => `  /* ${p.name} */\n` + p.colors.map((c, i) => `  --${slug(p.name)}-${i + 1}: ${c};`).join("\n")).join("\n")}\n}`;
-  const json = JSON.stringify({ project, brief: doc.brief, palettes: doc.palettes.map((p) => ({ name: p.name, colors: p.colors })) }, null, 2);
+  const details =
+    `Direction artistique — ${project}\n` +
+    (doc.brief.trim() ? `Ambiance / secteur : ${doc.brief.trim()}\n` : "") +
+    `\n` + doc.palettes.map((p) => `━━ ${p.name} ━━\n${detailLines(p.colors)}`).join("\n\n\n");
+  const hex = doc.palettes.map((p) => `# ${p.name}\n${p.colors.map((c) => c.toUpperCase()).join("\n")}`).join("\n\n");
+  const css = `:root {\n${doc.palettes.map((p) => `  /* ${p.name} */\n` + p.colors.map((c, i) => `  --${slug(p.name)}-${i + 1}: ${c}; /* ${roleOf(i)} */`).join("\n")).join("\n\n")}\n}`;
+  const json = JSON.stringify({ project, brief: doc.brief || undefined, palettes: doc.palettes.map((p) => ({ name: p.name, colors: p.colors.map((c, i) => ({ role: roleOf(i), ...colorSpec(c) })) })) }, null, 2);
   const brief =
     `Direction artistique — ${project}\n` +
     (doc.brief.trim() ? `Ambiance / secteur : ${doc.brief.trim()}\n` : "") +
-    `\n` + doc.palettes.map((p) =>
-      `Palette « ${p.name} »\n` + p.colors.map((c, i) => `  • ${ROLE[i] ?? `Couleur ${i + 1}`} : ${c}`).join("\n"),
-    ).join("\n\n");
+    `\n` + doc.palettes.map((p) => `Palette « ${p.name} »\n` + p.colors.map((c, i) => `  • ${roleOf(i)} : ${c.toUpperCase()}`).join("\n")).join("\n\n");
   return [
+    { key: "details", label: "Détails", content: details },
     { key: "brief", label: "Brief", content: brief },
     { key: "hex", label: "Hex", content: hex },
     { key: "css", label: "CSS", content: css },
@@ -321,16 +336,59 @@ function projectFormats(name: string, doc: DA): Fmt[] {
   ];
 }
 
-function ExportModal({ title, subtitle, formats, onClose }: { title: string; subtitle: string; formats: Fmt[]; onClose: () => void }) {
+// Planche de couleurs (image) à télécharger — PNG/SVG, pour un graphiste ou un site.
+function buildSheet(title: string, rows: { name: string; colors: string[] }[]) {
+  const esc = (s: string) => s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+  const PAD = 36, SW = 168, SH = 150, TITLE = 52, ROWLBL = 30, ROWGAP = 28;
+  const maxCols = Math.max(1, ...rows.map((r) => r.colors.length));
+  const w = PAD * 2 + maxCols * SW;
+  const F = "ui-sans-serif,system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif";
+  const M = "ui-monospace,SFMono-Regular,Menlo,monospace";
+  const parts: string[] = [];
+  parts.push(`<text x="${PAD}" y="${PAD + 30}" fill="#ffffff" font-family="${F}" font-size="25" font-weight="700">${esc(title)}</text>`);
+  let y = PAD + TITLE;
+  for (const r of rows) {
+    parts.push(`<text x="${PAD}" y="${y + 20}" fill="#9aa0ad" font-family="${F}" font-size="15" font-weight="600">${esc(r.name)}</text>`);
+    y += ROWLBL;
+    r.colors.forEach((c, i) => {
+      const x = PAD + i * SW, tc = readableOn(c);
+      parts.push(`<rect x="${x}" y="${y}" width="${SW - 8}" height="${SH}" rx="12" fill="${c}"/>`);
+      parts.push(`<text x="${x + (SW - 8) / 2}" y="${y + 26}" fill="${tc}" text-anchor="middle" font-family="${F}" font-size="12" opacity="0.85">${esc(roleOf(i))}</text>`);
+      parts.push(`<text x="${x + (SW - 8) / 2}" y="${y + SH - 16}" fill="${tc}" text-anchor="middle" font-family="${M}" font-size="15" font-weight="600">${c.toUpperCase()}</text>`);
+    });
+    y += SH + ROWGAP;
+  }
+  const h = y - ROWGAP + PAD;
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${w}" height="${h}" viewBox="0 0 ${w} ${h}"><rect width="${w}" height="${h}" rx="22" fill="#0b0b12"/>${parts.join("")}</svg>`;
+  return { svg, w, h };
+}
+
+function ExportModal({ title, subtitle, formats, sheet, filename, onClose }: { title: string; subtitle: string; formats: Fmt[]; sheet: { svg: string; w: number; h: number }; filename: string; onClose: () => void }) {
   const [tab, setTab] = useState(0);
   const [copied, setCopied] = useState(false);
   const cur = formats[tab] ?? formats[0];
   const copy = () => {
     navigator.clipboard?.writeText(cur.content).then(() => { setCopied(true); setTimeout(() => setCopied(false), 1500); }).catch(() => {});
   };
+  const dl = (href: string, name: string) => { const a = document.createElement("a"); a.href = href; a.download = name; document.body.appendChild(a); a.click(); a.remove(); };
+  const downloadSvg = () => { const u = URL.createObjectURL(new Blob([sheet.svg], { type: "image/svg+xml" })); dl(u, `${filename}.svg`); setTimeout(() => URL.revokeObjectURL(u), 1000); };
+  const downloadPng = () => {
+    const url = URL.createObjectURL(new Blob([sheet.svg], { type: "image/svg+xml;charset=utf-8" }));
+    const img = new Image();
+    img.onload = () => {
+      const s = 2, cv = document.createElement("canvas"); cv.width = sheet.w * s; cv.height = sheet.h * s;
+      const ctx = cv.getContext("2d"); if (!ctx) return;
+      ctx.scale(s, s); ctx.drawImage(img, 0, 0);
+      cv.toBlob((bl) => { if (!bl) return; const u = URL.createObjectURL(bl); dl(u, `${filename}.png`); setTimeout(() => { URL.revokeObjectURL(u); URL.revokeObjectURL(url); }, 1000); }, "image/png");
+    };
+    img.onerror = () => URL.revokeObjectURL(url);
+    img.src = url;
+  };
+  const preview = `data:image/svg+xml;utf8,${encodeURIComponent(sheet.svg)}`;
+
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4" onClick={onClose}>
-      <div className="flex max-h-[85vh] w-full max-w-lg flex-col rounded-2xl border border-white/10 bg-[#12121a] shadow-2xl" onClick={(e) => e.stopPropagation()}>
+      <div className="flex max-h-[88vh] w-full max-w-lg flex-col rounded-2xl border border-white/10 bg-[#12121a] shadow-2xl" onClick={(e) => e.stopPropagation()}>
         <div className="flex items-center gap-2 border-b border-white/10 px-4 py-3">
           <Share2 className="size-4" style={{ color: ACCENT }} />
           <div className="min-w-0 flex-1">
@@ -339,25 +397,38 @@ function ExportModal({ title, subtitle, formats, onClose }: { title: string; sub
           </div>
           <button type="button" onClick={onClose} className="grid size-7 place-items-center rounded-lg text-muted transition hover:bg-white/5 hover:text-white"><X className="size-4" /></button>
         </div>
-        <div className="flex flex-wrap gap-1.5 border-b border-white/10 px-4 py-2.5">
-          {formats.map((f, i) => (
-            <button key={f.key} type="button" onClick={() => setTab(i)}
-              className={`rounded-lg px-2.5 py-1 text-xs font-medium transition ${tab === i ? "bg-white/10 text-white" : "text-muted hover:bg-white/5 hover:text-white"}`}>
-              {f.label}
-            </button>
-          ))}
-        </div>
+
         <div className="min-h-0 flex-1 overflow-auto p-4">
+          {/* Aperçu de la planche + téléchargement image */}
+          <div className="mb-4 rounded-xl border border-white/10 bg-black/30 p-3">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src={preview} alt="Aperçu de la palette" className="mx-auto max-h-44 w-auto rounded-lg" />
+            <div className="mt-3 flex items-center justify-center gap-2">
+              <button type="button" onClick={downloadPng} className="inline-flex items-center gap-1.5 rounded-lg border border-white/15 bg-white/5 px-3 py-1.5 text-xs font-semibold transition hover:bg-white/10"><Download className="size-3.5" /> PNG</button>
+              <button type="button" onClick={downloadSvg} className="inline-flex items-center gap-1.5 rounded-lg border border-white/15 bg-white/5 px-3 py-1.5 text-xs font-semibold transition hover:bg-white/10"><Download className="size-3.5" /> SVG</button>
+            </div>
+          </div>
+
+          {/* Formats texte */}
+          <div className="mb-2 flex flex-wrap gap-1.5">
+            {formats.map((f, i) => (
+              <button key={f.key} type="button" onClick={() => setTab(i)}
+                className={`rounded-lg px-2.5 py-1 text-xs font-medium transition ${tab === i ? "bg-white/10 text-white" : "text-muted hover:bg-white/5 hover:text-white"}`}>
+                {f.label}
+              </button>
+            ))}
+          </div>
           <textarea readOnly value={cur.content}
             onFocus={(e) => e.currentTarget.select()}
-            className="h-64 w-full resize-none rounded-xl border border-white/10 bg-black/30 p-3 font-mono text-xs leading-relaxed text-white/90 outline-none" />
+            className="h-56 w-full resize-none rounded-xl border border-white/10 bg-black/30 p-3 font-mono text-xs leading-relaxed text-white/90 outline-none" />
         </div>
+
         <div className="flex items-center gap-2 border-t border-white/10 px-4 py-3">
-          <p className="flex-1 text-[11px] text-muted">Copie prête à envoyer à un graphiste ou à coller dans un site / une IA.</p>
+          <p className="flex-1 text-[11px] text-muted">Image, codes détaillés (HEX · RGB · HSL), CSS, JSON… à envoyer à un graphiste ou coller dans un site / une IA.</p>
           <button type="button" onClick={copy}
             className="inline-flex h-10 items-center justify-center gap-2 rounded-xl px-4 text-sm font-semibold text-white shadow-lg shadow-pink-500/25 transition hover:brightness-110"
             style={{ background: `linear-gradient(90deg, ${ACCENT}, #8b5cf6)` }}>
-            {copied ? <Check className="size-4" /> : <Copy className="size-4" />} {copied ? "Copié !" : "Copier"}
+            {copied ? <Check className="size-4" /> : <Copy className="size-4" />} {copied ? "Copié !" : `Copier ${cur.label}`}
           </button>
         </div>
       </div>
@@ -554,8 +625,10 @@ export function DAEditor({
       {exportPalette && (
         <ExportModal
           title={`Exporter « ${exportPalette.name} »`}
-          subtitle="Codes couleur à copier"
+          subtitle="Image, codes couleur (HEX · RGB · HSL), CSS…"
           formats={paletteFormats(doc.brand, exportPalette)}
+          sheet={buildSheet(doc.brand.trim() || name, [{ name: exportPalette.name, colors: exportPalette.colors }])}
+          filename={slug(exportPalette.name)}
           onClose={() => setExportPalette(null)}
         />
       )}
@@ -564,6 +637,8 @@ export function DAEditor({
           title="Exporter le projet"
           subtitle={`${doc.palettes.length} palette${doc.palettes.length > 1 ? "s" : ""} · ${doc.brand.trim() || name}`}
           formats={projectFormats(name, doc)}
+          sheet={buildSheet(doc.brand.trim() || name, doc.palettes.map((p) => ({ name: p.name, colors: p.colors })))}
+          filename={`${slug(doc.brand.trim() || name)}-palettes`}
           onClose={() => setExportProject(false)}
         />
       )}
