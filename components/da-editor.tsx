@@ -347,6 +347,16 @@ export function DAEditor({
   // Remplace toutes les couleurs d'une palette (utilisé par l'historique).
   const setColors = (pid: string, colors: string[]) =>
     update((d) => ({ ...d, palettes: d.palettes.map((p) => p.id === pid ? { ...p, colors } : p) }));
+  // Déplace une nuance (glisser-déposer) : change son rôle (principal, secondaire…).
+  const moveColor = (pid: string, from: number, to: number) =>
+    update((d) => ({ ...d, palettes: d.palettes.map((p) => {
+      if (p.id !== pid) return p;
+      if (from < 0 || to < 0 || from >= p.colors.length || to >= p.colors.length || from === to) return p;
+      const cols = [...p.colors];
+      const [m] = cols.splice(from, 1);
+      cols.splice(to, 0, m);
+      return { ...p, colors: cols };
+    }) }));
 
   const copyHex = (hex: string) => {
     navigator.clipboard?.writeText(hex).then(() => { setCopied(hex); setTimeout(() => setCopied((c) => (c === hex ? null : c)), 1200); }).catch(() => {});
@@ -444,6 +454,7 @@ export function DAEditor({
                   onRename={(v) => renamePalette(p.id, v)} onDelete={() => delPalette(p.id)} onDuplicate={() => dupPalette(p.id)}
                   onShuffle={() => shufflePalette(p.id)} onSetColor={(i, hex) => setColor(p.id, i, hex)}
                   onSetColors={(cols) => setColors(p.id, cols)}
+                  onReorder={(from, to) => moveColor(p.id, from, to)}
                   onAddColor={() => addColor(p.id)} onDelColor={(i) => delColor(p.id, i)} onCopy={copyHex}
                 />
               ))}
@@ -465,11 +476,12 @@ export function DAEditor({
 /* ─────────────── Carte palette ─────────────── */
 function PaletteCard({
   palette, canEdit, brand, copied,
-  onRename, onDelete, onDuplicate, onShuffle, onSetColor, onSetColors, onAddColor, onDelColor, onCopy,
+  onRename, onDelete, onDuplicate, onShuffle, onSetColor, onSetColors, onReorder, onAddColor, onDelColor, onCopy,
 }: {
   palette: PaletteT; canEdit: boolean; brand: string; copied: string | null;
   onRename: (v: string) => void; onDelete: () => void; onDuplicate: () => void; onShuffle: () => void;
   onSetColor: (i: number, hex: string) => void; onSetColors: (colors: string[]) => void;
+  onReorder: (from: number, to: number) => void;
   onAddColor: () => void; onDelColor: (i: number) => void; onCopy: (hex: string) => void;
 }) {
   const c = palette.colors;
@@ -506,6 +518,20 @@ function PaletteCard({
     onSetColors(next);
   };
 
+  // Glisser-déposer pour réordonner les nuances (change leur rôle).
+  // L'index source est aussi gardé dans une ref : le « drop » peut survenir
+  // avant le re-render du « dragstart », donc l'état seul serait périmé.
+  const dragRef = useRef<number | null>(null);
+  const [dragIdx, setDragIdx] = useState<number | null>(null);
+  const [overIdx, setOverIdx] = useState<number | null>(null);
+  const startDrag = (i: number) => { dragRef.current = i; setDragIdx(i); };
+  const endDrag = () => { dragRef.current = null; setDragIdx(null); setOverIdx(null); };
+  const dropOn = (i: number) => {
+    const from = dragRef.current;
+    if (from !== null && from !== i) onReorder(from, i);
+    endDrag();
+  };
+
   return (
     <section className="overflow-hidden rounded-2xl border border-white/10 bg-white/[0.03]">
       {/* Bandeau de couleurs */}
@@ -536,14 +562,23 @@ function PaletteCard({
         </div>
 
         <div className="grid gap-4 lg:grid-cols-[1fr_240px]">
-          {/* Nuances éditables */}
+          {/* Nuances éditables — glisser pour réordonner (rôles principal/secondaire…) */}
           <div className="flex flex-wrap gap-2">
             {c.map((col, i) => (
-              <div key={i} className="group relative w-[104px] rounded-xl border border-white/10 bg-white/[0.02] p-2">
-                {/* Sélecteur intégré (ancré à la pastille), pas le panneau natif. */}
-                <button type="button" onClick={(e) => openPicker(i, e)} disabled={!canEdit}
-                  aria-label="Modifier la couleur"
-                  className="block h-12 w-full rounded-lg ring-1 ring-black/30 transition disabled:cursor-default enabled:hover:ring-2 enabled:hover:ring-white/40"
+              <div key={i}
+                onDragOver={canEdit ? (e) => { e.preventDefault(); if (overIdx !== i) setOverIdx(i); } : undefined}
+                onDrop={canEdit ? (e) => { e.preventDefault(); dropOn(i); } : undefined}
+                className={`group relative w-[104px] rounded-xl border bg-white/[0.02] p-2 transition ${
+                  overIdx === i && dragIdx !== null && dragIdx !== i ? "border-pink-400/60 ring-1 ring-pink-400/40" : "border-white/10"
+                } ${dragIdx === i ? "opacity-40" : ""}`}>
+                {/* Sélecteur intégré (clic) — glisser la pastille pour déplacer. */}
+                <button type="button"
+                  draggable={canEdit}
+                  onDragStart={canEdit ? (e) => { startDrag(i); e.dataTransfer.effectAllowed = "move"; } : undefined}
+                  onDragEnd={endDrag}
+                  onClick={(e) => openPicker(i, e)} disabled={!canEdit}
+                  aria-label="Modifier la couleur (glisser pour déplacer)"
+                  className="block h-12 w-full rounded-lg ring-1 ring-black/30 transition disabled:cursor-default enabled:cursor-grab enabled:active:cursor-grabbing enabled:hover:ring-2 enabled:hover:ring-white/40"
                   style={{ background: col }} />
                 <input value={col} onChange={(e) => onSetColor(i, e.target.value)} disabled={!canEdit}
                   className="mt-1.5 w-full bg-transparent text-center text-[11px] font-medium uppercase tracking-wide text-white/80 outline-none" />
