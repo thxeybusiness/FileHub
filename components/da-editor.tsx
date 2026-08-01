@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import {
   ArrowLeft, Home, ChevronRight, Check, Loader2, Palette, Plus, Trash2, Copy,
@@ -68,6 +68,36 @@ function hslToHex(h: number, s: number, l: number): string {
   else [r, g, b] = [c, 0, x];
   return rgbToHex((r + m) * 255, (g + m) * 255, (b + m) * 255);
 }
+
+// ── HSV (pour le sélecteur : carré saturation/valeur + curseur de teinte) ──
+function hexToHsv(hex: string): [number, number, number] {
+  let [r, g, b] = hexToRgb(hex); r /= 255; g /= 255; b /= 255;
+  const max = Math.max(r, g, b), min = Math.min(r, g, b), d = max - min;
+  let h = 0;
+  if (d !== 0) {
+    if (max === r) h = ((g - b) / d) % 6;
+    else if (max === g) h = (b - r) / d + 2;
+    else h = (r - g) / d + 4;
+    h *= 60; if (h < 0) h += 360;
+  }
+  return [h, (max === 0 ? 0 : d / max) * 100, max * 100];
+}
+function hsvToHex(h: number, s: number, v: number): string {
+  h = ((h % 360) + 360) % 360; s /= 100; v /= 100;
+  const c = v * s, x = c * (1 - Math.abs(((h / 60) % 2) - 1)), m = v - c;
+  let r = 0, g = 0, b = 0;
+  if (h < 60) [r, g, b] = [c, x, 0];
+  else if (h < 120) [r, g, b] = [x, c, 0];
+  else if (h < 180) [r, g, b] = [0, c, x];
+  else if (h < 240) [r, g, b] = [0, x, c];
+  else if (h < 300) [r, g, b] = [x, 0, c];
+  else [r, g, b] = [c, 0, x];
+  return rgbToHex((r + m) * 255, (g + m) * 255, (b + m) * 255);
+}
+const clamp01 = (n: number) => Math.max(0, Math.min(1, n));
+
+// Couleurs rapides du sélecteur.
+const PRESETS = ["#000000", "#ffffff", "#0f172a", "#64748b", "#ef4444", "#f97316", "#f59e0b", "#eab308", "#22c55e", "#10b981", "#06b6d4", "#3b82f6", "#6366f1", "#8b5cf6", "#ec4899", "#f43f5e"];
 
 // Contraste : renvoie une couleur de texte lisible sur un fond donné.
 function readableOn(hex: string): string {
@@ -158,6 +188,98 @@ function parse(content: string): DA {
   } catch {
     return base;
   }
+}
+
+/* ─────────────── Sélecteur de couleur intégré (remplace le natif) ───────────────
+   Ancré à la pastille cliquée, dimensions maîtrisées : plus de panneau macOS
+   flottant en bas à gauche. */
+function ColorPopover({
+  value, anchor, onChange, onClose,
+}: {
+  value: string;
+  anchor: { x: number; y: number };
+  onChange: (hex: string) => void;
+  onClose: () => void;
+}) {
+  const [h, s, v] = hexToHsv(value);
+  const svRef = useRef<HTMLDivElement>(null);
+  const hueRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") onClose(); };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [onClose]);
+
+  const setSV = (cx: number, cy: number) => {
+    const el = svRef.current; if (!el) return;
+    const r = el.getBoundingClientRect();
+    onChange(hsvToHex(h, clamp01((cx - r.left) / r.width) * 100, (1 - clamp01((cy - r.top) / r.height)) * 100));
+  };
+  const setHue = (cx: number) => {
+    const el = hueRef.current; if (!el) return;
+    const r = el.getBoundingClientRect();
+    onChange(hsvToHex(clamp01((cx - r.left) / r.width) * 360, s, v));
+  };
+  // Démarre un glisser : met à jour immédiatement puis suit le pointeur.
+  const drag = (move: (cx: number, cy: number) => void) => (e: React.PointerEvent) => {
+    e.preventDefault();
+    move(e.clientX, e.clientY);
+    const mv = (ev: PointerEvent) => move(ev.clientX, ev.clientY);
+    const up = () => { window.removeEventListener("pointermove", mv); window.removeEventListener("pointerup", up); };
+    window.addEventListener("pointermove", mv);
+    window.addEventListener("pointerup", up);
+  };
+
+  const W = 240, H = 320;
+  const vw = typeof window !== "undefined" ? window.innerWidth : 1200;
+  const vh = typeof window !== "undefined" ? window.innerHeight : 800;
+  const left = Math.max(8, Math.min(anchor.x, vw - W - 8));
+  const top = Math.max(8, Math.min(anchor.y, vh - H - 8));
+
+  return (
+    <>
+      <div className="fixed inset-0 z-[55]" onClick={onClose} />
+      <div className="fixed z-[60] w-60 rounded-2xl border border-white/10 bg-[#12121a] p-3 shadow-2xl shadow-black/50" style={{ left, top }} onClick={(e) => e.stopPropagation()}>
+        {/* Carré saturation / valeur */}
+        <div
+          ref={svRef}
+          onPointerDown={drag((cx, cy) => setSV(cx, cy))}
+          className="relative h-40 w-full cursor-crosshair rounded-xl ring-1 ring-white/10"
+          style={{ background: `linear-gradient(to top, #000, transparent), linear-gradient(to right, #fff, ${hsvToHex(h, 100, 100)})` }}
+        >
+          <span className="pointer-events-none absolute size-3.5 -translate-x-1/2 -translate-y-1/2 rounded-full border-2 border-white shadow" style={{ left: `${s}%`, top: `${100 - v}%`, background: normHex(value) }} />
+        </div>
+
+        {/* Teinte */}
+        <div
+          ref={hueRef}
+          onPointerDown={drag((cx) => setHue(cx))}
+          className="relative mt-3 h-4 w-full cursor-pointer rounded-full ring-1 ring-white/10"
+          style={{ background: "linear-gradient(to right,#ff0000,#ffff00,#00ff00,#00ffff,#0000ff,#ff00ff,#ff0000)" }}
+        >
+          <span className="pointer-events-none absolute top-1/2 size-4 -translate-x-1/2 -translate-y-1/2 rounded-full border-2 border-white shadow" style={{ left: `${(h / 360) * 100}%` }} />
+        </div>
+
+        {/* Hex + aperçu */}
+        <div className="mt-3 flex items-center gap-2">
+          <span className="size-8 shrink-0 rounded-lg ring-1 ring-white/15" style={{ background: normHex(value) }} />
+          <input
+            value={normHex(value)}
+            onChange={(e) => onChange(normHex(e.target.value))}
+            className="h-9 min-w-0 flex-1 rounded-lg border border-white/10 bg-white/5 px-2 text-center text-xs font-medium uppercase tracking-wide outline-none focus:border-pink-400/40"
+          />
+        </div>
+
+        {/* Presets */}
+        <div className="mt-2.5 grid grid-cols-8 gap-1.5">
+          {PRESETS.map((p) => (
+            <button key={p} type="button" onClick={() => onChange(p)} title={p} className="size-5 rounded-md ring-1 ring-black/40 transition hover:scale-110" style={{ background: p }} />
+          ))}
+        </div>
+      </div>
+    </>
+  );
 }
 
 /* ─────────────── Composant principal ─────────────── */
@@ -349,6 +471,14 @@ function PaletteCard({
   const accent = c[Math.min(1, c.length - 1)] ?? "#3b82f6";
   const light = c[c.length - 1] ?? "#e2e8f0";
 
+  // Sélecteur intégré : quelle nuance édite-t-on, et où l'ancrer.
+  const [pick, setPick] = useState<{ i: number; x: number; y: number } | null>(null);
+  const openPicker = (i: number, e: React.MouseEvent) => {
+    if (!canEdit) return;
+    const r = (e.currentTarget as HTMLElement).getBoundingClientRect();
+    setPick({ i, x: r.left, y: r.bottom + 6 });
+  };
+
   return (
     <section className="overflow-hidden rounded-2xl border border-white/10 bg-white/[0.03]">
       {/* Bandeau de couleurs */}
@@ -380,14 +510,11 @@ function PaletteCard({
           <div className="flex flex-wrap gap-2">
             {c.map((col, i) => (
               <div key={i} className="group relative w-[104px] rounded-xl border border-white/10 bg-white/[0.02] p-2">
-                {/* L'input couleur recouvre la pastille : le sélecteur natif
-                    s'ouvre AU BON ENDROIT (avant, caché en coin → bas-gauche). */}
-                <div className="relative h-12 w-full">
-                  <span className="block h-full w-full rounded-lg ring-1 ring-black/30" style={{ background: col }} />
-                  <input type="color" value={col} onChange={(e) => onSetColor(i, e.target.value)} disabled={!canEdit}
-                    aria-label="Choisir la couleur"
-                    className="absolute inset-0 h-full w-full cursor-pointer opacity-0 disabled:cursor-default" />
-                </div>
+                {/* Sélecteur intégré (ancré à la pastille), pas le panneau natif. */}
+                <button type="button" onClick={(e) => openPicker(i, e)} disabled={!canEdit}
+                  aria-label="Modifier la couleur"
+                  className="block h-12 w-full rounded-lg ring-1 ring-black/30 transition disabled:cursor-default enabled:hover:ring-2 enabled:hover:ring-white/40"
+                  style={{ background: col }} />
                 <input value={col} onChange={(e) => onSetColor(i, e.target.value)} disabled={!canEdit}
                   className="mt-1.5 w-full bg-transparent text-center text-[11px] font-medium uppercase tracking-wide text-white/80 outline-none" />
                 {canEdit && c.length > MIN && (
@@ -416,6 +543,15 @@ function PaletteCard({
           </div>
         </div>
       </div>
+
+      {pick && c[pick.i] != null && (
+        <ColorPopover
+          value={c[pick.i]}
+          anchor={{ x: pick.x, y: pick.y }}
+          onChange={(hex) => onSetColor(pick.i, hex)}
+          onClose={() => setPick(null)}
+        />
+      )}
     </section>
   );
 }
@@ -425,6 +561,7 @@ function GeneratorModal({ onClose, onCreate }: { onClose: () => void; onCreate: 
   const [base, setBase] = useState("#3b82f6");
   const [harmony, setHarmony] = useState<Harmony>("analogue");
   const [count, setCount] = useState(3);
+  const [basePick, setBasePick] = useState<{ x: number; y: number } | null>(null);
   const colors = useMemo(() => generate(base, harmony, count), [base, harmony, count]);
 
   return (
@@ -442,12 +579,10 @@ function GeneratorModal({ onClose, onCreate }: { onClose: () => void; onCreate: 
           </div>
 
           <div className="flex items-center gap-3">
-            <label className="flex items-center gap-2 text-sm">
-              <span className="text-muted">Base</span>
-              <span className="relative inline-grid size-8 place-items-center rounded-lg ring-1 ring-white/15" style={{ background: base }}>
-                <input type="color" value={base} onChange={(e) => setBase(e.target.value)} className="absolute inset-0 cursor-pointer opacity-0" />
-              </span>
-            </label>
+            <span className="text-sm text-muted">Base</span>
+            <button type="button" onClick={(e) => { const r = e.currentTarget.getBoundingClientRect(); setBasePick({ x: r.left, y: r.bottom + 6 }); }}
+              aria-label="Choisir la couleur de base"
+              className="size-8 shrink-0 rounded-lg ring-1 ring-white/15 transition hover:ring-2 hover:ring-white/40" style={{ background: base }} />
             <input value={base} onChange={(e) => setBase(normHex(e.target.value))} className="h-9 w-28 rounded-lg border border-white/10 bg-white/5 px-2 text-center text-xs uppercase outline-none focus:border-pink-400/40" />
           </div>
 
@@ -478,6 +613,10 @@ function GeneratorModal({ onClose, onCreate }: { onClose: () => void; onCreate: 
           </button>
         </div>
       </div>
+
+      {basePick && (
+        <ColorPopover value={base} anchor={basePick} onChange={(hex) => setBase(hex)} onClose={() => setBasePick(null)} />
+      )}
     </div>
   );
 }
