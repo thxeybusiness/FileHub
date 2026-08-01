@@ -211,7 +211,7 @@ export function DriveExplorer({
 
   const open = (n: SerializedNode) => {
     if (n.type === "folder") router.push(`${basePath}/folder/${n.id}`);
-    else if (n.type === "doc" || n.type === "sheet" || n.type === "chart" || n.type === "draw" || n.type === "note" || n.type === "diagram" || n.type === "board" || n.type === "slides" || n.type === "project" || n.type === "coaching" || n.type === "seance")
+    else if (n.type === "doc" || n.type === "sheet" || n.type === "chart" || n.type === "draw" || n.type === "note" || n.type === "diagram" || n.type === "board" || n.type === "slides" || n.type === "project" || n.type === "coaching" || n.type === "seance" || n.type === "da")
       router.push(editorHref(n.type, n.id));
     else setPreview(n);
   };
