@@ -42,6 +42,17 @@ body {
   -webkit-font-smoothing: antialiased;
 }
 
+/* Surlignage de sélection de texte cohérent avec le thème (au lieu du bleu
+   par défaut du navigateur, illisible sur fond sombre). Appliqué à tout FileHub. */
+::selection {
+  background: rgba(91, 139, 255, 0.35);
+  color: #ffffff;
+}
+::-moz-selection {
+  background: rgba(91, 139, 255, 0.35);
+  color: #ffffff;
+}
+
 /* Thin, modern scrollbars */
 * {
   scrollbar-width: thin;
