@@ -14,7 +14,7 @@ import {
   FlipHorizontal2, FlipVertical2, BringToFront, SendToBack, ArrowUp, ArrowDown,
   Shapes, Smile, PaintBucket, LayoutTemplate, Upload, Droplet, Pipette,
   CaseUpper, Layers as LayersIcon, SlidersHorizontal, Sparkles, LayoutGrid,
-  Keyboard, ClipboardCopy, Columns3, Rows3,
+  Keyboard, ClipboardCopy, Columns3, Rows3, Search,
 } from "lucide-react";
 import {
   type DesignDoc, type Layer, type ShapeKind, type LineDash, type GradientFill,
@@ -26,6 +26,7 @@ import {
   EMOJI_GROUPS, BG_SOLIDS, GRADIENT_PRESETS, FILTER_PRESETS, TEXT_PRESETS,
   TEMPLATES, templateDoc, type TextPreset,
 } from "@/lib/design-presets";
+import { ELEMENTS, ELEMENT_CATEGORIES, elementDataUri, normalizeSearch, type ElementDef } from "@/lib/design-elements";
 import { DocPreview } from "./design-render";
 
 export const ACCENT = "#a855f7";
@@ -49,6 +50,7 @@ export type EditorCtl = {
   addLine: (dash: LineDash) => void;
   addText: (preset?: TextPreset) => void;
   addEmoji: (emoji: string) => void;
+  addElement: (el: ElementDef) => void;
   applyTemplate: (doc: DesignDoc) => void;
   uploadClick: () => void;
   replaceImageClick: () => void;
@@ -416,7 +418,9 @@ export function ContextBar({ ctl }: { ctl: EditorCtl }) {
   const sameType = ls.every((l) => l.type === ls[0].type) ? ls[0].type : null;
 
   return (
-    <div className="flex h-12 shrink-0 items-center gap-1 overflow-x-auto border-b border-white/10 bg-white/[0.03] px-2 backdrop-blur-xl" onPointerDown={(e) => e.stopPropagation()}>
+    // flex-wrap plutôt qu'overflow-x-auto : un conteneur défilant rognerait les
+    // popovers (couleur, formes, filtres) ouverts depuis la barre.
+    <div className="flex min-h-12 shrink-0 flex-wrap items-center gap-1 border-b border-white/10 bg-white/[0.03] px-2 py-1 backdrop-blur-xl" onPointerDown={(e) => e.stopPropagation()}>
       {/* Contrôles spécifiques au type */}
       {sameType === "text" && one && <TextQuick l={one as TextLayer} ctl={ctl} />}
       {sameType === "shape" && <ShapeQuick l={ls[0] as ShapeLayer} ctl={ctl} />}
@@ -705,33 +709,131 @@ export function LeftDock({ tab, setTab, ctl }: { tab: DockTab | null; setTab: (t
 }
 
 function ElementsDock({ ctl }: { ctl: EditorCtl }) {
+  const [query, setQuery] = useState("");
+  const [cat, setCat] = useState<string>("shapes");
+  const q = normalizeSearch(query.trim());
+
+  // Recherche : parcourt TOUTES les catégories (formes recolorables incluses),
+  // insensible aux accents.
+  const results = useMemo(() => {
+    if (!q) return null;
+    return {
+      shapes: SHAPE_KINDS.filter((s) => normalizeSearch(s.label).includes(q)),
+      els: ELEMENTS.filter((e) => e.keywords.includes(q)).slice(0, 120),
+    };
+  }, [q]);
+
+  const catItems = useMemo(() => (q ? [] : ELEMENTS.filter((e) => e.cat === cat)), [q, cat]);
+
   return (
-    <div className="space-y-4">
-      <div>
-        <p className="mb-2 text-[11px] font-semibold uppercase tracking-wide text-muted">Formes</p>
-        <div className="grid grid-cols-4 gap-1.5">
-          {SHAPE_KINDS.map((s) => (
-            <button key={s.id} title={s.label} onClick={() => ctl.addShape(s.id)}
-              className="grid aspect-square place-items-center rounded-xl border border-white/10 bg-white/[0.02] transition hover:border-purple-400/40 hover:bg-white/5">
-              <ShapeGlyph kind={s.id} size={26} />
-            </button>
-          ))}
-        </div>
+    <div>
+      {/* Recherche */}
+      <div className="relative mb-2.5">
+        <Search className="pointer-events-none absolute left-2.5 top-1/2 size-3.5 -translate-y-1/2 text-muted" />
+        <input
+          value={query}
+          onChange={(e) => setQuery(e.target.value)}
+          placeholder="Rechercher (flèche, blob, badge…)"
+          className="w-full rounded-lg border border-white/10 bg-white/5 py-1.5 pl-8 pr-7 text-xs text-white outline-none placeholder:text-white/30 focus:border-purple-400/50"
+        />
+        {query && (
+          <button onClick={() => setQuery("")} className="absolute right-1.5 top-1/2 grid size-5 -translate-y-1/2 place-items-center rounded text-muted hover:text-white">
+            <X className="size-3" />
+          </button>
+        )}
       </div>
-      <div>
-        <p className="mb-2 text-[11px] font-semibold uppercase tracking-wide text-muted">Lignes</p>
-        <div className="space-y-1.5">
-          {([["solid", "Ligne continue"], ["dashed", "Ligne en tirets"], ["dotted", "Ligne pointillée"]] as const).map(([d, label]) => (
-            <button key={d} onClick={() => ctl.addLine(d)} className="flex w-full items-center gap-3 rounded-xl border border-white/10 bg-white/[0.02] px-3 py-2.5 transition hover:border-purple-400/40 hover:bg-white/5">
-              <svg width="90" height="8" viewBox="0 0 90 8">
-                <line x1="2" y1="4" x2="88" y2="4" stroke="#d4d4d8" strokeWidth="4" strokeLinecap="round"
-                  strokeDasharray={d === "dashed" ? "12 8" : d === "dotted" ? "0.1 9" : undefined} />
-              </svg>
-              <span className="sr-only">{label}</span>
-            </button>
-          ))}
+
+      {results ? (
+        <div className="space-y-3">
+          {results.shapes.length > 0 && (
+            <div>
+              <p className="mb-1.5 text-[10.5px] font-semibold uppercase tracking-wide text-muted">Formes</p>
+              <div className="grid grid-cols-4 gap-1.5">
+                {results.shapes.map((s) => (
+                  <button key={s.id} title={s.label} onClick={() => ctl.addShape(s.id)}
+                    className="grid aspect-square place-items-center rounded-xl border border-white/10 bg-white/[0.02] transition hover:border-purple-400/40 hover:bg-white/5">
+                    <ShapeGlyph kind={s.id} size={24} />
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+          {results.els.length > 0 && (
+            <div>
+              <p className="mb-1.5 text-[10.5px] font-semibold uppercase tracking-wide text-muted">Éléments</p>
+              <ElementGrid els={results.els} onPick={ctl.addElement} />
+            </div>
+          )}
+          {results.shapes.length === 0 && results.els.length === 0 && (
+            <p className="px-1 py-6 text-center text-xs text-muted">Aucun résultat pour « {query} ».</p>
+          )}
         </div>
-      </div>
+      ) : (
+        <>
+          {/* Catégories */}
+          <div className="no-scrollbar -mx-1 mb-2.5 flex gap-1 overflow-x-auto px-1 pb-0.5">
+            <CatChip label="Formes" active={cat === "shapes"} onClick={() => setCat("shapes")} />
+            {ELEMENT_CATEGORIES.map((c) => (
+              <CatChip key={c.id} label={c.label} active={cat === c.id} onClick={() => setCat(c.id)} />
+            ))}
+          </div>
+
+          {cat === "shapes" ? (
+            <div className="space-y-4">
+              <div className="grid grid-cols-4 gap-1.5">
+                {SHAPE_KINDS.map((s) => (
+                  <button key={s.id} title={s.label} onClick={() => ctl.addShape(s.id)}
+                    className="grid aspect-square place-items-center rounded-xl border border-white/10 bg-white/[0.02] transition hover:border-purple-400/40 hover:bg-white/5">
+                    <ShapeGlyph kind={s.id} size={24} />
+                  </button>
+                ))}
+              </div>
+              <div>
+                <p className="mb-2 text-[11px] font-semibold uppercase tracking-wide text-muted">Lignes</p>
+                <div className="space-y-1.5">
+                  {([["solid", "Ligne continue"], ["dashed", "Ligne en tirets"], ["dotted", "Ligne pointillée"]] as const).map(([d, label]) => (
+                    <button key={d} onClick={() => ctl.addLine(d)} title={label}
+                      className="flex w-full items-center gap-3 rounded-xl border border-white/10 bg-white/[0.02] px-3 py-2.5 transition hover:border-purple-400/40 hover:bg-white/5">
+                      <svg width="90" height="8" viewBox="0 0 90 8">
+                        <line x1="2" y1="4" x2="88" y2="4" stroke="#d4d4d8" strokeWidth="4" strokeLinecap="round"
+                          strokeDasharray={d === "dashed" ? "12 8" : d === "dotted" ? "0.1 9" : undefined} />
+                      </svg>
+                      <span className="sr-only">{label}</span>
+                    </button>
+                  ))}
+                </div>
+              </div>
+              <p className="text-[10.5px] leading-relaxed text-muted">Ces formes sont recolorables (remplissage, dégradé, contour) après insertion.</p>
+            </div>
+          ) : (
+            <ElementGrid els={catItems} onPick={ctl.addElement} />
+          )}
+        </>
+      )}
+    </div>
+  );
+}
+
+function CatChip({ label, active, onClick }: { label: string; active: boolean; onClick: () => void }) {
+  return (
+    <button onClick={onClick}
+      className={`shrink-0 rounded-full border px-2.5 py-1 text-[10.5px] font-medium transition ${active ? "border-purple-400/50 bg-purple-500/15 text-white" : "border-white/10 text-muted hover:bg-white/5 hover:text-white"}`}>
+      {label}
+    </button>
+  );
+}
+
+function ElementGrid({ els, onPick }: { els: ElementDef[]; onPick: (el: ElementDef) => void }) {
+  return (
+    <div className="grid grid-cols-3 gap-1.5">
+      {els.map((el) => (
+        <button key={el.id} title={el.label} onClick={() => onPick(el)}
+          className="group grid aspect-square place-items-center overflow-hidden rounded-xl border border-white/10 bg-[#262a36] p-1.5 transition hover:border-purple-400/40 hover:bg-[#2d3140]">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src={elementDataUri(el)} alt={el.label} loading="lazy" draggable={false}
+            className="max-h-full max-w-full transition group-hover:scale-105" />
+        </button>
+      ))}
     </div>
   );
 }

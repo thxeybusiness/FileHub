@@ -19,6 +19,7 @@ import {
   parseDesign, makeShape, makeLine, makeText, makeImage, cloneLayer, rasterize,
 } from "@/lib/design";
 import { type TextPreset } from "@/lib/design-presets";
+import { elementDataUri, type ElementDef } from "@/lib/design-elements";
 import { LayerVisual, layerBoxStyle, textStyle } from "./design-render";
 import {
   type EditorCtl, type LayerPatch, type DockTab, type CtxMenuItem,
@@ -108,8 +109,16 @@ export function DesignEditor({
   }, [canEdit, schedule]);
 
   /* ── Historique ── */
+  // Les refs sont la source de vérité, les states ne servent qu'à l'affichage
+  // (boutons annuler/rétablir). Aucune écriture d'état dans un updater React :
+  // le double-appel de StrictMode dupliquerait les entrées d'historique.
+  const pastRef = useRef<DesignDoc[]>([]);
+  const futureRef = useRef<DesignDoc[]>([]);
+
   const pushHistory = useCallback((snapshot: DesignDoc) => {
-    setPast((p) => [...p, snapshot].slice(-80));
+    pastRef.current = [...pastRef.current, snapshot].slice(-80);
+    futureRef.current = [];
+    setPast(pastRef.current);
     setFuture([]);
   }, []);
 
@@ -135,23 +144,25 @@ export function DesignEditor({
 
   const undo = useCallback(() => {
     liveBaseRef.current = null;
-    setPast((p) => {
-      if (!p.length) return p;
-      const prev = p[p.length - 1];
-      setFuture((f) => [docRef.current, ...f].slice(0, 80));
-      setDoc(prev); persist(prev);
-      return p.slice(0, -1);
-    });
+    if (!pastRef.current.length) return;
+    const prev = pastRef.current[pastRef.current.length - 1];
+    pastRef.current = pastRef.current.slice(0, -1);
+    futureRef.current = [docRef.current, ...futureRef.current].slice(0, 80);
+    setPast(pastRef.current);
+    setFuture(futureRef.current);
+    setDoc(prev);
+    persist(prev);
   }, [persist]);
   const redo = useCallback(() => {
     liveBaseRef.current = null;
-    setFuture((f) => {
-      if (!f.length) return f;
-      const next = f[0];
-      setPast((p) => [...p, docRef.current].slice(-80));
-      setDoc(next); persist(next);
-      return f.slice(1);
-    });
+    if (!futureRef.current.length) return;
+    const next = futureRef.current[0];
+    futureRef.current = futureRef.current.slice(1);
+    pastRef.current = [...pastRef.current, docRef.current].slice(-80);
+    setPast(pastRef.current);
+    setFuture(futureRef.current);
+    setDoc(next);
+    persist(next);
   }, [persist]);
 
   /* ── Sélection ── */
@@ -213,6 +224,26 @@ export function DesignEditor({
       w: Math.round(size * 1.35), h: Math.round(size * 1.35),
       x: Math.round(d.width / 2 - size * 0.675), y: Math.round(d.height / 2 - size * 0.675),
       color: "#000000",
+    }));
+  }, [canEdit, addAndSelect]);
+
+  // Élément de la bibliothèque : inséré comme calque image (SVG en data URI),
+  // à sa taille naturelle mise à l'échelle de la toile (ratio préservé).
+  const addElement = useCallback((el: ElementDef) => {
+    if (!canEdit) return;
+    const d = docRef.current;
+    const base = Math.min(d.width, d.height) * 0.42;
+    const k = base / Math.max(el.w, el.h);
+    const w = Math.round(el.w * k);
+    const h = Math.round(el.h * k);
+    addAndSelect(makeImage(d, {
+      src: elementDataUri(el),
+      name: el.label,
+      w, h,
+      x: Math.round((d.width - w) / 2),
+      y: Math.round((d.height - h) / 2),
+      naturalW: el.w,
+      naturalH: el.h,
     }));
   }, [canEdit, addAndSelect]);
 
@@ -797,7 +828,7 @@ export function DesignEditor({
   const ctl: EditorCtl = {
     doc, selLayers, selIds, canEdit, uploading,
     patchSel, patchLayer, commitDoc, select,
-    addShape, addLine, addText, addEmoji, applyTemplate,
+    addShape, addLine, addText, addEmoji, addElement, applyTemplate,
     uploadClick: () => fileRef.current?.click(),
     replaceImageClick: () => replaceRef.current?.click(),
     align, distribute, order, duplicateSel, removeSel, flipSel,

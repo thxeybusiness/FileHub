@@ -67,7 +67,9 @@ export const NEUTRAL_FILTERS: Filters = {
 export type ShapeKind =
   | "rect" | "ellipse" | "triangle" | "diamond" | "pentagon" | "hexagon"
   | "star" | "sparkle" | "heart" | "arrow" | "bolt" | "cross"
-  | "message" | "cloud" | "ring" | "half";
+  | "message" | "cloud" | "ring" | "half"
+  | "star6" | "octagon" | "parallelogram" | "trapezoid" | "chevron" | "doubleArrow"
+  | "drop" | "pin" | "shield" | "seal" | "check" | "crescent";
 
 export const SHAPE_KINDS: { id: ShapeKind; label: string }[] = [
   { id: "rect", label: "Rectangle" },
@@ -76,16 +78,28 @@ export const SHAPE_KINDS: { id: ShapeKind; label: string }[] = [
   { id: "diamond", label: "Losange" },
   { id: "pentagon", label: "Pentagone" },
   { id: "hexagon", label: "Hexagone" },
+  { id: "octagon", label: "Octogone" },
+  { id: "parallelogram", label: "Parallélogramme" },
+  { id: "trapezoid", label: "Trapèze" },
   { id: "star", label: "Étoile" },
+  { id: "star6", label: "Étoile 6" },
   { id: "sparkle", label: "Éclat" },
+  { id: "seal", label: "Sceau" },
   { id: "heart", label: "Cœur" },
   { id: "arrow", label: "Flèche" },
+  { id: "doubleArrow", label: "Double flèche" },
+  { id: "chevron", label: "Chevron" },
   { id: "bolt", label: "Éclair" },
   { id: "cross", label: "Croix" },
+  { id: "check", label: "Coche" },
   { id: "message", label: "Bulle" },
   { id: "cloud", label: "Nuage" },
   { id: "ring", label: "Anneau" },
   { id: "half", label: "Demi-cercle" },
+  { id: "drop", label: "Goutte" },
+  { id: "pin", label: "Repère" },
+  { id: "shield", label: "Bouclier" },
+  { id: "crescent", label: "Croissant" },
 ];
 
 export type BaseLayer = {
@@ -362,6 +376,29 @@ export function shapePath(kind: ShapeKind, w: number, h: number, radius = 0): st
       return `${ellipsePath(w, h)} ${ellipsePath(w, h, w / 2, h / 2, (w / 2) * 0.62, (h / 2) * 0.62)}`;
     case "half":
       return `M 0 ${h} A ${N(w / 2)} ${h} 0 0 1 ${w} ${h} Z`;
+    case "star6": return starPath(w, h, 6, 0.58);
+    case "octagon": return polygonPath(w, h, 8, -67.5);
+    case "parallelogram":
+      return `M ${N(0.25 * w)} 0 L ${w} 0 L ${N(0.75 * w)} ${h} L 0 ${h} Z`;
+    case "trapezoid":
+      return `M ${N(0.2 * w)} 0 L ${N(0.8 * w)} 0 L ${w} ${h} L 0 ${h} Z`;
+    case "chevron":
+      return `M 0 0 L ${N(0.62 * w)} 0 L ${w} ${N(0.5 * h)} L ${N(0.62 * w)} ${h} L 0 ${h} L ${N(0.38 * w)} ${N(0.5 * h)} Z`;
+    case "doubleArrow":
+      return `M 0 ${N(0.5 * h)} L ${N(0.25 * w)} ${N(0.1 * h)} L ${N(0.25 * w)} ${N(0.32 * h)} L ${N(0.75 * w)} ${N(0.32 * h)} L ${N(0.75 * w)} ${N(0.1 * h)} L ${w} ${N(0.5 * h)} L ${N(0.75 * w)} ${N(0.9 * h)} L ${N(0.75 * w)} ${N(0.68 * h)} L ${N(0.25 * w)} ${N(0.68 * h)} L ${N(0.25 * w)} ${N(0.9 * h)} Z`;
+    case "drop":
+      return `M ${N(0.5 * w)} 0 C ${N(0.78 * w)} ${N(0.32 * h)} ${N(0.94 * w)} ${N(0.5 * h)} ${N(0.94 * w)} ${N(0.68 * h)} C ${N(0.94 * w)} ${N(0.86 * h)} ${N(0.74 * w)} ${h} ${N(0.5 * w)} ${h} C ${N(0.26 * w)} ${h} ${N(0.06 * w)} ${N(0.86 * h)} ${N(0.06 * w)} ${N(0.68 * h)} C ${N(0.06 * w)} ${N(0.5 * h)} ${N(0.22 * w)} ${N(0.32 * h)} ${N(0.5 * w)} 0 Z`;
+    case "pin":
+      return `M ${N(0.5 * w)} 0 C ${N(0.79 * w)} 0 ${N(0.93 * w)} ${N(0.19 * h)} ${N(0.93 * w)} ${N(0.37 * h)} C ${N(0.93 * w)} ${N(0.6 * h)} ${N(0.5 * w)} ${h} ${N(0.5 * w)} ${h} C ${N(0.5 * w)} ${h} ${N(0.07 * w)} ${N(0.6 * h)} ${N(0.07 * w)} ${N(0.37 * h)} C ${N(0.07 * w)} ${N(0.19 * h)} ${N(0.21 * w)} 0 ${N(0.5 * w)} 0 Z ${ellipsePath(w, h, 0.5 * w, 0.36 * h, 0.16 * w, 0.16 * h)}`;
+    case "shield":
+      return `M ${N(0.5 * w)} 0 L ${N(0.95 * w)} ${N(0.16 * h)} C ${N(0.95 * w)} ${N(0.52 * h)} ${N(0.82 * w)} ${N(0.84 * h)} ${N(0.5 * w)} ${h} C ${N(0.18 * w)} ${N(0.84 * h)} ${N(0.05 * w)} ${N(0.52 * h)} ${N(0.05 * w)} ${N(0.16 * h)} Z`;
+    case "seal": return starPath(w, h, 14, 0.86);
+    case "check":
+      return `M ${N(0.04 * w)} ${N(0.56 * h)} L ${N(0.2 * w)} ${N(0.4 * h)} L ${N(0.4 * w)} ${N(0.6 * h)} L ${N(0.8 * w)} ${N(0.14 * h)} L ${N(0.96 * w)} ${N(0.3 * h)} L ${N(0.4 * w)} ${N(0.92 * h)} Z`;
+    case "crescent":
+      // Deux cercles de même rayon décalés : arcs toujours valides (rayon
+      // 0,425 > demi-corde 0,402), croissant net à toutes les tailles.
+      return `M ${N(0.6125 * w)} ${N(0.0979 * h)} A ${N(0.425 * w)} ${N(0.425 * h)} 0 1 0 ${N(0.6125 * w)} ${N(0.9021 * h)} A ${N(0.425 * w)} ${N(0.425 * h)} 0 0 1 ${N(0.6125 * w)} ${N(0.0979 * h)} Z`;
     default:
       return roundedRectPath(w, h, 0);
   }
@@ -676,7 +713,7 @@ export async function rasterize(
       if (layer.type === "shape") drawShape(ctx, layer, sh);
       else if (layer.type === "line") drawLine(ctx, layer, sh);
       else if (layer.type === "text") drawText(ctx, layer, sh);
-      else if (layer.type === "image") await drawImage(ctx, layer, sh);
+      else if (layer.type === "image") await drawImage(ctx, layer, sh, scale);
     } catch {
       /* un calque en échec ne casse pas l'export */
     }
@@ -761,21 +798,25 @@ function drawText(ctx: CanvasRenderingContext2D, l: TextLayer, sh: DevShadow | n
   clearShadow(ctx);
 }
 
-async function drawImage(ctx: CanvasRenderingContext2D, l: ImageLayer, sh: DevShadow | null) {
+async function drawImage(ctx: CanvasRenderingContext2D, l: ImageLayer, sh: DevShadow | null, scale = 1) {
   if (!l.src) return;
   const img = await loadImage(l.src);
   // L'ombre doit suivre la silhouette arrondie → on dessine l'image filtrée dans
   // un canvas intermédiaire, puis on la pose avec l'ombre.
+  // L'intermédiaire est en PIXELS D'EXPORT (l.w × scale) : en 2×/3×, les SVG de
+  // la bibliothèque restent vectoriels-nets et les photos gardent leur piqué
+  // (sinon tout serait rastérisé en 1× puis agrandi → flou).
   const off = document.createElement("canvas");
-  off.width = Math.max(1, Math.round(l.w));
-  off.height = Math.max(1, Math.round(l.h));
+  off.width = Math.max(1, Math.round(l.w * scale));
+  off.height = Math.max(1, Math.round(l.h * scale));
   const octx = off.getContext("2d")!;
   if (l.radius > 0) {
     octx.beginPath();
-    const p = new Path2D(roundedRectPath(off.width, off.height, l.radius));
+    const p = new Path2D(roundedRectPath(off.width, off.height, l.radius * scale));
     octx.clip(p);
   }
-  const f = filterCss(l.filters);
+  // Le flou est en pixels : il suit l'échelle ; les autres filtres (%/deg) non.
+  const f = filterCss(scale === 1 ? l.filters : { ...l.filters, blur: l.filters.blur * scale });
   if (f !== "none") octx.filter = f;
   // Recadrage « cover » centré (parité avec object-fit: cover du DOM).
   const iw = img.naturalWidth || img.width;
