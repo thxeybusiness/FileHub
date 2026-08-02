@@ -30,6 +30,98 @@ const LUCIDE: Partial<Record<BrandId, LucideIcon>> = {
   screen: Monitor,
 };
 
+/* ── Catégories de formats : chaque plateforme et toutes ses tailles ── */
+
+export type PlatformFormat = { label: string; w: number; h: number };
+export type Platform = { id: BrandId; label: string; formats: PlatformFormat[] };
+
+export const PLATFORMS: Platform[] = [
+  {
+    id: "instagram", label: "Instagram",
+    formats: [
+      { label: "Post carré", w: 1080, h: 1080 },
+      { label: "Post portrait", w: 1080, h: 1350 },
+      { label: "Story / Reel", w: 1080, h: 1920 },
+      { label: "Post paysage", w: 1080, h: 566 },
+      { label: "Photo de profil", w: 320, h: 320 },
+    ],
+  },
+  {
+    id: "tiktok", label: "TikTok",
+    formats: [
+      { label: "Vidéo / Story", w: 1080, h: 1920 },
+      { label: "Carrousel", w: 1080, h: 1080 },
+      { label: "Photo de profil", w: 400, h: 400 },
+    ],
+  },
+  {
+    id: "youtube", label: "YouTube",
+    formats: [
+      { label: "Miniature", w: 1280, h: 720 },
+      { label: "Bannière de chaîne", w: 2560, h: 1440 },
+      { label: "Short", w: 1080, h: 1920 },
+      { label: "Avatar / logo", w: 800, h: 800 },
+      { label: "Écran de fin", w: 1280, h: 720 },
+    ],
+  },
+  {
+    id: "facebook", label: "Facebook",
+    formats: [
+      { label: "Post", w: 1200, h: 630 },
+      { label: "Post carré", w: 1080, h: 1080 },
+      { label: "Story", w: 1080, h: 1920 },
+      { label: "Couverture", w: 1640, h: 624 },
+      { label: "Photo de profil", w: 320, h: 320 },
+    ],
+  },
+  {
+    id: "x", label: "X",
+    formats: [
+      { label: "Post", w: 1600, h: 900 },
+      { label: "Bannière", w: 1500, h: 500 },
+      { label: "Photo de profil", w: 400, h: 400 },
+    ],
+  },
+  {
+    id: "linkedin", label: "LinkedIn",
+    formats: [
+      { label: "Post carré", w: 1200, h: 1200 },
+      { label: "Post paysage", w: 1200, h: 627 },
+      { label: "Bannière de profil", w: 1584, h: 396 },
+      { label: "Bannière de page", w: 1128, h: 191 },
+      { label: "Photo de profil", w: 400, h: 400 },
+    ],
+  },
+  {
+    id: "logo", label: "Marque",
+    formats: [
+      { label: "Logo", w: 800, h: 800 },
+      { label: "Logo horizontal", w: 1600, h: 600 },
+      { label: "Favicon", w: 512, h: 512 },
+      { label: "Carte de visite", w: 1050, h: 600 },
+    ],
+  },
+  {
+    id: "print", label: "Impression",
+    formats: [
+      { label: "A4 portrait", w: 1240, h: 1754 },
+      { label: "A4 paysage", w: 1754, h: 1240 },
+      { label: "A5 portrait", w: 874, h: 1240 },
+      { label: "Flyer A6", w: 620, h: 874 },
+      { label: "Affiche A3", w: 1754, h: 2480 },
+    ],
+  },
+  {
+    id: "screen", label: "Écran",
+    formats: [
+      { label: "Présentation 16:9", w: 1920, h: 1080 },
+      { label: "Bannière web", w: 1440, h: 400 },
+      { label: "Fond d'écran mobile", w: 1170, h: 2532 },
+      { label: "Vignette d'article", w: 1600, h: 900 },
+    ],
+  },
+];
+
 export function BrandGlyph({ id, size = 22 }: { id: BrandId; size?: number }) {
   const Icon = LUCIDE[id];
   if (Icon) return <Icon width={size} height={size} strokeWidth={1.9} aria-hidden />;

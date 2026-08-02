@@ -3,32 +3,20 @@
 // Accueil de l'application Design : démarrage rapide par format, modèles
 // professionnels et galerie des créations avec vrais aperçus miniatures.
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import {
   Menu, Shapes, Plus, Loader2, Clock, Sparkles, MoreHorizontal, Pencil, Copy, Trash2,
+  ChevronLeft, ChevronRight,
 } from "lucide-react";
 import { api, notifyRefresh } from "@/lib/api";
 import { parseDesign, type DesignDoc } from "@/lib/design";
 import { TEMPLATES, templateDoc } from "@/lib/design-presets";
 import { DocPreview } from "./design-render";
-import { BrandGlyph, BRANDS, type BrandId } from "./design-brands";
+import { BrandGlyph, BRANDS, PLATFORMS, type Platform, type PlatformFormat } from "./design-brands";
 import { NameDialog } from "./name-dialog";
 
 type Item = { id: string; name: string; updatedAt: string; content: string };
-
-// Vignettes de démarrage : chaque format porte l'identité de sa plateforme.
-type FormatCard = { label: string; w: number; h: number; brand: BrandId; icon: number };
-const FORMAT_CARDS: FormatCard[] = [
-  { label: "Post Instagram", w: 1080, h: 1080, brand: "instagram", icon: 24 },
-  { label: "Story · Reel · TikTok", w: 1080, h: 1920, brand: "tiktok", icon: 24 },
-  { label: "Miniature YouTube", w: 1280, h: 720, brand: "youtube", icon: 24 },
-  { label: "Post Facebook", w: 1200, h: 630, brand: "facebook", icon: 22 },
-  { label: "Post X", w: 1600, h: 900, brand: "x", icon: 20 },
-  { label: "Bannière LinkedIn", w: 1584, h: 396, brand: "linkedin", icon: 15 },
-  { label: "Logo", w: 800, h: 800, brand: "logo", icon: 24 },
-  { label: "Affiche A4", w: 1240, h: 1754, brand: "print", icon: 24 },
-];
 
 // Les vignettes vivent dans une boîte au ratio 4/3 : on contraint la largeur
 // pour les formats plus larges que la boîte, la hauteur sinon. Rien ne déborde,
@@ -41,6 +29,16 @@ function fitInBox(w: number, h: number, fill = "86%") {
     width: wide ? fill : "auto",
     height: wide ? "auto" : fill,
   } satisfies React.CSSProperties;
+}
+
+// Taille du logo adaptée à la vignette : les formats très étirés (bannières)
+// n'ont que quelques pixels de haut.
+function glyphSize(w: number, h: number): number {
+  const r = w / h;
+  if (r >= 3.4) return 10;
+  if (r >= 2.2) return 13;
+  if (r >= 1.5) return 15;
+  return 17;
 }
 
 export function DesignHome() {
@@ -120,42 +118,8 @@ export function DesignHome() {
           <div className="grid h-40 place-items-center text-muted"><Loader2 className="size-6 animate-spin" /></div>
         ) : (
           <div className="mx-auto max-w-6xl space-y-9">
-            {/* Formats vierges */}
-            <section>
-              <div className="mb-3 flex items-baseline justify-between gap-3">
-                <h2 className="text-sm font-semibold text-white/80">Créer à partir d'un format</h2>
-                <button onClick={() => createBlank()} disabled={creating}
-                  className="shrink-0 text-[11px] font-medium text-purple-300 transition hover:text-purple-200 disabled:opacity-50">
-                  Format personnalisé →
-                </button>
-              </div>
-              <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-                {FORMAT_CARDS.map((f) => {
-                  const b = BRANDS[f.brand];
-                  return (
-                    <button key={f.label} onClick={() => createBlank(f.w, f.h)} disabled={creating}
-                      className="group rounded-2xl border border-white/10 bg-white/[0.02] p-2.5 text-left transition hover:border-purple-400/40 hover:bg-white/5 disabled:opacity-60">
-                      <div className="grid aspect-[4/3] place-items-center rounded-xl bg-black/25 ring-1 ring-inset ring-white/5">
-                        <div
-                          className="relative grid place-items-center overflow-hidden rounded-lg shadow-lg shadow-black/40 transition group-hover:scale-[1.04]"
-                          style={{
-                            ...fitInBox(f.w, f.h),
-                            background: b.bg,
-                            color: b.fg,
-                            boxShadow: b.ring ? `inset 0 0 0 1px ${b.ring}` : undefined,
-                          }}
-                        >
-                          <span className="pointer-events-none absolute inset-0 bg-gradient-to-br from-white/15 to-transparent" />
-                          <span className="relative"><BrandGlyph id={f.brand} size={f.icon} /></span>
-                        </div>
-                      </div>
-                      <p className="mt-2 truncate text-[12px] font-medium text-white/90">{f.label}</p>
-                      <p className="text-[10.5px] tabular-nums text-muted">{f.w} × {f.h}</p>
-                    </button>
-                  );
-                })}
-              </div>
-            </section>
+            {/* Formats vierges : catégories + carrousel compact */}
+            <FormatPicker onPick={createBlank} disabled={creating} />
 
             {/* Modèles */}
             <section>
@@ -273,6 +237,126 @@ function DesignCard({ item, onOpen, onRename, onDuplicate, onTrash }: {
         )}
       </div>
     </div>
+  );
+}
+
+/* ═══════════ Sélecteur de format : catégories + carrousel compact ═══════════ */
+
+function FormatPicker({ onPick, disabled }: { onPick: (w: number, h: number) => void; disabled: boolean }) {
+  const [active, setActive] = useState(0);
+  const platform = PLATFORMS[active];
+  return (
+    <section>
+      <div className="mb-2.5 flex items-baseline justify-between gap-3">
+        <h2 className="text-sm font-semibold text-white/80">Créer à partir d'un format</h2>
+        <button onClick={() => onPick(1080, 1080)} disabled={disabled}
+          className="shrink-0 text-[11px] font-medium text-purple-300 transition hover:text-purple-200 disabled:opacity-50">
+          Format personnalisé →
+        </button>
+      </div>
+
+      {/* Catégories */}
+      <div className="no-scrollbar mb-2.5 flex gap-1.5 overflow-x-auto">
+        {PLATFORMS.map((p, i) => {
+          const on = i === active;
+          return (
+            <button key={p.id} onClick={() => setActive(i)}
+              className={`flex shrink-0 items-center gap-1.5 rounded-full border px-2.5 py-1 text-[11.5px] font-medium transition ${on ? "border-purple-400/50 bg-purple-500/15 text-white" : "border-white/10 text-muted hover:bg-white/5 hover:text-white"}`}>
+              <span className="grid size-4 place-items-center rounded-[5px]" style={{ background: BRANDS[p.id].bg, color: BRANDS[p.id].fg }}>
+                <BrandGlyph id={p.id} size={9} />
+              </span>
+              {p.label}
+            </button>
+          );
+        })}
+      </div>
+
+      <FormatRow platform={platform} onPick={onPick} disabled={disabled} />
+    </section>
+  );
+}
+
+function FormatRow({ platform, onPick, disabled }: { platform: Platform; onPick: (w: number, h: number) => void; disabled: boolean }) {
+  const ref = useRef<HTMLDivElement | null>(null);
+  const [nav, setNav] = useState({ left: false, right: false });
+  const b = BRANDS[platform.id];
+
+  const measure = useCallback(() => {
+    const el = ref.current;
+    if (!el) return;
+    const max = el.scrollWidth - el.clientWidth;
+    setNav({ left: el.scrollLeft > 4, right: el.scrollLeft < max - 4 });
+  }, []);
+
+  // Re-mesure au changement de catégorie et sur redimensionnement.
+  useLayoutEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    el.scrollLeft = 0;
+    measure();
+    const ro = new ResizeObserver(measure);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, [platform.id, measure]);
+
+  // Défile jusqu'au format suivant (une « page » de vignettes, alignée grâce
+  // au scroll-snap sur chaque carte).
+  const scrollBy = (dir: 1 | -1) => {
+    const el = ref.current;
+    if (!el) return;
+    el.scrollBy({ left: dir * Math.max(160, el.clientWidth - 120), behavior: "smooth" });
+  };
+
+  return (
+    <div className="relative">
+      <div ref={ref} onScroll={measure}
+        className="no-scrollbar flex snap-x snap-mandatory gap-2.5 overflow-x-auto scroll-smooth pb-0.5">
+        {platform.formats.map((f) => (
+          <FormatCard key={`${f.label}-${f.w}x${f.h}`} f={f} bg={b.bg} fg={b.fg} ring={b.ring}
+            brand={platform.id} onPick={onPick} disabled={disabled} />
+        ))}
+      </div>
+
+      {/* Flèches de défilement (affichées seulement s'il reste à voir) */}
+      {nav.left && <ScrollArrow side="left" onClick={() => scrollBy(-1)} />}
+      {nav.right && <ScrollArrow side="right" onClick={() => scrollBy(1)} />}
+    </div>
+  );
+}
+
+function ScrollArrow({ side, onClick }: { side: "left" | "right"; onClick: () => void }) {
+  const Icon = side === "left" ? ChevronLeft : ChevronRight;
+  return (
+    <>
+      {/* Dégradé de fondu pour signaler qu'il y a une suite */}
+      <div className={`pointer-events-none absolute inset-y-0 ${side === "left" ? "left-0 bg-gradient-to-r" : "right-0 bg-gradient-to-l"} w-14 from-[#07070c] to-transparent`} />
+      <button onClick={onClick} aria-label={side === "left" ? "Formats précédents" : "Formats suivants"}
+        className={`absolute top-[38%] ${side === "left" ? "left-1" : "right-1"} grid size-7 -translate-y-1/2 place-items-center rounded-full border border-white/15 bg-[#15151d]/95 text-white/85 shadow-lg shadow-black/50 backdrop-blur transition hover:border-purple-400/50 hover:text-white`}>
+        <Icon className="size-4" />
+      </button>
+    </>
+  );
+}
+
+function FormatCard({ f, bg, fg, ring, brand, onPick, disabled }: {
+  f: PlatformFormat; bg: string; fg: string; ring?: string;
+  brand: Platform["id"]; onPick: (w: number, h: number) => void; disabled: boolean;
+}) {
+  return (
+    <button onClick={() => onPick(f.w, f.h)} disabled={disabled} title={`${f.label} — ${f.w} × ${f.h}`}
+      className="group w-[108px] shrink-0 snap-start rounded-xl border border-white/10 bg-white/[0.02] p-2 text-left transition hover:border-purple-400/40 hover:bg-white/5 disabled:opacity-60">
+      <div className="grid aspect-[4/3] place-items-center rounded-lg bg-black/25 ring-1 ring-inset ring-white/5">
+        <div
+          className="relative grid place-items-center overflow-hidden rounded-[5px] shadow-md shadow-black/40 transition group-hover:scale-[1.06]"
+          style={{ ...fitInBox(f.w, f.h, "84%"), background: bg, color: fg, boxShadow: ring ? `inset 0 0 0 1px ${ring}` : undefined }}
+        >
+          <span className="pointer-events-none absolute inset-0 bg-gradient-to-br from-white/15 to-transparent" />
+          <span className="relative"><BrandGlyph id={brand} size={glyphSize(f.w, f.h)} /></span>
+        </div>
+      </div>
+      <p className="mt-1.5 truncate text-[11px] font-medium leading-tight text-white/90">{f.label}</p>
+      <p className="text-[9.5px] tabular-nums text-muted">{f.w} × {f.h}</p>
+    </button>
   );
 }
 

@@ -59,6 +59,19 @@ body {
   scrollbar-width: thin;
   scrollbar-color: #2f313d transparent;
 }
+
+/* Défilement horizontal sans barre visible (carrousels : on navigue aux
+   flèches, la barre n'ajouterait que du bruit). Placé après la règle « * »
+   pour la surcharger. */
+.no-scrollbar {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+  width: 0;
+  height: 0;
+}
 *::-webkit-scrollbar {
   width: 10px;
   height: 10px;
