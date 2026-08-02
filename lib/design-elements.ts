@@ -38,6 +38,9 @@ export const ELEMENT_CATEGORIES: { id: string; label: string }[] = [
   { id: "objects", label: "Objets" },
   { id: "weather", label: "Météo & ciel" },
   { id: "sport", label: "Sport & loisirs" },
+  { id: "geo", label: "Formes géométriques" },
+  { id: "ornaments", label: "Ornements & rosaces" },
+  { id: "frames", label: "Cadres & bordures" },
 ];
 
 /* Palette par catégorie : chaque élément reçoit une teinte de départ
@@ -63,6 +66,9 @@ const CAT_PALETTE: Record<string, string[]> = {
   objects: VIBRANT,
   weather: ["#38bdf8", "#60a5fa", "#0ea5e9", "#e2e8f0", "#cbd5e1", "#fbbf24", "#a78bfa", "#22d3ee"],
   sport: ["#f87171", "#fb923c", "#fbbf24", "#22c55e", "#38bdf8", "#6366f1", "#ec4899", "#14b8a6", "#84cc16", "#f472b6"],
+  geo: VIBRANT,
+  ornaments: VIBRANT,
+  frames: VIBRANT,
 };
 
 /* ═══════════ Outils ═══════════ */
@@ -1566,6 +1572,229 @@ function tint(id: string, color: string) {
     fillp("M 90 10 L 170 100 L 90 190 L 10 100 Z"), "#22d3ee");
   add("icons", "shield0", "Bouclier", "icône bouclier shield protection", 180, 210,
     fillp("M 90 14 L 164 42 V 108 C 164 158 128 188 90 202 C 52 188 16 158 16 108 V 42 Z") + stroke("M 62 104 L 84 128 L 122 78", 10, `opacity="0.6"`), "#38bdf8");
+})();
+
+/* ═══════════ Grande vague paramétrique (+1000) ═══════════ */
+
+/* ── 24. Formes géométriques ── */
+(() => {
+  const K = "forme géométrique geometric shape";
+  // Polygones réguliers 3..12 : plein, contour, anneau, 2 orientations.
+  for (let sides = 3; sides <= 12; sides++) {
+    [-90, -90 + 180 / sides].forEach((rot, ri) => {
+      add("geo", `poly${sides}_f${ri}`, `Polygone ${sides}`, `${K} polygone ${sides} côtés`, 200, 200, fillp(polyPts(100, 100, sides, 88, rot)));
+      add("geo", `poly${sides}_o${ri}`, `Polygone ${sides} contour`, `${K} polygone contour ${sides}`, 200, 200, stroke(polyPts(100, 100, sides, 84, rot), 10));
+    });
+    add("geo", `polyring${sides}`, `Anneau ${sides}`, `${K} anneau polygone ${sides}`, 200, 200, eo(`${polyPts(100, 100, sides, 88, -90)} ${polyPts(100, 100, sides, 58, -90)}`));
+  }
+  // Étoiles régulières 3..12 × 3 creux × plein/contour.
+  for (let pts = 3; pts <= 12; pts++) {
+    [0.4, 0.52, 0.66].forEach((ratio, rr) => {
+      add("geo", `star${pts}_${rr}`, `Étoile ${pts}`, `${K} étoile star ${pts} branches`, 200, 200, fillp(starPts(100, 100, pts, 92, 92 * ratio)));
+      add("geo", `staro${pts}_${rr}`, `Étoile ${pts} contour`, `${K} étoile contour ${pts}`, 200, 200, stroke(starPts(100, 100, pts, 86, 86 * ratio), 8));
+    });
+  }
+  // Explosions / badges pointus.
+  for (let pts = 8; pts <= 30; pts += 2) add("geo", `burst${pts}`, "Explosion", `${K} explosion burst éclat ${pts}`, 200, 200, fillp(starPts(100, 100, pts, 94, 74)));
+  // Rectangles / carrés / pilules arrondis.
+  ([[160, 120], [180, 90], [130, 130], [190, 66], [110, 160]] as const).forEach(([w, h], wi) => {
+    [8, 20, 40, Math.min(w, h) / 2].forEach((r, ri) => {
+      add("geo", `rrect${wi}_${ri}`, "Rectangle arrondi", `${K} rectangle carré pilule arrondi`, 200, 200, `<rect x="${N(100 - w / 2)}" y="${N(100 - h / 2)}" width="${w}" height="${h}" rx="${N(r)}" fill="${C}"/>`);
+      add("geo", `rrecto${wi}_${ri}`, "Rectangle contour", `${K} rectangle contour arrondi`, 200, 200, `<rect x="${N(100 - w / 2)}" y="${N(100 - h / 2)}" width="${w}" height="${h}" rx="${N(r)}" fill="none" stroke="${C}" stroke-width="9"/>`);
+    });
+  });
+  // Secteurs / camemberts (fractions).
+  for (let k = 1; k <= 7; k++) {
+    const frac = k / 8, a1 = -90, a2 = -90 + frac * 360;
+    const [x1, y1] = polar(100, 100, 88, a1), [x2, y2] = polar(100, 100, 88, a2);
+    const large = frac > 0.5 ? 1 : 0;
+    add("geo", `pie${k}`, "Secteur", `${K} secteur camembert part pie ${k}`, 200, 200, fillp(`M 100 100 L ${N(x1)} ${N(y1)} A 88 88 0 ${large} 1 ${N(x2)} ${N(y2)} Z`));
+  }
+  // Demi & quart de disque.
+  add("geo", "half0", "Demi-disque", `${K} demi cercle`, 200, 120, fillp("M 12 108 A 88 88 0 0 1 188 108 Z"));
+  add("geo", "quarter0", "Quart de disque", `${K} quart cercle`, 160, 160, fillp("M 20 140 V 20 A 120 120 0 0 1 140 140 Z"));
+  // Formes de base pleines + contour.
+  const base: [string, string][] = [
+    ["diamond", "M 100 12 L 176 100 L 100 188 L 24 100 Z"],
+    ["heart", "M 100 178 C 40 132 16 96 22 64 C 27 36 52 22 76 30 C 89 35 97 45 100 53 C 103 45 111 35 124 30 C 148 22 173 36 178 64 C 184 96 160 132 100 178 Z"],
+    ["drop", "M 100 12 C 140 68 166 104 166 134 A 66 66 0 0 1 34 134 C 34 104 60 68 100 12 Z"],
+    ["shieldg", "M 100 14 L 176 44 V 108 C 176 156 140 186 100 200 C 60 186 24 156 24 108 V 44 Z"],
+    ["chevron", "M 40 24 L 120 100 L 40 176 L 68 176 L 148 100 L 68 24 Z"],
+    ["plusg", "M 74 20 H 126 V 74 H 180 V 126 H 126 V 180 H 74 V 126 H 20 V 74 H 74 Z"],
+    ["crossg", "M 100 72 L 148 24 L 176 52 L 128 100 L 176 148 L 148 176 L 100 128 L 52 176 L 24 148 L 72 100 L 24 52 L 52 24 Z"],
+    ["parallelo", "M 56 40 H 184 L 144 160 H 16 Z"],
+    ["trapeze", "M 56 40 H 144 L 184 160 H 16 Z"],
+    ["house", "M 100 16 L 184 88 H 160 V 184 H 40 V 88 H 16 Z"],
+    ["egg", "M 100 16 C 56 16 34 92 40 138 C 46 176 74 188 100 188 C 126 188 154 176 160 138 C 166 92 144 16 100 16 Z"],
+    ["bolt", "M 120 8 L 40 108 H 92 L 76 192 L 160 84 H 104 Z"],
+    ["moon", "M 128 16 A 90 90 0 1 0 128 184 A 72 72 0 0 1 128 16 Z"],
+    ["arrowb", "M 20 74 H 120 V 40 L 184 100 L 120 160 V 126 H 20 Z"],
+    ["pentaflat", ""],
+  ];
+  base.forEach(([id, d]) => {
+    if (!d) return;
+    add("geo", `${id}f`, "Forme", `${K} ${id}`, 200, 200, fillp(d));
+    add("geo", `${id}o`, "Forme contour", `${K} ${id} contour`, 200, 200, stroke(d, 9));
+  });
+})();
+
+/* ── 25. Ornements & rosaces ── */
+(() => {
+  const K = "ornement rosace mandala décoratif motif";
+  const gcd = (a: number, b: number): number => (b ? gcd(b, a % b) : a);
+  // Rosaces (pétales autour d'un centre).
+  for (let s = 0; s < 44; s++) {
+    const r = rng(s * 97 + 13);
+    const petals = 6 + Math.floor(r() * 12);
+    const rMid = 46 + r() * 22, ph = 26 + r() * 22, pw = 7 + r() * 9;
+    let g = "";
+    for (let k = 0; k < petals; k++) g += `<ellipse cx="100" cy="${N(100 - rMid)}" rx="${N(pw)}" ry="${N(ph)}" fill="${C}" transform="rotate(${N((k * 360) / petals)} 100 100)"/>`;
+    if (r() > 0.4) for (let k = 0; k < petals; k++) g += `<ellipse cx="100" cy="${N(100 - rMid + 30)}" rx="${N(pw * 0.6)}" ry="${N(ph * 0.5)}" fill="${C}" opacity="0.5" transform="rotate(${N((k * 360) / petals + 180 / petals)} 100 100)"/>`;
+    g += `<circle cx="100" cy="100" r="${N(12 + r() * 12)}" fill="${C}" opacity="0.55"/>`;
+    add("ornaments", `rosette${s}`, "Rosace", `${K} rosace fleur`, 200, 200, g);
+  }
+  // Soleils / rayons.
+  for (let s = 0; s < 34; s++) {
+    const r = rng(s * 71 + 5);
+    const rays = 10 + Math.floor(r() * 22);
+    let g = r() > 0.5 ? `<circle cx="100" cy="100" r="${N(18 + r() * 12)}" fill="${C}"/>` : `<circle cx="100" cy="100" r="${N(18 + r() * 12)}" fill="none" stroke="${C}" stroke-width="6"/>`;
+    const sw = 2 + r() * 6, r1 = 30 + r() * 8, r2 = 88;
+    for (let k = 0; k < rays; k++) { const a = (k * 360) / rays; const [x1, y1] = polar(100, 100, r1, a); const [x2, y2] = polar(100, 100, k % 2 && r() > 0.5 ? r2 - 14 : r2, a); g += stroke(`M ${N(x1)} ${N(y1)} L ${N(x2)} ${N(y2)}`, N(sw)); }
+    add("ornaments", `rays${s}`, "Rayons", `${K} rayons soleil éclat`, 200, 200, g);
+  }
+  // Étoiles-polygones entrelacées {n/k}.
+  let sp = 0;
+  for (let n = 5; n <= 14; n++) for (let k = 2; k < n / 2; k++) {
+    if (gcd(n, k) !== 1) continue;
+    const pts: string[] = [];
+    for (let i = 0; i <= n; i++) { const [x, y] = polar(100, 100, 88, -90 + (i * 360 * k) / n); pts.push(`${N(x)} ${N(y)}`); }
+    add("ornaments", `starpoly${sp++}`, "Étoile entrelacée", `${K} étoile polygone entrelacs ${n}/${k}`, 200, 200, stroke("M " + pts.join(" L "), 5));
+  }
+  // Couronnes de points / anneaux pointillés.
+  for (let s = 0; s < 24; s++) {
+    const r = rng(s * 59 + 3);
+    const dots = 8 + Math.floor(r() * 20);
+    const rad = 60 + r() * 24, dr = 3 + r() * 6;
+    let g = "";
+    for (let k = 0; k < dots; k++) { const [x, y] = polar(100, 100, rad, (k * 360) / dots); g += `<circle cx="${N(x)}" cy="${N(y)}" r="${N(dr)}" fill="${C}"/>`; }
+    if (r() > 0.5) g += `<circle cx="100" cy="100" r="${N(rad - dr * 3)}" fill="none" stroke="${C}" stroke-width="${N(2 + r() * 3)}" opacity="0.5"/>`;
+    add("ornaments", `dotring${s}`, "Anneau de points", `${K} anneau points cercle`, 200, 200, g);
+  }
+  // Guirlandes / séparateurs à médaillon.
+  for (let s = 0; s < 20; s++) {
+    const r = rng(s * 41 + 7);
+    const cy = 40;
+    let g = stroke(`M 8 ${cy} H 80`, N(3 + r() * 3)) + stroke(`M 160 ${cy} H 232`, N(3 + r() * 3));
+    const shape = Math.floor(r() * 3);
+    g += shape === 0 ? fillp(starPts(120, cy, 4, 26, 10)) : shape === 1 ? `<circle cx="120" cy="${cy}" r="18" fill="none" stroke="${C}" stroke-width="5"/><circle cx="120" cy="${cy}" r="7" fill="${C}"/>` : fillp(`M 120 ${cy - 24} L 138 ${cy} L 120 ${cy + 24} L 102 ${cy} Z`);
+    g += `<circle cx="88" cy="${cy}" r="4" fill="${C}"/><circle cx="152" cy="${cy}" r="4" fill="${C}"/>`;
+    add("ornaments", `divider${s}`, "Séparateur", `${K} séparateur divider ligne médaillon`, 240, 80, g);
+  }
+  // Volutes / coins fleuris (4 rotations).
+  for (let v = 0; v < 6; v++) {
+    const r = rng(v * 83 + 11);
+    const swirl = `M 20 180 C 20 120 60 120 60 150 C 60 170 40 170 44 152 M 20 180 C 80 180 120 140 140 60 C 148 30 120 20 116 44 C 114 58 132 58 130 44`;
+    add("ornaments", `swirl${v}`, "Volute", `${K} volute arabesque coin`, 200, 200, stroke(swirl, N(5 + r() * 3)));
+  }
+})();
+
+/* ── 26. Cadres & bordures ── */
+(() => {
+  const K = "cadre bordure frame contour";
+  // Cadres rectangulaires (styles variés).
+  const rect = (x: number, y: number, w: number, h: number, extra = "") => `<rect x="${x}" y="${y}" width="${w}" height="${h}" ${extra}/>`;
+  for (let s = 0; s < 8; s++) {
+    const sw = 5 + s;
+    add("frames", `rect${s}`, "Cadre", `${K} rectangle simple`, 220, 180, rect(14 + sw, 14 + sw, 192 - 2 * sw, 152 - 2 * sw, `fill="none" stroke="${C}" stroke-width="${sw}"`));
+  }
+  add("frames", "double0", "Cadre double", `${K} double trait`, 220, 180, rect(16, 16, 188, 148, `fill="none" stroke="${C}" stroke-width="6"`) + rect(30, 30, 160, 120, `fill="none" stroke="${C}" stroke-width="4" opacity="0.6"`));
+  (["18 14", "30 10", "6 10", "40 16 6 16"] as const).forEach((dash, i) =>
+    add("frames", `dashed${i}`, "Cadre pointillé", `${K} pointillé tirets`, 220, 180, rect(20, 20, 180, 140, `fill="none" stroke="${C}" stroke-width="6" stroke-dasharray="${dash}"`)));
+  [10, 20, 34, 50].forEach((r, i) => add("frames", `round${i}`, "Cadre arrondi", `${K} arrondi`, 220, 180, `<rect x="20" y="20" width="180" height="140" rx="${r}" fill="none" stroke="${C}" stroke-width="7"/>`));
+  // Coins / crochets d'angle.
+  for (let s = 0; s < 6; s++) {
+    const sw = 5 + s, L = 40 + s * 6;
+    add("frames", `corner${s}`, "Coins", `${K} coins crochets angles`, 220, 180,
+      stroke(`M 20 ${20 + L} V 20 H ${20 + L}`, sw) + stroke(`M ${200 - L} 20 H 200 V ${20 + L}`, sw) + stroke(`M 200 ${160 - L} V 160 H ${200 - L}`, sw) + stroke(`M ${20 + L} 160 H 20 V ${160 - L}`, sw));
+  }
+  // Cadres circulaires / ovales.
+  for (let s = 0; s < 6; s++) add("frames", `circle${s}`, "Cadre rond", `${K} cercle rond`, 200, 200, `<circle cx="100" cy="100" r="${88 - s * 2}" fill="none" stroke="${C}" stroke-width="${5 + s}"/>`);
+  add("frames", "circdouble0", "Cadre rond double", `${K} cercle double`, 200, 200, `<circle cx="100" cy="100" r="90" fill="none" stroke="${C}" stroke-width="5"/><circle cx="100" cy="100" r="76" fill="none" stroke="${C}" stroke-width="3" opacity="0.6"/>`);
+  [[90, 64], [80, 74], [94, 58]].forEach(([rx, ry], i) => add("frames", `oval${i}`, "Cadre ovale", `${K} ovale ellipse`, 200, 200, `<ellipse cx="100" cy="100" rx="${rx}" ry="${ry}" fill="none" stroke="${C}" stroke-width="7"/>`));
+  // Cadre festonné (bord ondulé).
+  for (let s = 0; s < 4; s++) {
+    const bumps = 8 + s * 2, R = 84, r = 10;
+    let d = "";
+    for (let k = 0; k < bumps * 4; k++) { const a = (k * 360) / (bumps * 4); const rr = k % 2 === 0 ? R : R - r; const [x, y] = polar(100, 100, rr, a); d += (k === 0 ? "M" : "L") + ` ${N(x)} ${N(y)} `; }
+    add("frames", `scallop${s}`, "Cadre festonné", `${K} festonné vague scalloped`, 200, 200, stroke(d + "Z", 6));
+  }
+  // Ticket / étiquette (encoches).
+  add("frames", "ticket0", "Cadre ticket", `${K} ticket billet encoches`, 230, 150, eo(`M 20 30 H 210 V 120 H 20 Z` + holeC(115, 30, 12) + holeC(115, 120, 12)));
+  // Ruban / bannière rectangulaire.
+  add("frames", "banner0", "Bannière", `${K} bannière ruban`, 240, 110, fillp("M 20 30 H 220 V 80 H 20 Z") + fillp("M 20 30 L 6 55 L 20 80 Z M 220 30 L 234 55 L 220 80 Z", `opacity="0.6"`));
+  // Polaroid.
+  add("frames", "polaroid0", "Cadre photo", `${K} photo polaroid`, 200, 220, stroke("M 24 20 H 176 V 200 H 24 Z", 8) + `<rect x="40" y="36" width="120" height="120" fill="${C}" opacity="0.25"/>`);
+})();
+
+/* ── 27. Expansions paramétriques massives ── */
+(() => {
+  // Blobs supplémentaires (150).
+  const blob = (seed: number, irr: number, n: number): string => {
+    const r = rng(seed);
+    const pts: [number, number][] = [];
+    for (let i = 0; i < n; i++) pts.push(polar(100, 100, 58 + r() * irr, (i * 360) / n + r() * 18));
+    return smoothClosed(pts);
+  };
+  for (let s = 0; s < 110; s++) add("blobs", `xf${s}`, "Blob", "blob forme organique tache goutte", 200, 200, fillp(blob(s * 17 + 101, 24 + (s % 5) * 8, 6 + (s % 5))));
+  for (let s = 0; s < 40; s++) add("blobs", `xo${s}`, "Blob contour", "blob forme organique contour outline", 200, 200, stroke(blob(s * 29 + 303, 26 + (s % 4) * 6, 7 + (s % 3)), 5 + (s % 3)));
+
+  // Étoiles / éclats supplémentaires (80).
+  for (let s = 0; s < 40; s++) { const r = rng(s * 23 + 9); const pts = 4 + Math.floor(r() * 8); add("stars", `xs${s}`, "Éclat", "étoile éclat sparkle scintille", 200, 200, fillp(starPts(100, 100, pts, 90, 90 * (0.3 + r() * 0.4)))); }
+  for (let s = 0; s < 20; s++) { const r = rng(s * 47 + 3); let g = ""; const arms = 4 + Math.floor(r() * 3); for (let k = 0; k < arms; k++) { const a = (k * 360) / arms; const [x, y] = polar(100, 100, 60 + r() * 24, a); g += fillp(`M 100 100 L ${N(x + 6)} ${N(y)} L ${N(polar(100, 100, 92, a)[0])} ${N(polar(100, 100, 92, a)[1])} L ${N(x - 6)} ${N(y)} Z`); } add("stars", `xsp${s}`, "Étincelle", "étincelle scintille sparkle éclat", 200, 200, g); }
+  for (let s = 0; s < 20; s++) { const r = rng(s * 61 + 7); let g = `<circle cx="100" cy="100" r="${N(6 + r() * 6)}" fill="${C}"/>`; const n = 4 + Math.floor(r() * 4); for (let k = 0; k < n; k++) { const a = (k * 360) / n; const [x1, y1] = polar(100, 100, 18, a), [x2, y2] = polar(100, 100, 40 + r() * 46, a); g += stroke(`M ${N(x1)} ${N(y1)} L ${N(x2)} ${N(y2)}`, N(3 + r() * 4)); } add("stars", `xburst${s}`, "Étoile rayons", "étoile rayons scintille sparkle", 200, 200, g); }
+
+  // Badges / sceaux supplémentaires (50).
+  for (let s = 0; s < 30; s++) { const r = rng(s * 37 + 11); const pts = 10 + Math.floor(r() * 18); add("badges", `xseal${s}`, "Sceau", "badge sceau étoile promo tampon", 200, 200, fillp(starPts(100, 100, pts, 92, 92 - (6 + r() * 16))) + (r() > 0.5 ? `<circle cx="100" cy="100" r="${N(58 + r() * 12)}" fill="none" stroke="${C}" stroke-width="4" opacity="0.5"/>` : "")); }
+  for (let s = 0; s < 20; s++) { const r = rng(s * 53 + 5); const pts = 12 + Math.floor(r() * 16); add("badges", `xsealo${s}`, "Sceau contour", "badge sceau contour tampon", 200, 200, stroke(starPts(100, 100, pts, 90, 90 - (8 + r() * 14)), N(4 + r() * 3))); }
+
+  // Bulles supplémentaires (30).
+  for (let s = 0; s < 18; s++) { const r = rng(s * 43 + 13); const w = 140 + r() * 60, h = 90 + r() * 40, rad = 16 + r() * 20; const tail = 30 + r() * 100; add("bubbles", `xb${s}`, "Bulle", "bulle parole message chat", 240, 200, `<rect x="${N(120 - w / 2)}" y="14" width="${N(w)}" height="${N(h)}" rx="${N(rad)}" fill="${C}"/>` + fillp(`M ${N(tail)} ${N(14 + h - 4)} L ${N(tail + 10)} ${N(14 + h + 40)} L ${N(tail + 46)} ${N(14 + h - 4)} Z`)); }
+  for (let s = 0; s < 12; s++) { const r = rng(s * 67 + 9); const w = 150 + r() * 50, h = 96 + r() * 30; add("bubbles", `xbo${s}`, "Bulle contour", "bulle parole contour message", 240, 200, `<rect x="${N(120 - w / 2)}" y="14" width="${N(w)}" height="${N(h)}" rx="20" fill="none" stroke="${C}" stroke-width="7"/>` + stroke(`M ${N(80)} ${N(14 + h)} L ${N(78)} ${N(14 + h + 34)} L ${N(112)} ${N(14 + h)}`, 7)); }
+
+  // Flèches supplémentaires (60).
+  for (let s = 0; s < 30; s++) { const r = rng(s * 31 + 3); const y = 40 + r() * 20; const bend = -30 + r() * 60; add("arrows", `xcurve${s}`, "Flèche courbe", "flèche arrow courbe", 240, 100, stroke(`M 16 ${N(y)} Q 120 ${N(y + bend)} 210 ${N(y)}`, N(6 + r() * 4)) + arrowHead(214, y, Math.atan2(0, 1) + (bend > 0 ? 0.35 : -0.35), 22)); }
+  for (let s = 0; s < 16; s++) { const r = rng(s * 71 + 5); const sw = 8 + r() * 10; const split = 0.45 + r() * 0.2; add("arrows", `xfull${s}`, "Flèche pleine", "flèche arrow pleine grosse", 220, 120, fillp(`M 8 ${N(60 - sw)} H ${N(split * 220)} V 16 L 212 60 L ${N(split * 220)} 104 V ${N(60 + sw)} H 8 Z`)); }
+  for (let s = 0; s < 14; s++) { const r = rng(s * 89 + 7); const rad = 60 + r() * 16; add("arrows", `xcycle${s}`, "Flèche boucle", "flèche cycle refresh rotation boucle", 200, 200, stroke(`M ${N(100 + rad * 0.8)} ${N(100 - rad * 0.6)} A ${N(rad)} ${N(rad)} 0 ${r() > 0.5 ? 1 : 0} 0 ${N(100 + rad * 0.9)} ${N(100 + rad * 0.5)}`, N(8 + r() * 3)) + arrowHead(100 + rad * 0.95, 100 + rad * 0.55, r() > 0.5 ? 2.2 : -0.6, 24)); }
+
+  // Traits / séparateurs supplémentaires (60).
+  for (let s = 0; s < 24; s++) { const r = rng(s * 19 + 5); const amp = 6 + r() * 16, sw = 4 + r() * 7; let d = `M 12 40 `; for (let k = 0; k < 6; k++) d += `q 20 ${k % 2 ? amp : -amp} 40 0 `; add("strokes", `xwave${s}`, "Vague", "trait vague ondulé séparateur ligne", 260, 80, stroke(d, N(sw))); }
+  for (let s = 0; s < 18; s++) { const r = rng(s * 29 + 3); const sw = 3 + r() * 8; add("strokes", `xline${s}`, "Trait", "trait ligne séparateur souligne", 260, 40, stroke("M 14 20 H 246", N(sw), r() > 0.5 ? `stroke-dasharray="${N(8 + r() * 30)} ${N(6 + r() * 16)}"` : "")); }
+  for (let s = 0; s < 18; s++) { const r = rng(s * 41 + 9); const amp = 12 + r() * 16, seg = 4 + Math.floor(r() * 4); let d = `M 12 ${N(40 - amp / 2)} `; const step = 236 / seg; for (let i = 1; i <= seg; i++) d += `L ${N(12 + i * step)} ${i % 2 ? 40 + amp : 40 - amp} `; add("strokes", `xzig${s}`, "Zigzag", "trait zigzag éclair séparateur", 260, 90, stroke(d, N(5 + r() * 4))); }
+
+  // Déco / motifs supplémentaires (150).
+  for (let s = 0; s < 40; s++) { const r = rng(s * 13 + 1); const cols = 5 + Math.floor(r() * 5), rows = 4 + Math.floor(r() * 4), gap = 30, dr = 3 + r() * 7; let g = ""; for (let i = 0; i < cols; i++) for (let j = 0; j < rows; j++) g += `<circle cx="${20 + i * gap}" cy="${20 + j * gap}" r="${N(dr)}" fill="${C}"/>`; add("deco", `xdots${s}`, "Grille de points", "motif points grille pois pattern", 20 + cols * gap, 20 + rows * gap, g); }
+  for (let s = 0; s < 30; s++) { const r = rng(s * 23 + 7); const cols = 6 + Math.floor(r() * 4), rows = 5; let g = ""; for (let i = 0; i < cols; i++) for (let j = 0; j < rows; j++) g += `<circle cx="${18 + i * 26}" cy="${18 + j * 26}" r="${N(2 + (i / cols) * 9)}" fill="${C}"/>`; add("deco", `xhalf${s}`, "Demi-teinte", "motif demi-teinte halftone dégradé points", 18 + cols * 26 + 8, 150, g); }
+  for (let s = 0; s < 24; s++) { const r = rng(s * 31 + 3); const n = 5 + Math.floor(r() * 6), sw = 6 + r() * 12; let g = ""; for (let k = 0; k < n; k++) g += stroke(`M ${N(16 + k * (232 / n))} 12 V 148`, N(sw), `opacity="${N(0.4 + (k % 3) * 0.3)}"`); add("deco", `xstripe${s}`, "Rayures", "motif rayures bandes lignes pattern", 260, 160, g); }
+  for (let s = 0; s < 24; s++) { const r = rng(s * 37 + 5); const rows = 3 + Math.floor(r() * 3), amp = 12 + r() * 10; let g = ""; for (let row = 0; row < rows; row++) { let d = `M 10 ${N(30 + row * (amp + 24))} `; for (let k = 0; k < 5; k++) d += `q 24 ${k % 2 ? amp : -amp} 48 0 `; g += stroke(d, N(5 + r() * 3), `opacity="${N(1 - row * 0.18)}"`); } add("deco", `xwaves${s}`, "Vagues", "motif vagues ondes water pattern", 260, 30 + rows * (amp + 24), g); }
+  for (let s = 0; s < 16; s++) { const r = rng(s * 43 + 9); const cols = 5 + Math.floor(r() * 3), rows = 4; let g = ""; for (let j = 0; j < rows; j++) for (let i = 0; i < cols; i++) { const cx = 30 + i * 44 + (j % 2) * 22, cy = 34 + j * 34; g += `<path d="M ${cx - 22} ${cy} A 22 22 0 0 1 ${cx + 22} ${cy}" fill="none" stroke="${C}" stroke-width="${N(3 + r() * 3)}"/>`; } add("deco", `xscale${s}`, "Écailles", "motif écailles scale éventail pattern", cols * 44 + 40, rows * 34 + 30, g); }
+  for (let s = 0; s < 16; s++) { const r = rng(s * 53 + 11); const cols = 6 + Math.floor(r() * 4), rows = 5; let g = ""; for (let j = 0; j < rows; j++) for (let i = 0; i < cols; i++) if ((i + j) % 2 === 0) g += `<rect x="${i * 28}" y="${j * 28}" width="28" height="28" fill="${C}"/>`; add("deco", `xcheck${s}`, "Damier", "motif damier échiquier carreaux pattern", cols * 28, rows * 28, g); }
+
+  // Confettis / fête supplémentaires (40).
+  for (let s = 0; s < 40; s++) { const r = rng(s * 61 + 17); let g = ""; const n = 16 + Math.floor(r() * 20); for (let k = 0; k < n; k++) { const x = 12 + r() * 216, y = 12 + r() * 176, t = Math.floor(r() * 3); g += t === 0 ? `<circle cx="${N(x)}" cy="${N(y)}" r="${N(3 + r() * 5)}" fill="${C}" opacity="${N(0.6 + r() * 0.4)}"/>` : t === 1 ? `<rect x="${N(x)}" y="${N(y)}" width="${N(6 + r() * 8)}" height="${N(4 + r() * 5)}" fill="${C}" opacity="${N(0.6 + r() * 0.4)}" transform="rotate(${N(r() * 90)} ${N(x)} ${N(y)})"/>` : stroke(`M ${N(x)} ${N(y)} l ${N(8 + r() * 10)} ${N(-6 + r() * 12)}`, N(2 + r() * 3), `opacity="${N(0.6 + r() * 0.4)}"`); } add("party", `xconf${s}`, "Confettis", "confettis fête party paillettes", 240, 200, g); }
+
+  // Tech supplémentaires (40).
+  for (let s = 0; s < 20; s++) { const r = rng(s * 71 + 13); let g = ""; for (let i = 0; i < 6; i++) { const y = 22 + i * 32 + r() * 8; const xm = 60 + r() * 80; g += stroke(`M 14 ${N(y)} H ${N(xm)} L ${N(xm + 14)} ${N(y + (r() > 0.5 ? 22 : -22))} H ${N(180 + r() * 30)}`, N(3 + r() * 3)); g += `<circle cx="14" cy="${N(y)}" r="5" fill="${C}"/>`; } add("tech", `xcircuit${s}`, "Circuit", "tech circuit électronique carte", 220, 220, g); }
+  for (let s = 0; s < 20; s++) { const r = rng(s * 83 + 7); let g = ""; for (let i = 0; i < 9; i++) for (let j = 0; j < 9; j++) if (r() > 0.5) g += `<rect x="${10 + i * 20}" y="${10 + j * 20}" width="16" height="16" fill="${C}" opacity="${r() > 0.75 ? 0.5 : 1}"/>`; add("tech", `xpix${s}`, "Pixels", "tech pixels qr data grille", 200, 200, g); }
+
+  // Cercles / cadres décoratifs supplémentaires (40).
+  for (let s = 0; s < 20; s++) { const r = rng(s * 17 + 5); const sw = 3 + r() * 16; add("circles", `xring${s}`, "Anneau", "cercle rond anneau cadre", 200, 200, `<circle cx="100" cy="100" r="${N(94 - sw / 2)}" fill="none" stroke="${C}" stroke-width="${N(sw)}"/>`); }
+  for (let s = 0; s < 12; s++) { const r = rng(s * 41 + 3); add("circles", `xdash${s}`, "Anneau pointillé", "cercle anneau pointillé tirets", 200, 200, `<circle cx="100" cy="100" r="88" fill="none" stroke="${C}" stroke-width="${N(4 + r() * 5)}" stroke-dasharray="${N(4 + r() * 40)} ${N(6 + r() * 16)}"/>`); }
+  for (let s = 0; s < 8; s++) { const r = rng(s * 53 + 9); add("circles", `xoval${s}`, "Ovale", "cercle ovale ellipse cadre", 220, 180, `<ellipse cx="110" cy="90" rx="${N(94 - r() * 20)}" ry="${N(74 - r() * 20)}" fill="none" stroke="${C}" stroke-width="${N(5 + r() * 6)}"/>`); }
+
+  // Nature supplémentaire (60).
+  for (let s = 0; s < 24; s++) { const r = rng(s * 53 + 21); const fat = 0.5 + r() * 0.5, bend = -24 + r() * 48; const half = 90 * fat; add("nature", `xleaf${s}`, "Feuille", "nature feuille leaf plante", 200, 200, fillp(`M 100 190 C ${N(100 - half)} 140 ${N(100 - half - bend)} 60 100 10 C ${N(100 + half - bend)} 60 ${N(100 + half)} 140 100 190 Z`) + stroke(`M 100 178 Q ${N(100 - bend / 2)} 100 100 32`, N(3 + r() * 2), `opacity="0.5"`)); }
+  for (let s = 0; s < 20; s++) { const r = rng(s * 67 + 11); const petals = 5 + Math.floor(r() * 8); let g = ""; for (let k = 0; k < petals; k++) g += `<ellipse cx="100" cy="${N(58 - r() * 6)}" rx="${N(14 + r() * 12)}" ry="${N(38 + r() * 10)}" fill="${C}" transform="rotate(${N((k * 360) / petals)} 100 100)"/>`; g += `<circle cx="100" cy="100" r="${N(14 + r() * 8)}" fill="${C}" opacity="0.5"/>`; add("nature", `xflower${s}`, "Fleur", "nature fleur flower marguerite", 200, 200, g); }
+  for (let s = 0; s < 16; s++) { const r = rng(s * 71 + 5); const nb = 3 + Math.floor(r() * 4); let g = stroke(`M 20 184 Q ${N(90 + r() * 30)} ${N(110 + r() * 20)} 182 ${N(18 + r() * 14)}`, N(4 + r() * 2)); for (let i = 1; i <= nb; i++) { const t = i / (nb + 1); const x = 20 + 160 * t, y = 184 - 164 * t; const side = i % 2 ? 1 : -1; g += `<ellipse cx="${N(x + side * 15)}" cy="${N(y - 8)}" rx="${N(14 + r() * 8)}" ry="${N(6 + r() * 3)}" fill="${C}" transform="rotate(${N(-40 + side * 35)} ${N(x + side * 15)} ${N(y - 8)})"/>`; } add("nature", `xbranch${s}`, "Branche", "nature branche rameau feuillage", 200, 200, g); }
 })();
 
 /* ── Distribution des couleurs : chaque élément SANS teinte explicite reçoit
