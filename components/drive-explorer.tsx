@@ -41,7 +41,6 @@ import {
   Target,
   HeartHandshake,
   Palette,
-  Shapes,
 } from "lucide-react";
 import type { SerializedNode } from "@/lib/nodes";
 import { api, notifyRefresh } from "@/lib/api";
@@ -285,7 +284,6 @@ export function DriveExplorer({
         { icon: StickyNote, tint: "#eab308", label: "Note", desc: "Markdown rapide", fn: () => createTyped("note") },
         { icon: Workflow, tint: "#14b8a6", label: "Diagramme", desc: "Schéma Mermaid", fn: () => createTyped("diagram") },
         { icon: Palette, tint: "#ec4899", label: "Direction Artistique", desc: "Palettes de couleurs d'une marque", fn: () => createTyped("da") },
-        { icon: Shapes, tint: "#a855f7", label: "Design", desc: "Éditeur graphique : calques, texte, images…", fn: () => createTyped("design") },
         { icon: Brush, tint: "#f43f5e", label: "Dessin", desc: "Tablette graphique", fn: createDraw },
         { icon: FolderPlus, tint: "#a78bff", label: "Nouveau dossier", desc: "Organisez vos fichiers", fn: () => setNewFolder(true) },
       ];

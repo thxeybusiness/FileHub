@@ -13,8 +13,12 @@ export function SettingsPanel({
 }) {
   const router = useRouter();
   // Ouverte depuis l'Accompagnement ? Le retour revient dans ce SaaS, pas FileHub.
-  const fromAccompagnement = useSearchParams().get("from") === "accompagnement";
-  const backHref = fromAccompagnement ? "/drive/accompagnement" : "/drive";
+  const fromApp = useSearchParams().get("from");
+  const fromAccompagnement = fromApp === "accompagnement";
+  const fromDesign = fromApp === "design";
+  const backHref = fromAccompagnement ? "/drive/accompagnement" : fromDesign ? "/drive/design" : "/drive";
+  // Les raccourcis Favoris/Activité sont propres à FileHub.
+  const hideFileHubShortcuts = fromAccompagnement || fromDesign;
   const [name, setName] = useState(initialName);
   const [username, setUsername] = useState(initialUsername);
   const [savingP, setSavingP] = useState(false);
@@ -73,8 +77,8 @@ export function SettingsPanel({
 
       <div className="flex-1 min-h-0 overflow-auto px-6 py-8">
         <div className="mx-auto w-full max-w-lg space-y-6">
-          {/* Raccourcis FileHub : Favoris & Activité (masqués dans l'Accompagnement) */}
-          {!fromAccompagnement && (
+          {/* Raccourcis FileHub : Favoris & Activité (masqués dans les applications séparées) */}
+          {!hideFileHubShortcuts && (
           <section className="grid grid-cols-1 gap-3 sm:grid-cols-2">
             <Link href="/drive/starred" className="group flex items-center gap-3 rounded-2xl border border-white/10 bg-white/[0.03] p-4 transition hover:border-white/20 hover:bg-white/[0.05]">
               <span className="grid size-10 shrink-0 place-items-center rounded-xl" style={{ background: "#f59e0b1f", color: "#f59e0b" }}><Star className="size-5" /></span>

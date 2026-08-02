@@ -21,13 +21,15 @@ export default async function Page({ params }: { params: Promise<{ id: string }>
   const scope: NodeScope = node.spaceId ? { spaceId: node.spaceId } : { userId, spaceId: null };
   const crumbs = await getBreadcrumb(scope, node.parentId);
   const canEdit = node.spaceId ? await canWriteSpace(userId, node.spaceId) : true;
+  // Retour vers l'accueil de l'application Design (sauf création dans un espace commun).
+  const backHref = node.spaceId ? nodeBackHref(node.spaceId, node.parentId) : "/drive/design";
 
   return (
     <DesignEditor
       id={node.id}
       initialName={node.name}
       initialContent={node.content ?? ""}
-      backHref={nodeBackHref(node.spaceId, node.parentId)}
+      backHref={backHref}
       crumbs={crumbs}
       canEdit={canEdit}
     />

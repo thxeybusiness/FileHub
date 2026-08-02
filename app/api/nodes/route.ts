@@ -136,20 +136,20 @@ export async function GET(req: NextRequest) {
   } else if (q) {
     where.trashed = false;
     where.name = { contains: q };
-    where.type = { not: "coaching" };
+    where.type = { notIn: ["coaching", "design"] };
   } else if (view === "starred") {
     where.starred = true;
     where.trashed = false;
-    where.type = { not: "coaching" };
+    where.type = { notIn: ["coaching", "design"] };
   } else if (view === "trash") {
     where.trashed = true;
   } else if (view === "recent") {
     where.trashed = false;
-    where.type = { in: ["file", "doc", "sheet", "chart", "draw", "note", "diagram", "board", "slides", "project", "da", "design"] };
+    where.type = { in: ["file", "doc", "sheet", "chart", "draw", "note", "diagram", "board", "slides", "project", "da"] };
   } else {
     where.trashed = false;
     where.parentId = parent && parent !== "root" ? parent : null;
-    where.type = { not: "coaching" };
+    where.type = { notIn: ["coaching", "design"] };
   }
 
   const orderBy =

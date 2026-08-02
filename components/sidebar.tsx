@@ -23,6 +23,7 @@ import {
   Columns3,
   BarChart3,
   ChevronDown,
+  Shapes,
   X,
 } from "lucide-react";
 import { cn, formatBytes } from "@/lib/utils";
@@ -81,11 +82,16 @@ export function Sidebar({ initial }: { initial: Me }) {
   // Contexte Accompagnement : les pages du SaaS coaching, mais aussi les pages
   // « transverses » (Paramètres) ouvertes depuis l'Accompagnement — pour ne pas
   // rebasculer sur FileHub. Le contexte est transporté par ?from=accompagnement.
-  const fromAccompagnement = searchParams.get("from") === "accompagnement";
+  const fromApp = searchParams.get("from");
+  const fromAccompagnement = fromApp === "accompagnement";
   const inAccompagnement =
     pathname.startsWith("/drive/accompagnement") ||
     pathname.startsWith("/drive/coaching") ||
     (pathname.startsWith("/drive/settings") && fromAccompagnement);
+  // Application « Design » : le studio graphique (SaaS séparé, comme le coaching).
+  const inDesign =
+    pathname.startsWith("/drive/design") ||
+    (pathname.startsWith("/drive/settings") && fromApp === "design");
   const goApp = (href: string) => { setSwitcherOpen(false); setMobileOpen(false); router.push(href); };
 
 
@@ -133,6 +139,25 @@ export function Sidebar({ initial }: { initial: Me }) {
     setMobileOpen(false);
     notifyRefresh();
     router.push(`/drive/coaching/${id}`);
+  }
+
+  // Liste des créations affichée dans la barre latérale de l'application Design.
+  const [designs, setDesigns] = useState<{ id: string; name: string }[]>([]);
+  const loadDesigns = () => api.listDesigns().then((r) => setDesigns(r.items.map((d) => ({ id: d.id, name: d.name })))).catch(() => {});
+  useEffect(() => {
+    if (!inDesign) return;
+    loadDesigns();
+    const refresh = () => loadDesigns();
+    window.addEventListener("filehub:refresh", refresh);
+    return () => window.removeEventListener("filehub:refresh", refresh);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [inDesign, pathname]);
+
+  async function createDesign() {
+    const { node } = await api.createNode("design", "Création sans titre", null);
+    setMobileOpen(false);
+    notifyRefresh();
+    router.push(`/drive/design/${node.id}`);
   }
 
   // Ouverture/fermeture du tiroir mobile via un événement global (bouton menu).
@@ -186,7 +211,11 @@ export function Sidebar({ initial }: { initial: Me }) {
           className="flex min-w-0 flex-1 items-center gap-2.5 rounded-xl px-2 py-1.5 text-left transition hover:bg-white/5"
           title="Changer d'application"
         >
-          {inAccompagnement ? (
+          {inDesign ? (
+            <span className="grid size-8 shrink-0 place-items-center rounded-xl bg-gradient-to-br from-[#a855f7] to-[#6366f1] shadow-lg shadow-purple-500/30">
+              <Shapes className="size-5 text-white" />
+            </span>
+          ) : inAccompagnement ? (
             <span className="grid size-8 shrink-0 place-items-center rounded-xl bg-gradient-to-br from-[#06b6d4] to-[#3b82f6] shadow-lg shadow-cyan-500/30">
               <HeartHandshake className="size-5 text-white" />
             </span>
@@ -196,7 +225,7 @@ export function Sidebar({ initial }: { initial: Me }) {
             </span>
           )}
           <span className="min-w-0 flex-1 truncate text-lg font-bold tracking-tight">
-            {inAccompagnement ? "Accompagnement" : "FileHub"}
+            {inDesign ? "Design" : inAccompagnement ? "Accompagnement" : "FileHub"}
           </span>
           <ChevronDown className={cn("size-4 shrink-0 text-muted transition", switcherOpen && "rotate-180")} />
         </button>
@@ -220,7 +249,7 @@ export function Sidebar({ initial }: { initial: Me }) {
                 onClick={() => goApp("/drive")}
                 className={cn(
                   "flex w-full items-center gap-2.5 rounded-xl px-2 py-2 text-left transition hover:bg-white/5",
-                  !inAccompagnement && "bg-white/[0.06]",
+                  !inAccompagnement && !inDesign && "bg-white/[0.06]",
                 )}
               >
                 <span className="grid size-8 shrink-0 place-items-center rounded-xl bg-gradient-to-br from-[#3b6dff] to-[#7b3bff]">
@@ -230,7 +259,23 @@ export function Sidebar({ initial }: { initial: Me }) {
                   <span className="block text-sm font-semibold">FileHub</span>
                   <span className="block truncate text-xs text-muted">Vos fichiers & documents</span>
                 </span>
-                {!inAccompagnement && <ChevronRight className="size-4 shrink-0 text-brand-300" />}
+                {!inAccompagnement && !inDesign && <ChevronRight className="size-4 shrink-0 text-brand-300" />}
+              </button>
+              <button
+                onClick={() => goApp("/drive/design")}
+                className={cn(
+                  "flex w-full items-center gap-2.5 rounded-xl px-2 py-2 text-left transition hover:bg-white/5",
+                  inDesign && "bg-white/[0.06]",
+                )}
+              >
+                <span className="grid size-8 shrink-0 place-items-center rounded-xl bg-gradient-to-br from-[#a855f7] to-[#6366f1]">
+                  <Shapes className="size-4 text-white" />
+                </span>
+                <span className="min-w-0 flex-1">
+                  <span className="block text-sm font-semibold">Design</span>
+                  <span className="block truncate text-xs text-muted">Studio graphique : visuels & images</span>
+                </span>
+                {inDesign && <ChevronRight className="size-4 shrink-0 text-purple-300" />}
               </button>
               <button
                 onClick={() => goApp("/drive/accompagnement")}
@@ -253,7 +298,61 @@ export function Sidebar({ initial }: { initial: Me }) {
         )}
       </div>
 
-      {inAccompagnement ? (
+      {inDesign ? (
+        /* ── Navigation de l'application Design ── */
+        <nav className="flex-1 px-3 py-4 space-y-1 overflow-y-auto">
+          {(() => {
+            const active = pathname === "/drive/design";
+            return (
+              <Link
+                href="/drive/design"
+                className={cn(
+                  "relative flex items-center gap-3 px-3 h-10 rounded-xl text-sm font-medium transition overflow-hidden",
+                  active ? "bg-gradient-to-r from-purple-500/25 to-transparent text-white" : "text-ink/70 hover:bg-white/5 hover:text-ink",
+                )}
+              >
+                {active && <span className="absolute left-0 top-1/2 h-5 w-1 -translate-y-1/2 rounded-r-full bg-gradient-to-b from-[#a855f7] to-[#6366f1]" />}
+                <Shapes className={cn("size-[18px]", active && "text-purple-200")} />
+                Mes créations
+                {active && <ChevronRight className="size-4 ml-auto text-purple-300" />}
+              </Link>
+            );
+          })()}
+
+          <div className="pt-5">
+            <div className="flex items-center justify-between px-3 pb-1">
+              <span className="text-[11px] font-semibold uppercase tracking-wider text-muted">Créations</span>
+              <button onClick={createDesign} title="Nouvelle création" className="grid size-6 place-items-center rounded-md text-muted hover:bg-white/10 hover:text-white transition">
+                <Plus className="size-4" />
+              </button>
+            </div>
+            {designs.length === 0 ? (
+              <button onClick={createDesign} className="flex w-full items-center gap-2 px-3 h-9 rounded-xl text-sm text-muted hover:bg-white/5 hover:text-ink transition">
+                <Plus className="size-4" /> Nouvelle création
+              </button>
+            ) : (
+              designs.map((d) => {
+                const href = `/drive/design/${d.id}`;
+                const active = pathname === href;
+                return (
+                  <Link
+                    key={d.id}
+                    href={href}
+                    className={cn(
+                      "relative flex items-center gap-2.5 px-3 h-10 rounded-xl text-sm font-medium transition overflow-hidden",
+                      active ? "bg-gradient-to-r from-purple-500/25 to-transparent text-white" : "text-ink/70 hover:bg-white/5 hover:text-ink",
+                    )}
+                  >
+                    {active && <span className="absolute left-0 top-1/2 h-5 w-1 -translate-y-1/2 rounded-r-full bg-gradient-to-b from-[#a855f7] to-[#6366f1]" />}
+                    <Shapes className={cn("size-[18px] shrink-0", active && "text-purple-200")} />
+                    <span className="truncate">{d.name || "Sans titre"}</span>
+                  </Link>
+                );
+              })
+            )}
+          </div>
+        </nav>
+      ) : inAccompagnement ? (
         /* ── Navigation de l'espace Coaching (aucune option FileHub) ── */
         <nav className="flex-1 px-3 py-4 space-y-1 overflow-y-auto">
           {COACHING_NAV.map((item) => {
@@ -406,8 +505,8 @@ export function Sidebar({ initial }: { initial: Me }) {
         />
       )}
 
-      {/* Chrome FileHub : masqué dans l'espace Coaching (SaaS séparé) */}
-      {!inAccompagnement && (
+      {/* Chrome FileHub : masqué dans les applications séparées (Coaching, Design) */}
+      {!inAccompagnement && !inDesign && (
         <>
           {/* Stockage → ouvre le tableau de bord (stats détaillées) */}
           <div className="px-4 pb-3">
@@ -485,7 +584,7 @@ export function Sidebar({ initial }: { initial: Me }) {
           </div>
           <NotificationCenter />
           <Link
-            href={inAccompagnement ? "/drive/settings?from=accompagnement" : "/drive/settings"}
+            href={inAccompagnement ? "/drive/settings?from=accompagnement" : inDesign ? "/drive/settings?from=design" : "/drive/settings"}
             title="Paramètres"
             className={cn(
               "size-8 grid place-items-center rounded-lg transition",
@@ -498,8 +597,8 @@ export function Sidebar({ initial }: { initial: Me }) {
           </Link>
         </div>
 
-        {/* Abonnement & admin : options FileHub, masquées dans l'espace Coaching */}
-        {!inAccompagnement && (
+        {/* Abonnement & admin : options FileHub, masquées dans les applications séparées */}
+        {!inAccompagnement && !inDesign && (
           <>
             {isFounder ? (
               <Link
