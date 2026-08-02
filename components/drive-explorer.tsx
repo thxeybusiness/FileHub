@@ -41,6 +41,7 @@ import {
   Target,
   HeartHandshake,
   Palette,
+  Shapes,
 } from "lucide-react";
 import type { SerializedNode } from "@/lib/nodes";
 import { api, notifyRefresh } from "@/lib/api";
@@ -211,7 +212,7 @@ export function DriveExplorer({
 
   const open = (n: SerializedNode) => {
     if (n.type === "folder") router.push(`${basePath}/folder/${n.id}`);
-    else if (n.type === "doc" || n.type === "sheet" || n.type === "chart" || n.type === "draw" || n.type === "note" || n.type === "diagram" || n.type === "board" || n.type === "slides" || n.type === "project" || n.type === "coaching" || n.type === "seance" || n.type === "da")
+    else if (n.type === "doc" || n.type === "sheet" || n.type === "chart" || n.type === "draw" || n.type === "note" || n.type === "diagram" || n.type === "board" || n.type === "slides" || n.type === "project" || n.type === "coaching" || n.type === "seance" || n.type === "da" || n.type === "design")
       router.push(editorHref(n.type, n.id));
     else setPreview(n);
   };
@@ -242,8 +243,8 @@ export function DriveExplorer({
     router.push(editorHref("draw", node.id));
   };
 
-  const createTyped = async (type: "note" | "diagram" | "board" | "slides" | "project" | "da") => {
-    const label = { note: "Note sans titre", diagram: "Diagramme sans titre", board: "Tableau kanban", slides: "Présentation sans titre", project: "Tableau sans titre", da: "Direction artistique" }[type];
+  const createTyped = async (type: "note" | "diagram" | "board" | "slides" | "project" | "da" | "design") => {
+    const label = { note: "Note sans titre", diagram: "Diagramme sans titre", board: "Tableau kanban", slides: "Présentation sans titre", project: "Tableau sans titre", da: "Direction artistique", design: "Création sans titre" }[type];
     const { node } = await api.createNode(type, label, folderId, spaceId);
     router.push(editorHref(type, node.id));
   };
@@ -284,6 +285,7 @@ export function DriveExplorer({
         { icon: StickyNote, tint: "#eab308", label: "Note", desc: "Markdown rapide", fn: () => createTyped("note") },
         { icon: Workflow, tint: "#14b8a6", label: "Diagramme", desc: "Schéma Mermaid", fn: () => createTyped("diagram") },
         { icon: Palette, tint: "#ec4899", label: "Direction Artistique", desc: "Palettes de couleurs d'une marque", fn: () => createTyped("da") },
+        { icon: Shapes, tint: "#a855f7", label: "Design", desc: "Éditeur graphique : calques, texte, images…", fn: () => createTyped("design") },
         { icon: Brush, tint: "#f43f5e", label: "Dessin", desc: "Tablette graphique", fn: createDraw },
         { icon: FolderPlus, tint: "#a78bff", label: "Nouveau dossier", desc: "Organisez vos fichiers", fn: () => setNewFolder(true) },
       ];

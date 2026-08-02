@@ -18,6 +18,7 @@ import {
   StickyNote,
   Workflow,
   Palette,
+  Shapes,
   Share2,
   Users,
   Trash2,
@@ -42,10 +43,11 @@ const TYPE_META: Record<string, { label: string; icon: typeof FileIcon; tint: st
   note: { label: "Notes", icon: StickyNote, tint: "text-yellow-300 bg-yellow-500/10" },
   diagram: { label: "Diagrammes", icon: Workflow, tint: "text-teal-300 bg-teal-500/10" },
   da: { label: "Directions artistiques", icon: Palette, tint: "text-pink-300 bg-pink-500/10" },
+  design: { label: "Designs", icon: Shapes, tint: "text-purple-300 bg-purple-500/10" },
   coaching: { label: "Accompagnements", icon: HeartHandshake, tint: "text-cyan-300 bg-cyan-500/10" },
 };
 
-const TYPE_ORDER = ["folder", "file", "doc", "sheet", "chart", "draw", "slides", "board", "project", "note", "diagram", "da", "coaching"];
+const TYPE_ORDER = ["folder", "file", "doc", "sheet", "chart", "draw", "slides", "board", "project", "note", "diagram", "da", "design", "coaching"];
 
 export function Dashboard() {
   const [stats, setStats] = useState<DashboardStats | null>(null);

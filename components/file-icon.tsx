@@ -28,6 +28,7 @@ import {
   HeartHandshake,
   ClipboardList,
   Palette,
+  Shapes,
   File as FileIcon,
   type LucideIcon,
 } from "lucide-react";
@@ -71,7 +72,7 @@ export function NodeIcon({
   size = 20,
   className = "",
 }: {
-  type: "folder" | "file" | "doc" | "sheet" | "chart" | "draw" | "note" | "diagram" | "board" | "slides" | "project" | "coaching" | "seance" | "da";
+  type: "folder" | "file" | "doc" | "sheet" | "chart" | "draw" | "note" | "diagram" | "board" | "slides" | "project" | "coaching" | "seance" | "da" | "design";
   mimeType?: string | null;
   name?: string;
   color?: string | null;
@@ -140,6 +141,7 @@ export function NodeIcon({
     coaching: { icon: HeartHandshake, color: "#06b6d4" },
     seance: { icon: ClipboardList, color: "#0ea5e9" },
     da: { icon: Palette, color: "#ec4899" },
+    design: { icon: Shapes, color: "#a855f7" },
   };
   if (EXTRA[type]) {
     const { icon: Icon, color } = EXTRA[type];

@@ -57,6 +57,14 @@ const DEFAULT_DA = JSON.stringify({
     { id: "p1", name: "Palette principale", colors: ["#0f172a", "#3b82f6", "#e2e8f0"] },
   ],
 });
+// Design : éditeur graphique (calques). Toile carrée Instagram par défaut.
+const DEFAULT_DESIGN = JSON.stringify({
+  version: 1,
+  width: 1080,
+  height: 1080,
+  background: "#ffffff",
+  layers: [],
+});
 // Projet : base de données de tâches (champs typés + lignes + vues).
 const DEFAULT_PROJECT = JSON.stringify({
   fields: [
@@ -137,7 +145,7 @@ export async function GET(req: NextRequest) {
     where.trashed = true;
   } else if (view === "recent") {
     where.trashed = false;
-    where.type = { in: ["file", "doc", "sheet", "chart", "draw", "note", "diagram", "board", "slides", "project", "da"] };
+    where.type = { in: ["file", "doc", "sheet", "chart", "draw", "note", "diagram", "board", "slides", "project", "da", "design"] };
   } else {
     where.trashed = false;
     where.parentId = parent && parent !== "root" ? parent : null;
@@ -197,7 +205,7 @@ const createSchema = z.object({
   parentId: z.string().nullable().optional(),
   color: z.string().optional(),
   type: z
-    .enum(["folder", "doc", "sheet", "chart", "draw", "note", "diagram", "board", "slides", "project", "coaching", "seance", "da"])
+    .enum(["folder", "doc", "sheet", "chart", "draw", "note", "diagram", "board", "slides", "project", "coaching", "seance", "da", "design"])
     .optional(),
   spaceId: z.string().nullable().optional(),
 });
@@ -262,6 +270,9 @@ export async function POST(req: NextRequest) {
         : {}),
       ...(type === "da"
         ? { content: DEFAULT_DA, mimeType: "application/vnd.filehub.da" }
+        : {}),
+      ...(type === "design"
+        ? { content: DEFAULT_DESIGN, mimeType: "application/vnd.filehub.design" }
         : {}),
     },
     include: { _count: { select: { children: true } } },
