@@ -33,7 +33,35 @@ export const ELEMENT_CATEGORIES: { id: string; label: string }[] = [
   { id: "deco", label: "Déco & motifs" },
   { id: "icons", label: "Icônes" },
   { id: "tech", label: "Tech" },
+  { id: "food", label: "Nourriture" },
+  { id: "animals", label: "Animaux" },
+  { id: "objects", label: "Objets" },
+  { id: "weather", label: "Météo & ciel" },
+  { id: "sport", label: "Sport & loisirs" },
 ];
+
+/* Couleur par défaut cohérente d'une catégorie (chaque élément reste
+   recolorable à volonté ; ceci ne fait que proposer une teinte de départ
+   et sert de vignette au catalogue). */
+const CAT_COLOR: Record<string, string> = {
+  circles: "#e2e8f0",
+  strokes: "#fbbf24",
+  arrows: "#38bdf8",
+  blobs: "#c084fc",
+  stars: "#fbbf24",
+  badges: "#fb7185",
+  bubbles: "#5eead4",
+  nature: "#4ade80",
+  party: "#f472b6",
+  deco: "#a78bfa",
+  icons: "#60a5fa",
+  tech: "#22d3ee",
+  food: "#fb923c",
+  animals: "#fbbf24",
+  objects: "#818cf8",
+  weather: "#38bdf8",
+  sport: "#f87171",
+};
 
 /* ═══════════ Outils ═══════════ */
 
@@ -91,6 +119,14 @@ function arrowHead(x: number, y: number, angRad: number, size: number): string {
 const stroke = (d: string, sw: number, extra = "") =>
   `<path d="${d}" fill="none" stroke="${C}" stroke-width="${sw}" stroke-linecap="round" stroke-linejoin="round" ${extra}/>`;
 const fillp = (d: string, extra = "") => `<path d="${d}" fill="${C}" ${extra}/>`;
+// Tracé plein avec « trou » (évidement) : même couleur, découpe transparente
+// via fill-rule evenodd — respecte la règle d'or (une seule couleur).
+const eo = (d: string, extra = "") => `<path fill-rule="evenodd" d="${d}" fill="${C}" ${extra}/>`;
+// Sous-tracé circulaire inverse pour créer un trou dans un eo(...).
+const holeC = (cx: number, cy: number, r: number) => ` M ${N(cx - r)} ${N(cy)} a ${r} ${r} 0 1 0 ${N(2 * r)} 0 a ${r} ${r} 0 1 0 ${N(-2 * r)} 0 Z`;
+// Nuance interne : même couleur en opacité réduite.
+const op = (d: string, o: number, extra = "") => `<path d="${d}" fill="${C}" opacity="${o}" ${extra}/>`;
+const opc = (cx: number, cy: number, r: number, o: number) => `<circle cx="${N(cx)}" cy="${N(cy)}" r="${N(r)}" fill="${C}" opacity="${o}"/>`;
 
 /* ═══════════ Recherche ═══════════ */
 
@@ -107,7 +143,12 @@ function add(cat: string, id: string, label: string, keywords: string, w: number
   const full = `${cat}.${id}`;
   if (seen.has(full)) throw new Error(`id d'élément dupliqué : ${full}`);
   seen.add(full);
-  items.push({ id: full, label, cat, w, h, body, keywords: normalizeSearch(`${label} ${keywords}`), defaultColor });
+  items.push({ id: full, label, cat, w, h, body, keywords: normalizeSearch(`${label} ${keywords}`), defaultColor: defaultColor ?? CAT_COLOR[cat] ?? "#8b5cf6" });
+}
+// Surcharge ponctuelle de la couleur de départ d'un élément déjà créé.
+function tint(id: string, color: string) {
+  const def = items.find((e) => e.id === id);
+  if (def) def.defaultColor = color;
 }
 
 /* ── 1. Cercles & cadres ── */
@@ -890,6 +931,383 @@ function add(cat: string, id: string, label: string, keywords: string, w: number
   add("tech", "hash0", "Hashtag", `${K} hashtag réseau`, 190, 190, stroke("M 62 16 L 46 174 M 144 16 L 128 174 M 20 62 H 178 M 12 128 H 170", 12));
 })();
 
+/* ── 13. Nourriture ── */
+(() => {
+  const K = "nourriture food cuisine repas";
+  add("food", "apple0", "Pomme", `${K} pomme fruit apple`, 200, 200,
+    fillp("M 100 64 C 82 46 52 48 44 80 C 36 112 52 160 84 178 C 92 183 100 178 100 178 C 100 178 108 183 116 178 C 148 160 164 112 156 80 C 148 48 118 46 100 64 Z") +
+    stroke("M 100 62 C 102 42 108 32 120 28", 7) +
+    op("M 108 42 C 128 28 150 34 152 54 C 130 60 110 52 108 42 Z", 0.6));
+  add("food", "pear0", "Poire", `${K} poire fruit`, 180, 210,
+    fillp("M 90 46 C 82 64 86 80 76 94 C 54 122 46 160 76 186 C 102 208 122 198 130 176 C 142 144 120 118 108 98 C 100 84 102 66 96 46 Z") +
+    stroke("M 92 48 C 94 30 100 22 112 20", 7));
+  add("food", "cherry0", "Cerises", `${K} cerise cherry fruit`, 200, 200,
+    stroke("M 100 30 C 70 58 58 90 60 126", 8) + stroke("M 100 30 C 130 58 142 90 140 126", 8) +
+    `<circle cx="60" cy="150" r="32" fill="${C}"/><circle cx="140" cy="150" r="32" fill="${C}"/>` +
+    opc(50, 142, 7, 0.5) + opc(130, 142, 7, 0.5));
+  add("food", "banana0", "Banane", `${K} banane banana fruit`, 210, 170,
+    fillp("M 24 44 C 40 120 110 158 190 132 C 200 128 200 112 188 116 C 120 138 62 104 48 40 C 45 30 27 34 24 44 Z"));
+  [6, 8, 10].forEach((seg, i) => {
+    let g = `<circle cx="100" cy="100" r="86" fill="${C}"/>`;
+    g += opc(100, 100, 74, 0.35);
+    for (let k = 0; k < seg; k++) g += stroke(`M 100 100 L ${N(polar(100, 100, 72, (k * 360) / seg)[0])} ${N(polar(100, 100, 72, (k * 360) / seg)[1])}`, 4, `opacity="0.55"`);
+    add("food", `citrus${i}`, "Agrume", `${K} orange citron agrume tranche slice`, 200, 200, g);
+  });
+  add("food", "watermelon0", "Pastèque", `${K} pastèque melon fruit`, 210, 140,
+    fillp("M 12 24 A 96 96 0 0 0 204 24 Z") + op("M 24 24 A 84 84 0 0 0 192 24 Z", 0.4) +
+    Array.from({ length: 6 }, (_, k) => opc(52 + k * 21, 60 + (k % 2) * 14, 5, 0.85)).join(""));
+  add("food", "strawberry0", "Fraise", `${K} fraise strawberry fruit`, 180, 210,
+    fillp("M 90 60 C 40 60 30 110 56 156 C 70 182 90 198 90 198 C 90 198 110 182 124 156 C 150 110 140 60 90 60 Z") +
+    op("M 90 34 L 66 54 L 90 50 L 90 34 Z M 90 34 L 114 54 L 90 50 Z M 54 50 L 78 62 L 62 68 Z M 126 50 L 102 62 L 118 68 Z", 0.55) +
+    Array.from({ length: 7 }, (_, k) => opc(64 + (k % 3) * 26, 96 + Math.floor(k / 3) * 30, 4, 0.4)).join(""));
+  for (let s = 0; s < 3; s++) {
+    let g = stroke("M 100 24 C 96 40 100 48 100 56", 6);
+    const rows = [[100], [78, 122], [64, 100, 136], [82, 118], [100]];
+    let cy = 66;
+    rows.forEach((row) => { row.forEach((cx) => { g += `<circle cx="${cx}" cy="${cy}" r="21" fill="${C}"/>`; g += opc(cx - 7, cy - 7, 5, 0.4); }); cy += 34; });
+    add("food", `grapes${s}`, "Raisin", `${K} raisin grappe grapes`, 200, 210, g);
+  }
+  add("food", "avocado0", "Avocat", `${K} avocat avocado fruit`, 180, 210,
+    eo("M 90 20 C 40 20 30 90 40 140 C 48 182 72 200 90 200 C 108 200 132 182 140 140 C 150 90 140 20 90 20 Z" + holeC(90, 138, 34)) +
+    `<circle cx="90" cy="138" r="24" fill="${C}"/>`);
+  add("food", "carrot0", "Carotte", `${K} carotte légume carrot`, 180, 210,
+    fillp("M 90 200 L 52 96 C 78 84 102 84 128 96 Z") +
+    stroke("M 90 92 C 70 60 60 44 44 34 M 90 92 C 90 56 90 38 90 22 M 90 92 C 110 60 120 44 136 34", 9, `opacity="0.7"`));
+  add("food", "pizza0", "Pizza", `${K} pizza part slice`, 200, 210,
+    fillp("M 100 12 L 176 190 C 130 206 70 206 24 190 Z") +
+    op("M 100 40 L 158 178 C 122 190 78 190 42 178 Z", 0.25) +
+    opc(88, 96, 12, 0.7) + opc(126, 120, 11, 0.7) + opc(76, 150, 10, 0.7) + opc(120, 168, 9, 0.7));
+  add("food", "donut0", "Donut", `${K} donut beignet`, 200, 200,
+    eo("M 12 100 a 88 88 0 1 0 176 0 a 88 88 0 1 0 -176 0 Z" + holeC(100, 100, 34)) +
+    Array.from({ length: 8 }, (_, k) => { const a = k * 45; const [x, y] = polar(100, 100, 62, a); return stroke(`M ${N(x - 6)} ${N(y)} l 12 -6`, 6, `opacity="0.5"`); }).join(""));
+  add("food", "cupcake0", "Cupcake", `${K} cupcake gâteau muffin`, 190, 210,
+    fillp("M 46 96 L 60 190 H 130 L 144 96 Z") + stroke("M 54 120 H 136 M 60 150 H 130", 5, `opacity="0.5"`) +
+    fillp("M 95 30 C 60 30 42 64 62 88 C 46 96 52 118 74 116 C 78 132 110 132 116 116 C 138 118 146 94 128 84 C 146 60 128 30 95 30 Z") +
+    `<circle cx="95" cy="20" r="9" fill="${C}"/>`);
+  add("food", "icecream0", "Glace", `${K} glace cornet ice cream`, 160, 220,
+    fillp("M 80 210 L 40 92 H 120 Z") + stroke("M 56 118 L 70 150 M 80 100 L 80 160 M 104 118 L 90 150", 4, `opacity="0.5"`) +
+    fillp("M 80 20 C 44 20 30 54 52 76 C 34 96 60 108 80 96 C 100 108 126 96 108 76 C 130 54 116 20 80 20 Z"));
+  add("food", "coffee0", "Café", `${K} café tasse boisson coffee`, 210, 190,
+    stroke("M 30 60 H 150 V 118 A 44 44 0 0 1 30 118 Z", 9) + stroke("M 150 72 H 176 A 26 26 0 0 1 150 118", 9) +
+    stroke("M 66 20 C 60 34 74 40 68 54 M 100 18 C 94 32 108 38 102 52 M 134 22 C 128 36 142 42 136 56", 6, `opacity="0.6"`));
+  add("food", "croissant0", "Croissant", `${K} croissant viennoiserie`, 220, 160,
+    fillp("M 24 118 C 44 74 92 52 132 60 C 118 46 96 44 96 44 C 150 34 196 68 196 112 C 196 130 176 138 168 122 C 160 108 150 104 150 104 C 162 120 158 138 158 138 C 132 118 116 118 116 118 C 128 134 124 150 124 150 C 96 124 78 124 78 124 C 88 140 82 152 82 152 C 52 132 34 130 24 118 Z"));
+  for (let s = 0; s < 3; s++) {
+    const r = rng(s * 71 + 3);
+    let g = `<circle cx="100" cy="100" r="84" fill="${C}"/>`;
+    for (let k = 0; k < 7; k++) g += opc(48 + r() * 104, 48 + r() * 104, 8 + r() * 4, 0.45);
+    add("food", `cookie${s}`, "Cookie", `${K} cookie biscuit`, 200, 200, g);
+  }
+  add("food", "cake0", "Gâteau", `${K} gâteau cake anniversaire`, 210, 200,
+    fillp("M 30 90 H 180 V 176 H 30 Z") + stroke("M 30 128 H 180", 6, `opacity="0.45"`) +
+    stroke("M 30 90 Q 55 72 80 90 T 130 90 T 180 90", 7, `opacity="0.7"`) +
+    stroke("M 105 40 V 78", 7) + `<circle cx="105" cy="30" r="9" fill="${C}"/>`);
+  add("food", "burger0", "Burger", `${K} burger hamburger fast food`, 210, 190,
+    fillp("M 26 60 C 26 28 184 28 184 60 Z") + opc(70, 46, 5, 0.5) + opc(105, 40, 5, 0.5) + opc(140, 46, 5, 0.5) +
+    fillp("M 22 74 H 188 V 92 H 22 Z", `opacity="0.55"`) +
+    fillp("M 26 104 C 20 104 20 128 30 128 H 180 C 190 128 190 104 184 104 Z") +
+    fillp("M 26 142 C 26 170 184 170 184 142 Z"));
+  add("food", "egg0", "Œuf", `${K} oeuf egg`, 180, 210,
+    fillp("M 90 16 C 40 16 26 120 44 164 C 58 198 122 198 136 164 C 154 120 140 16 90 16 Z") +
+    opc(90, 130, 30, 0.4));
+  add("food", "bottle0", "Bouteille", `${K} bouteille boisson vin`, 130, 220,
+    stroke("M 52 12 H 78 V 44 C 78 64 96 72 96 104 V 196 A 8 8 0 0 1 88 204 H 42 A 8 8 0 0 1 34 196 V 104 C 34 72 52 64 52 44 Z", 8) +
+    fillp("M 34 118 H 96 V 176 H 34 Z", `opacity="0.35"`));
+  add("food", "mushroom0", "Champignon", `${K} champignon mushroom`, 190, 200,
+    fillp("M 20 100 C 20 46 170 46 170 100 C 170 108 20 108 20 100 Z") +
+    opc(58, 78, 8, 0.4) + opc(120, 72, 10, 0.4) + opc(95, 90, 6, 0.4) +
+    fillp("M 74 104 H 116 L 108 186 H 82 Z"));
+})();
+
+/* ── 14. Animaux ── */
+(() => {
+  const K = "animal animaux nature";
+  add("animals", "cat0", "Chat", `${K} chat cat félin`, 200, 200,
+    fillp("M 44 60 L 60 20 L 92 56 Z M 156 60 L 140 20 L 108 56 Z") +
+    `<circle cx="100" cy="118" r="66" fill="${C}"/>` +
+    `<circle cx="76" cy="106" r="8" fill="${C}"/><circle cx="124" cy="106" r="8" fill="${C}"/>` +
+    stroke("M 100 122 L 100 132 M 100 132 Q 88 142 78 136 M 100 132 Q 112 142 122 136", 5) +
+    stroke("M 60 122 H 30 M 60 132 H 32 M 140 122 H 170 M 140 132 H 168", 4, `opacity="0.6"`));
+  add("animals", "dog0", "Chien", `${K} chien dog`, 200, 200,
+    fillp("M 40 60 C 20 70 20 120 44 130 L 44 90 Z M 160 60 C 180 70 180 120 156 130 L 156 90 Z") +
+    `<circle cx="100" cy="110" r="64" fill="${C}"/>` +
+    `<circle cx="78" cy="100" r="8" fill="${C}"/><circle cx="122" cy="100" r="8" fill="${C}"/>` +
+    `<ellipse cx="100" cy="128" rx="14" ry="10" fill="${C}"/>` +
+    stroke("M 100 138 V 150", 4, `opacity="0.6"`));
+  add("animals", "rabbit0", "Lapin", `${K} lapin rabbit`, 180, 220,
+    fillp("M 66 20 C 56 60 60 96 74 108 C 86 100 88 60 82 20 C 78 10 68 10 66 20 Z") +
+    fillp("M 114 20 C 124 60 120 96 106 108 C 94 100 92 60 98 20 C 102 10 112 10 114 20 Z") +
+    `<circle cx="90" cy="150" r="58" fill="${C}"/>` +
+    `<circle cx="72" cy="142" r="7" fill="${C}"/><circle cx="108" cy="142" r="7" fill="${C}"/>` +
+    `<ellipse cx="90" cy="164" rx="10" ry="7" fill="${C}"/>`);
+  add("animals", "bear0", "Ours", `${K} ours bear`, 200, 200,
+    `<circle cx="56" cy="58" r="26" fill="${C}"/><circle cx="144" cy="58" r="26" fill="${C}"/>` +
+    `<circle cx="100" cy="112" r="70" fill="${C}"/>` +
+    `<circle cx="76" cy="100" r="8" fill="${C}"/><circle cx="124" cy="100" r="8" fill="${C}"/>` +
+    opc(100, 128, 26, 0.35) + `<ellipse cx="100" cy="120" rx="12" ry="9" fill="${C}"/>`);
+  add("animals", "fox0", "Renard", `${K} renard fox`, 200, 200,
+    fillp("M 30 40 L 84 96 L 40 108 Z M 170 40 L 116 96 L 160 108 Z") +
+    fillp("M 100 60 C 60 60 44 96 52 128 L 100 176 L 148 128 C 156 96 140 60 100 60 Z") +
+    op("M 100 150 C 78 150 66 132 72 118 L 100 138 L 128 118 C 134 132 122 150 100 150 Z", 0.4) +
+    `<circle cx="78" cy="106" r="7" fill="${C}"/><circle cx="122" cy="106" r="7" fill="${C}"/>` +
+    `<circle cx="100" cy="150" r="8" fill="${C}"/>`);
+  add("animals", "panda0", "Panda", `${K} panda`, 200, 200,
+    `<circle cx="52" cy="52" r="24" fill="${C}"/><circle cx="148" cy="52" r="24" fill="${C}"/>` +
+    `<circle cx="100" cy="112" r="72" fill="none" stroke="${C}" stroke-width="9"/>` +
+    `<ellipse cx="74" cy="104" rx="15" ry="20" fill="${C}"/><ellipse cx="126" cy="104" rx="15" ry="20" fill="${C}"/>` +
+    `<circle cx="100" cy="132" r="9" fill="${C}"/>` + opc(74, 100, 6, 0.4) + opc(126, 100, 6, 0.4));
+  add("animals", "fish0", "Poisson", `${K} poisson fish mer`, 220, 160,
+    fillp("M 150 44 C 90 24 40 52 30 80 C 40 108 90 136 150 116 C 148 100 148 60 150 44 Z") +
+    fillp("M 150 44 L 200 24 L 190 80 L 200 136 L 150 116 C 148 100 148 60 150 44 Z", `opacity="0.55"`) +
+    `<circle cx="68" cy="76" r="8" fill="${C}"/>` +
+    stroke("M 96 62 A 38 38 0 0 1 96 98 M 118 58 A 44 44 0 0 1 118 102", 4, `opacity="0.5"`));
+  add("animals", "whale0", "Baleine", `${K} baleine whale mer`, 220, 170,
+    fillp("M 24 96 C 24 52 90 40 130 52 C 150 40 176 40 176 40 C 172 56 172 68 176 78 C 200 96 196 130 160 138 C 110 148 24 140 24 96 Z") +
+    stroke("M 30 104 C 66 120 122 124 166 114", 4, `opacity="0.45"`) +
+    `<circle cx="60" cy="92" r="7" fill="${C}"/>` +
+    stroke("M 150 30 C 144 18 156 12 150 2", 6, `opacity="0.6"`));
+  add("animals", "bird0", "Oiseau", `${K} oiseau bird`, 200, 180,
+    fillp("M 60 60 C 30 60 20 100 44 120 C 36 140 52 156 76 150 C 96 168 140 168 158 140 C 186 132 190 96 168 84 C 168 60 140 44 116 56 C 100 44 76 46 60 60 Z") +
+    fillp("M 168 84 L 196 76 L 176 100 Z") +
+    `<circle cx="150" cy="92" r="7" fill="${C}"/>` +
+    stroke("M 74 108 Q 100 126 128 112", 4, `opacity="0.5"`));
+  add("animals", "butterfly0", "Papillon", `${K} papillon butterfly`, 220, 200,
+    fillp("M 104 100 C 60 40 20 44 24 88 C 26 120 66 128 104 108 Z") +
+    fillp("M 104 100 C 148 40 188 44 184 88 C 182 120 142 128 104 108 Z") +
+    fillp("M 104 100 C 66 120 34 140 46 172 C 58 196 96 168 104 120 Z") +
+    fillp("M 104 100 C 142 120 174 140 162 172 C 150 196 112 168 104 120 Z") +
+    stroke("M 104 74 V 150", 8) +
+    stroke("M 104 74 C 92 56 82 50 74 48 M 104 74 C 116 56 126 50 134 48", 5) +
+    opc(56, 82, 8, 0.4) + opc(152, 82, 8, 0.4));
+  add("animals", "bee0", "Abeille", `${K} abeille bee insecte`, 200, 170,
+    fillp("M 44 40 C 20 60 24 100 54 108 C 40 118 46 90 60 78 Z", `opacity="0.55"`) +
+    fillp("M 156 40 C 180 60 176 100 146 108 C 160 118 154 90 140 78 Z", `opacity="0.55"`) +
+    `<ellipse cx="100" cy="104" rx="56" ry="44" fill="${C}"/>` +
+    stroke("M 82 66 V 142 M 118 66 V 142", 8, `opacity="0.35"`) +
+    stroke("M 78 46 C 70 30 60 26 54 28 M 122 46 C 130 30 140 26 146 28", 4));
+  add("animals", "ladybug0", "Coccinelle", `${K} coccinelle ladybug insecte`, 190, 190,
+    `<circle cx="95" cy="104" r="72" fill="${C}"/>` +
+    stroke("M 95 34 V 174", 6, `opacity="0.35"`) +
+    fillp("M 95 32 A 40 40 0 0 0 55 60 A 72 72 0 0 1 95 46 Z", `opacity="0.85"`) +
+    fillp("M 95 32 A 40 40 0 0 1 135 60 A 72 72 0 0 0 95 46 Z", `opacity="0.85"`) +
+    opc(66, 96, 9, 0.4) + opc(124, 96, 9, 0.4) + opc(72, 138, 8, 0.4) + opc(118, 138, 8, 0.4) +
+    stroke("M 95 34 C 88 20 80 16 74 16 M 95 34 C 102 20 110 16 116 16", 4));
+  add("animals", "snail0", "Escargot", `${K} escargot snail`, 220, 180,
+    stroke("M 30 150 C 20 120 44 100 74 108 C 60 60 120 44 158 78 C 196 112 168 168 118 160 C 96 156 92 132 106 122 C 118 114 134 122 132 136", 10) +
+    stroke("M 30 150 H 96", 10) + `<circle cx="30" cy="150" r="10" fill="${C}"/>` +
+    stroke("M 34 148 C 26 128 22 118 24 106 M 44 148 C 44 128 46 118 52 108", 5) +
+    opc(24, 104, 4, 1) + opc(52, 106, 4, 1));
+  add("animals", "turtle0", "Tortue", `${K} tortue turtle`, 220, 170,
+    fillp("M 60 120 A 60 46 0 0 1 180 120 Z") +
+    stroke("M 120 78 V 118 M 84 98 L 102 118 M 156 98 L 138 118", 5, `opacity="0.5"`) +
+    `<circle cx="196" cy="112" r="16" fill="${C}"/>` + opc(200, 108, 3, 1) +
+    fillp("M 66 118 L 54 148 H 74 L 82 122 Z M 174 118 L 186 148 H 166 L 158 122 Z"));
+  add("animals", "owl0", "Hibou", `${K} hibou chouette owl`, 190, 210,
+    fillp("M 95 20 C 45 20 30 70 34 120 C 38 176 70 196 95 196 C 120 196 152 176 156 120 C 160 70 145 20 95 20 Z") +
+    `<circle cx="68" cy="94" r="26" fill="none" stroke="${C}" stroke-width="7"/><circle cx="122" cy="94" r="26" fill="none" stroke="${C}" stroke-width="7"/>` +
+    `<circle cx="68" cy="94" r="9" fill="${C}"/><circle cx="122" cy="94" r="9" fill="${C}"/>` +
+    fillp("M 95 108 L 84 126 H 106 Z") +
+    fillp("M 40 34 L 62 58 L 40 62 Z M 150 34 L 128 58 L 150 62 Z", `opacity="0.7"`));
+  add("animals", "penguin0", "Pingouin", `${K} pingouin penguin`, 170, 220,
+    fillp("M 85 14 C 40 14 30 80 32 130 C 34 180 56 208 85 208 C 114 208 136 180 138 130 C 140 80 130 14 85 14 Z") +
+    op("M 85 40 C 58 40 50 90 52 130 C 54 172 68 190 85 190 C 102 190 116 172 118 130 C 120 90 112 40 85 40 Z", 0.35) +
+    `<circle cx="68" cy="76" r="7" fill="${C}"/><circle cx="102" cy="76" r="7" fill="${C}"/>` +
+    fillp("M 85 88 L 72 100 L 85 106 L 98 100 Z") +
+    fillp("M 66 200 L 50 214 H 82 Z M 104 200 L 120 214 H 88 Z"));
+  add("animals", "paw0", "Patte", `${K} patte paw empreinte`, 200, 200,
+    `<circle cx="60" cy="82" r="20" fill="${C}"/><circle cx="100" cy="66" r="21" fill="${C}"/><circle cx="140" cy="82" r="20" fill="${C}"/><circle cx="158" cy="122" r="17" fill="${C}"/>` +
+    fillp("M 100 190 C 62 190 44 158 60 132 C 76 108 124 108 140 132 C 156 158 138 190 100 190 Z"));
+  add("animals", "chick0", "Poussin", `${K} poussin chick oiseau`, 190, 200,
+    `<circle cx="95" cy="118" r="72" fill="${C}"/>` + `<circle cx="95" cy="52" r="34" fill="${C}"/>` +
+    `<circle cx="84" cy="46" r="6" fill="none" stroke="${C}" stroke-width="4"/><circle cx="106" cy="46" r="6" fill="none" stroke="${C}" stroke-width="4"/>` +
+    fillp("M 95 52 L 80 64 L 95 72 L 110 64 Z", `opacity="0.55"`) +
+    stroke("M 40 118 L 18 108 M 40 130 L 18 132 M 150 118 L 172 108 M 150 130 L 172 132", 5, `opacity="0.6"`));
+})();
+
+/* ── 15. Objets ── */
+(() => {
+  const K = "objet objets";
+  add("objects", "book0", "Livre", `${K} livre book lecture`, 210, 190,
+    stroke("M 105 40 C 80 24 40 24 24 34 V 160 C 40 150 80 150 105 166 C 130 150 170 150 186 160 V 34 C 170 24 130 24 105 40 Z", 9) +
+    stroke("M 105 40 V 166", 7, `opacity="0.6"`));
+  add("objects", "camera0", "Caméra", `${K} caméra photo appareil camera`, 220, 170,
+    stroke("M 16 48 H 66 L 82 26 H 138 L 154 48 H 204 V 150 H 16 Z", 8) +
+    `<circle cx="110" cy="100" r="36" fill="none" stroke="${C}" stroke-width="9"/>` + opc(110, 100, 18, 0.4) +
+    `<circle cx="180" cy="66" r="7" fill="${C}"/>`);
+  add("objects", "key0", "Clé", `${K} clé key serrure`, 220, 130,
+    `<circle cx="56" cy="66" r="38" fill="none" stroke="${C}" stroke-width="11"/>` + opc(56, 66, 14, 0.4) +
+    stroke("M 92 66 H 200 M 160 66 V 96 M 186 66 V 92", 11));
+  add("objects", "lock0", "Cadenas", `${K} cadenas serrure sécurité lock`, 180, 210,
+    stroke("M 56 96 V 66 A 34 34 0 0 1 124 66 V 96", 12) +
+    fillp("M 30 96 H 150 V 190 H 30 Z") + `<circle cx="90" cy="134" r="12" fill="none" stroke="${C}" stroke-width="6" opacity="0.5"/>` + stroke("M 90 146 V 164", 6, `opacity="0.5"`));
+  add("objects", "umbrella0", "Parapluie", `${K} parapluie parasol umbrella`, 210, 210,
+    fillp("M 105 24 C 45 24 12 80 12 108 C 40 92 56 92 60 112 C 78 92 92 92 105 112 C 118 92 132 92 150 112 C 154 92 170 92 198 108 C 198 80 165 24 105 24 Z") +
+    stroke("M 105 24 V 176 C 105 196 82 196 78 178", 9));
+  add("objects", "gift0", "Cadeau", `${K} cadeau gift boîte`, 200, 210,
+    fillp("M 26 78 H 174 V 100 H 26 Z") + fillp("M 40 100 H 160 V 196 H 40 Z") +
+    stroke("M 100 100 V 196", 8, `opacity="0.5"`) +
+    stroke("M 100 78 C 60 78 44 40 66 30 C 88 22 100 60 100 78 C 100 60 112 22 134 30 C 156 40 140 78 100 78 Z", 8));
+  add("objects", "balloon0", "Ballon", `${K} ballon baudruche balloon fête`, 170, 220,
+    fillp("M 85 16 C 40 16 28 74 50 116 C 62 138 78 148 78 156 H 92 C 92 148 108 138 120 116 C 142 74 130 16 85 16 Z") +
+    stroke("M 60 62 A 28 38 0 0 1 74 42", 5, `opacity="0.4"`) +
+    fillp("M 78 156 L 92 156 L 85 168 Z") + stroke("M 85 168 C 96 184 74 196 85 210", 4));
+  add("objects", "flag0", "Drapeau", `${K} drapeau flag`, 200, 210,
+    stroke("M 44 16 V 196", 9) + fillp("M 44 24 C 90 4 120 44 166 24 V 108 C 120 128 90 88 44 108 Z"));
+  add("objects", "house0", "Maison", `${K} maison house home`, 210, 190,
+    fillp("M 105 20 L 196 100 H 168 V 176 H 42 V 100 H 14 Z") +
+    eo("M 82 176 V 116 H 128 V 176 Z", `opacity="0.4"`));
+  add("objects", "car0", "Voiture", `${K} voiture car auto`, 220, 150,
+    fillp("M 16 108 L 30 74 C 36 58 50 50 66 50 H 150 C 166 50 180 60 188 74 L 204 108 V 128 H 16 Z") +
+    op("M 60 54 L 52 82 H 104 V 54 Z M 116 54 V 82 H 172 L 158 60 C 154 56 148 54 144 54 Z", 0.35) +
+    `<circle cx="62" cy="128" r="20" fill="${C}"/><circle cx="158" cy="128" r="20" fill="${C}"/>` + opc(62, 128, 8, 0.4) + opc(158, 128, 8, 0.4));
+  add("objects", "plane0", "Avion", `${K} avion plane voyage`, 220, 200,
+    fillp("M 108 12 C 96 12 90 30 90 58 V 88 L 20 132 V 152 L 90 130 V 168 L 66 186 V 198 L 108 188 L 150 198 V 186 L 126 168 V 130 L 196 152 V 132 L 126 88 V 58 C 126 30 120 12 108 12 Z"));
+  add("objects", "boat0", "Bateau", `${K} bateau voilier boat mer`, 210, 210,
+    fillp("M 20 150 H 190 L 168 196 H 42 Z") +
+    fillp("M 104 20 L 104 140 L 30 140 Z") + fillp("M 116 40 L 116 140 L 176 140 Z", `opacity="0.6"`) +
+    stroke("M 104 20 V 150", 5, `opacity="0.5"`));
+  add("objects", "pencil0", "Crayon", `${K} crayon pencil dessin`, 200, 200,
+    fillp("M 150 20 L 180 50 L 74 156 L 34 166 L 44 126 Z") +
+    stroke("M 132 40 L 160 68", 5, `opacity="0.5"`) +
+    fillp("M 44 126 L 34 166 L 74 156 Z", `opacity="0.5"`));
+  add("objects", "brush0", "Pinceau", `${K} pinceau brush peinture`, 180, 210,
+    stroke("M 90 200 C 60 200 40 180 40 150 L 90 120 L 140 150 C 140 180 120 200 90 200 Z", 0) +
+    fillp("M 90 196 C 64 196 48 178 48 152 L 90 126 L 132 152 C 132 178 116 196 90 196 Z") +
+    fillp("M 60 130 L 90 20 L 120 130 Z", `opacity="0.6"`) + stroke("M 90 20 V 118", 6, `opacity="0.5"`));
+  add("objects", "palette0", "Palette", `${K} palette peinture couleur art`, 210, 190,
+    eo("M 105 16 C 40 16 12 66 20 116 C 26 154 62 172 92 160 C 104 156 100 140 108 134 C 120 126 138 138 156 130 C 186 116 196 60 158 34 C 142 22 124 16 105 16 Z" + holeC(72, 132, 14)) +
+    opc(56, 70, 12, 0.5) + opc(102, 52, 12, 0.5) + opc(150, 74, 12, 0.5) + opc(154, 108, 11, 0.5));
+  add("objects", "scissors0", "Ciseaux", `${K} ciseaux scissors couper`, 200, 200,
+    `<circle cx="46" cy="52" r="24" fill="none" stroke="${C}" stroke-width="9"/><circle cx="46" cy="148" r="24" fill="none" stroke="${C}" stroke-width="9"/>` +
+    stroke("M 66 66 L 180 150 M 66 134 L 180 50", 9) + `<circle cx="104" cy="100" r="7" fill="${C}"/>`);
+  add("objects", "briefcase0", "Mallette", `${K} mallette sac travail briefcase`, 210, 180,
+    stroke("M 74 50 V 34 A 10 10 0 0 1 84 24 H 126 A 10 10 0 0 1 136 34 V 50", 9) +
+    fillp("M 22 50 H 188 V 158 H 22 Z") + eo("M 84 92 H 126 V 116 H 84 Z", `opacity="0.4"`));
+  add("objects", "bag0", "Sac", `${K} sac shopping panier bag`, 190, 210,
+    stroke("M 66 66 V 48 A 30 30 0 0 1 126 48 V 66", 9) +
+    fillp("M 30 66 H 160 L 150 194 H 40 Z") + stroke("M 66 92 V 78 M 126 92 V 78", 6, `opacity="0.5"`));
+  add("objects", "watch0", "Montre", `${K} montre watch temps`, 170, 210,
+    fillp("M 60 14 H 110 L 118 58 H 52 Z M 52 152 H 118 L 110 196 H 60 Z", `opacity="0.6"`) +
+    `<circle cx="85" cy="105" r="52" fill="none" stroke="${C}" stroke-width="10"/>` + stroke("M 85 74 V 105 L 108 118", 7));
+  add("objects", "bulb1", "Ampoule déco", `${K} ampoule lampe idée`, 170, 210,
+    stroke("M 85 18 A 56 56 0 0 1 112 122 L 108 146 H 62 L 58 122 A 56 56 0 0 1 85 18 Z", 9) +
+    stroke("M 68 62 A 22 28 0 0 1 80 42", 5, `opacity="0.4"`) +
+    stroke("M 64 162 H 106 M 70 180 H 100", 8));
+  add("objects", "phone1", "Smartphone", `${K} smartphone téléphone mobile`, 130, 210,
+    stroke("M 34 14 H 96 A 12 12 0 0 1 108 26 V 184 A 12 12 0 0 1 96 196 H 34 A 12 12 0 0 1 22 184 V 26 A 12 12 0 0 1 34 14 Z", 8) +
+    stroke("M 22 44 H 108 M 22 166 H 108", 5, `opacity="0.4"`) +
+    `<circle cx="65" cy="181" r="7" fill="none" stroke="${C}" stroke-width="4" opacity="0.5"/>`);
+  add("objects", "cup0", "Trophée coupe", `${K} coupe gobelet mug tasse`, 190, 210,
+    stroke("M 50 40 H 140 V 92 A 45 45 0 0 1 50 92 Z", 9) + stroke("M 140 52 H 168 A 24 24 0 0 1 140 96", 8) +
+    stroke("M 95 136 V 160 M 66 186 H 124", 9));
+})();
+
+/* ── 16. Météo & ciel ── */
+(() => {
+  const K = "météo ciel weather temps";
+  const cloud = (extra = "") => fillp("M 52 130 A 30 30 0 0 1 46 72 A 40 40 0 0 1 120 52 A 34 34 0 0 1 178 74 A 30 30 0 0 1 172 130 Z", extra);
+  add("weather", "cloud0", "Nuage", `${K} nuage cloud`, 220, 150, cloud());
+  add("weather", "cloudsun0", "Éclaircie", `${K} nuage soleil éclaircie`, 220, 180,
+    (() => { let g = `<circle cx="150" cy="58" r="30" fill="${C}" opacity="0.6"/>`;
+      for (let k = 0; k < 8; k++) { const [x1, y1] = polar(150, 58, 38, k * 45); const [x2, y2] = polar(150, 58, 52, k * 45); g += stroke(`M ${N(x1)} ${N(y1)} L ${N(x2)} ${N(y2)}`, 5, `opacity="0.6"`); }
+      return g; })() +
+    fillp("M 44 158 A 28 28 0 0 1 38 104 A 38 38 0 0 1 108 84 A 32 32 0 0 1 164 106 A 28 28 0 0 1 158 158 Z"));
+  add("weather", "rain0", "Pluie", `${K} pluie averse rain`, 220, 200,
+    cloud() + stroke("M 60 138 L 50 176 M 105 138 L 95 176 M 150 138 L 140 176", 7, `opacity="0.7"`));
+  add("weather", "snow0", "Neige", `${K} neige flocon snow`, 220, 200,
+    cloud() + Array.from({ length: 3 }, (_, k) => opc(58 + k * 46, 168, 8, 0.7)).join(""));
+  add("weather", "storm0", "Orage", `${K} orage éclair storm`, 220, 200,
+    cloud() + fillp("M 108 132 L 78 180 H 100 L 88 200 L 132 160 H 108 L 122 132 Z", `opacity="0.85"`));
+  add("weather", "rainbow0", "Arc-en-ciel", `${K} arc-en-ciel rainbow`, 220, 140,
+    [0, 1, 2, 3].map((k) => `<path d="M ${20 + k * 14} 130 A ${90 - k * 14} ${90 - k * 14} 0 0 1 ${200 - k * 14} 130" fill="none" stroke="${C}" stroke-width="10" opacity="${1 - k * 0.2}"/>`).join(""));
+  add("weather", "wind0", "Vent", `${K} vent brise wind`, 220, 160,
+    stroke("M 20 52 H 130 A 22 22 0 1 0 108 30", 10) + stroke("M 20 96 H 168 A 24 24 0 1 1 144 120", 10, `opacity="0.75"`) + stroke("M 20 138 H 104 A 18 18 0 1 0 86 120", 10, `opacity="0.55"`));
+  add("weather", "tornado0", "Tornade", `${K} tornade tourbillon tornado`, 200, 210,
+    stroke("M 26 34 H 174 M 40 62 H 166 M 56 90 H 150 M 72 118 H 128 M 88 146 H 108", 10) +
+    stroke("M 108 146 C 110 176 96 196 82 204", 9, `opacity="0.7"`));
+  add("weather", "thermometer0", "Thermomètre", `${K} thermomètre température`, 120, 220,
+    stroke("M 60 24 V 150 A 30 30 0 1 0 60 150 Z", 0) +
+    stroke("M 60 22 V 150", 10) + `<circle cx="60" cy="180" r="26" fill="none" stroke="${C}" stroke-width="10"/>` +
+    `<circle cx="60" cy="180" r="12" fill="${C}"/>` + fillp("M 55 120 H 65 V 178 H 55 Z", `opacity="0.6"`));
+  add("weather", "moonstar0", "Nuit étoilée", `${K} lune étoile nuit nightsky`, 200, 200,
+    fillp("M 132 22 A 82 82 0 1 0 132 178 A 82 82 0 0 1 132 22 Z") +
+    op(starPts(56, 56, 4, 16, 6), 0.7) + op(starPts(150, 150, 4, 12, 4), 0.6));
+  add("weather", "droplet0", "Goutte", `${K} goutte eau humidité`, 150, 200,
+    fillp("M 75 8 C 108 58 130 90 130 128 A 55 55 0 0 1 20 128 C 20 90 42 58 75 8 Z") +
+    stroke("M 96 126 A 22 22 0 0 1 74 148", 5, `opacity="0.4"`));
+})();
+
+/* ── 17. Sport & loisirs ── */
+(() => {
+  const K = "sport loisir jeu";
+  add("sport", "soccer0", "Ballon foot", `${K} football ballon soccer`, 200, 200,
+    `<circle cx="100" cy="100" r="86" fill="${C}"/>` +
+    op(polyPts(100, 100, 5, 34), 0.35) +
+    [0, 1, 2, 3, 4].map((k) => { const [x, y] = polar(100, 100, 62, -90 + k * 72); return stroke(`M 100 100 L ${N(x)} ${N(y)}`, 6, `opacity="0.35"`); }).join(""));
+  add("sport", "basket0", "Ballon basket", `${K} basketball ballon`, 200, 200,
+    `<circle cx="100" cy="100" r="86" fill="${C}"/>` +
+    stroke("M 14 100 H 186 M 100 14 V 186 M 40 40 C 80 80 80 120 40 160 M 160 40 C 120 80 120 120 160 160", 6, `opacity="0.4"`));
+  add("sport", "tennis0", "Balle tennis", `${K} tennis balle`, 200, 200,
+    `<circle cx="100" cy="100" r="86" fill="${C}"/>` +
+    stroke("M 40 30 C 78 68 78 132 40 170 M 160 30 C 122 68 122 132 160 170", 7, `opacity="0.4"`));
+  add("sport", "football0", "Ballon rugby", `${K} rugby football américain`, 220, 160,
+    `<ellipse cx="110" cy="80" rx="94" ry="52" fill="${C}"/>` +
+    stroke("M 70 80 H 150 M 88 68 V 92 M 108 66 V 94 M 128 68 V 92", 5, `opacity="0.4"`));
+  add("sport", "baseball0", "Balle baseball", `${K} baseball balle`, 200, 200,
+    `<circle cx="100" cy="100" r="86" fill="${C}"/>` +
+    stroke("M 44 32 C 72 68 72 132 44 168 M 156 32 C 128 68 128 132 156 168", 5, `opacity="0.4"`) +
+    Array.from({ length: 6 }, (_, k) => stroke(`M 52 ${44 + k * 22} l 10 -6 M 148 ${44 + k * 22} l -10 -6`, 3, `opacity="0.4"`)).join(""));
+  add("sport", "dumbbell0", "Haltère", `${K} haltère musculation dumbbell fitness`, 220, 130,
+    fillp("M 14 40 H 40 V 90 H 14 Z M 46 30 H 70 V 100 H 46 Z") +
+    fillp("M 206 40 H 180 V 90 H 206 Z M 174 30 H 150 V 100 H 174 Z") +
+    fillp("M 70 56 H 150 V 74 H 70 Z"));
+  add("sport", "whistle0", "Sifflet", `${K} sifflet arbitre whistle`, 210, 160,
+    fillp("M 60 60 H 150 A 44 44 0 1 1 106 104 H 60 Z") + `<circle cx="60" cy="82" r="8" fill="none" stroke="${C}" stroke-width="6" opacity="0.5"/>` +
+    stroke("M 150 60 A 40 40 0 0 1 190 24", 8));
+  add("sport", "goal0", "But", `${K} but cage football goal`, 220, 150,
+    stroke("M 20 130 V 30 H 200 V 130", 9) +
+    stroke("M 50 30 V 130 M 80 30 V 130 M 110 30 V 130 M 140 30 V 130 M 170 30 V 130 M 20 55 H 200 M 20 82 H 200 M 20 108 H 200", 3, `opacity="0.4"`));
+  add("sport", "bike0", "Vélo", `${K} vélo bicyclette bike cyclisme`, 230, 160,
+    `<circle cx="52" cy="112" r="38" fill="none" stroke="${C}" stroke-width="8"/><circle cx="178" cy="112" r="38" fill="none" stroke="${C}" stroke-width="8"/>` +
+    stroke("M 52 112 L 96 112 L 130 56 L 158 112 M 96 112 L 130 112 M 178 112 L 130 56 M 116 56 H 144 M 88 112 L 78 82 H 100", 7));
+  add("sport", "medal1", "Médaille sport", `${K} médaille récompense sport`, 180, 210,
+    fillp("M 44 8 H 86 L 96 60 H 56 Z M 136 8 H 94 L 84 60 H 124 Z", `opacity="0.55"`) +
+    `<circle cx="90" cy="132" r="60" fill="none" stroke="${C}" stroke-width="10"/>` + `<circle cx="90" cy="132" r="42" fill="${C}" opacity="0.25"/>` +
+    op(starPts(90, 132, 5, 30, 13), 1));
+  add("sport", "flagp0", "Drapeau golf", `${K} golf drapeau trou flag`, 180, 210,
+    stroke("M 48 196 V 20", 8) + fillp("M 48 24 L 150 52 L 48 80 Z") +
+    `<ellipse cx="90" cy="196" rx="52" ry="12" fill="${C}" opacity="0.35"/>`);
+  add("sport", "dart0", "Cible fléchette", `${K} fléchette dart cible`, 200, 200,
+    [86, 66, 46, 26].map((r, k) => `<circle cx="100" cy="100" r="${r}" fill="none" stroke="${C}" stroke-width="8" opacity="${1 - k * 0.15}"/>`).join("") + `<circle cx="100" cy="100" r="10" fill="${C}"/>`);
+})();
+
+/* ── Couleurs cohérentes : surcharges ponctuelles (les éléments restent
+   recolorables ; ceci ne fait qu'ajuster la teinte de départ / vignette). ── */
+tint("nature.moon0", "#fde68a"); tint("nature.moon1", "#fde68a"); tint("nature.moon2", "#fde68a"); tint("nature.moon3", "#fde68a");
+tint("nature.suno0", "#fbbf24");
+["nature.sun0", "nature.sun1", "nature.sun2", "nature.sun3"].forEach((id) => tint(id, "#fbbf24"));
+["nature.cloud", "nature.wave", "nature.rain0", "nature.flake", "nature.snow"].forEach((p) => items.forEach((e) => { if (e.id.startsWith(p)) e.defaultColor = e.id.includes("wave") || e.id.includes("rain") ? "#38bdf8" : "#e2e8f0"; }));
+items.forEach((e) => { if (e.id.startsWith("nature.flower")) e.defaultColor = "#f472b6"; });
+tint("nature.rain0", "#38bdf8");
+items.forEach((e) => { if (e.id.startsWith("nature.pine")) e.defaultColor = "#34d399"; });
+tint("icons.heart0", "#f43f5e"); tint("icons.hearto0", "#f43f5e");
+tint("icons.flame0", "#f97316"); tint("icons.bolt0", "#facc15");
+tint("icons.gem0", "#22d3ee"); tint("icons.drop0", "#38bdf8"); tint("icons.moonic0", "#fde68a");
+tint("icons.crown0", "#fbbf24"); tint("icons.trophy0", "#fbbf24"); tint("icons.medal0", "#fbbf24");
+tint("icons.bulb0", "#fde047"); tint("icons.rocket0", "#fb7185");
+tint("food.apple0", "#ef4444"); tint("food.cherry0", "#ef4444"); tint("food.strawberry0", "#f43f5e");
+tint("food.banana0", "#facc15"); tint("food.pear0", "#a3e635"); tint("food.carrot0", "#fb923c");
+tint("food.grapes0", "#a78bfa"); tint("food.grapes1", "#a78bfa"); tint("food.grapes2", "#a78bfa");
+tint("food.avocado0", "#65a30d"); tint("food.watermelon0", "#f43f5e"); tint("food.mushroom0", "#ef4444");
+["food.citrus0", "food.citrus1", "food.citrus2"].forEach((id) => tint(id, "#fb923c"));
+tint("objects.balloon0", "#fb7185"); tint("objects.gift0", "#f472b6"); tint("objects.flag0", "#f87171");
+tint("objects.house0", "#a78bfa"); tint("objects.palette0", "#f472b6");
+tint("weather.rainbow0", "#f472b6"); tint("weather.storm0", "#facc15");
+["weather.rain0", "weather.snow0", "weather.droplet0", "weather.cloud0"].forEach((id) => tint(id, id.includes("cloud") || id.includes("snow") ? "#e2e8f0" : "#38bdf8"));
+tint("weather.cloudsun0", "#fbbf24"); tint("weather.moonstar0", "#fde68a"); tint("weather.thermometer0", "#f87171");
+tint("sport.basket0", "#fb923c"); tint("sport.tennis0", "#a3e635"); tint("sport.soccer0", "#e2e8f0");
+tint("sport.medal1", "#fbbf24"); tint("sport.flagp0", "#f87171");
+
 export const ELEMENTS: ElementDef[] = items;
 export const ELEMENT_INDEX: Map<string, ElementDef> = new Map(items.map((e) => [e.id, e]));
 
@@ -929,7 +1347,8 @@ export function elementDataUri(def: ElementDef, fill: string, gradient: Gradient
   return `data:image/svg+xml;charset=utf-8,${encodeURIComponent(elementSvg(def, fill, gradient))}`;
 }
 
-/** Vignette du catalogue (gris clair neutre, lisible sur le panneau sombre). */
+/** Vignette du catalogue : couleur cohérente par défaut de l'élément
+    (recolorable ensuite dans l'éditeur), lisible sur le panneau sombre. */
 export function elementThumbSrc(def: ElementDef): string {
-  return elementDataUri(def, "#cbd5e1");
+  return elementDataUri(def, def.defaultColor ?? "#cbd5e1");
 }
