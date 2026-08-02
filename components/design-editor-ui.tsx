@@ -1227,8 +1227,16 @@ export function ExportModal({ doc, onClose, onExport, onCopy }: {
   onExport: (format: "png" | "jpeg", scale: number, transparent: boolean) => Promise<void>;
   onCopy: (scale: number, transparent: boolean) => Promise<boolean>;
 }) {
+  // Les navigateurs plafonnent la taille d'un canvas : au-delà, l'export
+  // renverrait une image vide. On n'offre que les résolutions réellement
+  // exportables (les grands formats — fonds d'écran 5K — sont concernés).
+  const MAX_DIM = 12000;
+  const MAX_AREA = 40_000_000; // marge prise pour Safari, plus strict que Chrome
+  const allowed = (s: number) =>
+    doc.width * s <= MAX_DIM && doc.height * s <= MAX_DIM && doc.width * s * doc.height * s <= MAX_AREA;
+
   const [format, setFormat] = useState<"png" | "jpeg">("png");
-  const [scale, setScale] = useState(2);
+  const [scale, setScale] = useState(() => (allowed(2) ? 2 : 1));
   const [transparent, setTransparent] = useState(false);
   const [busy, setBusy] = useState(false);
   const [copied, setCopied] = useState(false);
@@ -1251,13 +1259,22 @@ export function ExportModal({ doc, onClose, onExport, onCopy }: {
         <div>
           <p className="mb-1.5 text-[11px] font-semibold uppercase tracking-wide text-muted">Résolution</p>
           <div className="grid grid-cols-3 gap-2">
-            {[1, 2, 3].map((s) => (
-              <button key={s} onClick={() => setScale(s)}
-                className={`rounded-lg border px-2 py-2 text-xs font-medium transition ${scale === s ? "border-purple-400/50 bg-purple-500/10 text-white" : "border-white/10 text-muted hover:bg-white/5"}`}>
-                {s}× <span className="block tabular-nums opacity-60">{doc.width * s}×{doc.height * s}</span>
-              </button>
-            ))}
+            {[1, 2, 3].map((s) => {
+              const ok = allowed(s);
+              return (
+                <button key={s} onClick={() => ok && setScale(s)} disabled={!ok}
+                  title={ok ? undefined : "Trop grand pour être exporté par le navigateur"}
+                  className={`rounded-lg border px-2 py-2 text-xs font-medium transition disabled:cursor-not-allowed disabled:opacity-35 ${scale === s ? "border-purple-400/50 bg-purple-500/10 text-white" : "border-white/10 text-muted hover:bg-white/5"}`}>
+                  {s}× <span className="block tabular-nums opacity-60">{doc.width * s}×{doc.height * s}</span>
+                </button>
+              );
+            })}
           </div>
+          {!allowed(3) && (
+            <p className="mt-1.5 text-[10.5px] leading-relaxed text-muted">
+              Cette toile est déjà en très haute définition : les multiplicateurs grisés dépassent la taille d'image maximale du navigateur.
+            </p>
+          )}
         </div>
         {format === "png" && (
           <label className="flex cursor-pointer items-center gap-2 text-xs text-muted">

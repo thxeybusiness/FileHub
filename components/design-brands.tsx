@@ -3,11 +3,11 @@
 // Logos des plateformes pour les formats de création — SVG inline (aucune
 // ressource externe : rien à charger, rien à bloquer par la CSP).
 
-import { FileText, CreditCard, Sparkles, Monitor, type LucideIcon } from "lucide-react";
+import { FileText, CreditCard, Sparkles, Monitor, Laptop, type LucideIcon } from "lucide-react";
 
 export type BrandId =
   | "instagram" | "tiktok" | "youtube" | "facebook" | "linkedin" | "x"
-  | "logo" | "print" | "card" | "screen";
+  | "logo" | "print" | "card" | "screen" | "wallpaper";
 
 /** Palette de chaque plateforme : fond de la vignette + couleur du logo. */
 export const BRANDS: Record<BrandId, { bg: string; fg: string; ring?: string }> = {
@@ -21,6 +21,7 @@ export const BRANDS: Record<BrandId, { bg: string; fg: string; ring?: string }> 
   print: { bg: "#f4f4f5", fg: "#3f3f46" },
   card: { bg: "linear-gradient(135deg,#334155,#0f172a)", fg: "#e2e8f0" },
   screen: { bg: "linear-gradient(135deg,#0ea5e9,#1e293b)", fg: "#ffffff" },
+  wallpaper: { bg: "linear-gradient(140deg,#1e1b4b,#4c1d95 55%,#0f172a)", fg: "#e9d5ff" },
 };
 
 const LUCIDE: Partial<Record<BrandId, LucideIcon>> = {
@@ -28,6 +29,7 @@ const LUCIDE: Partial<Record<BrandId, LucideIcon>> = {
   print: FileText,
   card: CreditCard,
   screen: Monitor,
+  wallpaper: Laptop,
 };
 
 /* ── Catégories de formats : chaque plateforme et toutes ses tailles ── */
@@ -112,12 +114,30 @@ export const PLATFORMS: Platform[] = [
     ],
   },
   {
-    id: "screen", label: "Écran",
+    id: "wallpaper", label: "Fonds d'écran",
+    formats: [
+      { label: "MacBook Air 13\"", w: 2560, h: 1664 },
+      { label: "MacBook Air 15\"", w: 2880, h: 1864 },
+      { label: "MacBook Pro 14\"", w: 3024, h: 1964 },
+      { label: "MacBook Pro 16\"", w: 3456, h: 2234 },
+      { label: "iMac 24\" 4,5K", w: 4480, h: 2520 },
+      { label: "Studio Display 5K", w: 5120, h: 2880 },
+      { label: "Écran 4K UHD", w: 3840, h: 2160 },
+      { label: "Écran 2K QHD", w: 2560, h: 1440 },
+      { label: "Écran Full HD", w: 1920, h: 1080 },
+      { label: "Ultra-large 21:9", w: 3440, h: 1440 },
+      { label: "iPad Pro 12,9\"", w: 2048, h: 2732 },
+      { label: "iPhone", w: 1179, h: 2556 },
+      { label: "iPhone Pro Max", w: 1320, h: 2868 },
+    ],
+  },
+  {
+    id: "screen", label: "Web",
     formats: [
       { label: "Présentation 16:9", w: 1920, h: 1080 },
       { label: "Bannière web", w: 1440, h: 400 },
-      { label: "Fond d'écran mobile", w: 1170, h: 2532 },
       { label: "Vignette d'article", w: 1600, h: 900 },
+      { label: "Bandeau e-mail", w: 1200, h: 400 },
     ],
   },
 ];

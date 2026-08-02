@@ -178,7 +178,16 @@ export const SIZE_PRESETS: SizePreset[] = [
   { id: "card", label: "Carte de visite", w: 1050, h: 600, group: "Impression" },
   { id: "a4-p", label: "A4 portrait", w: 1240, h: 1754, group: "Impression" },
   { id: "a4-l", label: "A4 paysage", w: 1754, h: 1240, group: "Impression" },
-  { id: "hd", label: "Écran HD", w: 1920, h: 1080, group: "Écran" },
+  { id: "hd", label: "Écran Full HD", w: 1920, h: 1080, group: "Écran" },
+  { id: "qhd", label: "Écran 2K QHD", w: 2560, h: 1440, group: "Écran" },
+  { id: "uhd", label: "Écran 4K UHD", w: 3840, h: 2160, group: "Écran" },
+  { id: "ultrawide", label: "Ultra-large 21:9", w: 3440, h: 1440, group: "Écran" },
+  { id: "mba13", label: "MacBook Air 13\"", w: 2560, h: 1664, group: "Fonds d'écran" },
+  { id: "mbp14", label: "MacBook Pro 14\"", w: 3024, h: 1964, group: "Fonds d'écran" },
+  { id: "mbp16", label: "MacBook Pro 16\"", w: 3456, h: 2234, group: "Fonds d'écran" },
+  { id: "imac24", label: "iMac 24\" 4,5K", w: 4480, h: 2520, group: "Fonds d'écran" },
+  { id: "ipad-pro", label: "iPad Pro 12,9\"", w: 2048, h: 2732, group: "Fonds d'écran" },
+  { id: "iphone", label: "iPhone", w: 1179, h: 2556, group: "Fonds d'écran" },
 ];
 
 export type FontDef = { label: string; css: string };

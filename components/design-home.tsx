@@ -344,7 +344,7 @@ function FormatCard({ f, bg, fg, ring, brand, onPick, disabled }: {
 }) {
   return (
     <button onClick={() => onPick(f.w, f.h)} disabled={disabled} title={`${f.label} — ${f.w} × ${f.h}`}
-      className="group w-[108px] shrink-0 snap-start rounded-xl border border-white/10 bg-white/[0.02] p-2 text-left transition hover:border-purple-400/40 hover:bg-white/5 disabled:opacity-60">
+      className="group w-[126px] shrink-0 snap-start rounded-xl border border-white/10 bg-white/[0.02] p-2 text-left transition hover:border-purple-400/40 hover:bg-white/5 disabled:opacity-60">
       <div className="grid aspect-[4/3] place-items-center rounded-lg bg-black/25 ring-1 ring-inset ring-white/5">
         <div
           className="relative grid place-items-center overflow-hidden rounded-[5px] shadow-md shadow-black/40 transition group-hover:scale-[1.06]"
