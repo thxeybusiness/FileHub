@@ -162,7 +162,19 @@ export type ImageLayer = BaseLayer & {
   naturalH?: number;
 };
 
-export type Layer = ShapeLayer | LineLayer | TextLayer | ImageLayer;
+// Élément de la bibliothèque : géométrie vectorielle MONOCHROME référencée par
+// id stable — la couleur (unie ou dégradé) appartient au calque et reste
+// éditable à volonté. Règle d'or du catalogue.
+export type ElementLayer = BaseLayer & {
+  type: "element";
+  ref: string;
+  fill: string;
+  gradient: GradientFill | null;
+  natW: number; // viewBox natif (ratio + repère du dégradé)
+  natH: number;
+};
+
+export type Layer = ShapeLayer | LineLayer | TextLayer | ImageLayer | ElementLayer;
 
 export type DesignDoc = {
   version: 1;
@@ -485,6 +497,17 @@ function migrateLayer(raw: LegacyLayer): Layer | null {
       strokeWidth: Number(raw.strokeWidth) || 0,
     }) as TextLayer;
   }
+  if (t === "element") {
+    return withBaseDefaults({
+      ...raw,
+      type: "element",
+      ref: typeof raw.ref === "string" ? (raw.ref as string) : "",
+      fill: typeof raw.fill === "string" ? (raw.fill as string) : "#8b5cf6",
+      gradient: (raw.gradient as GradientFill) ?? null,
+      natW: Number(raw.natW) || 200,
+      natH: Number(raw.natH) || 200,
+    }) as ElementLayer;
+  }
   if (t === "image") {
     return withBaseDefaults({
       ...raw,
@@ -572,6 +595,23 @@ export function makeText(doc: DesignDoc, patch: Partial<TextLayer> = {}): TextLa
     strokeColor: "#000000", strokeWidth: 0,
     ...patch,
   }) as TextLayer;
+}
+
+export function makeElement(doc: DesignDoc, patch: Partial<ElementLayer> = {}): ElementLayer {
+  const w = Math.round(doc.width * 0.4);
+  return withBaseDefaults({
+    type: "element",
+    name: "Élément",
+    x: Math.round(doc.width / 2 - w / 2),
+    y: Math.round(doc.height / 2 - w / 2),
+    w, h: w,
+    ref: "",
+    fill: "#8b5cf6",
+    gradient: null,
+    natW: 200,
+    natH: 200,
+    ...patch,
+  }) as ElementLayer;
 }
 
 export function makeImage(doc: DesignDoc, patch: Partial<ImageLayer> = {}): ImageLayer {
@@ -714,6 +754,7 @@ export async function rasterize(
       else if (layer.type === "line") drawLine(ctx, layer, sh);
       else if (layer.type === "text") drawText(ctx, layer, sh);
       else if (layer.type === "image") await drawImage(ctx, layer, sh, scale);
+      else if (layer.type === "element") await drawElement(ctx, layer, sh, scale);
     } catch {
       /* un calque en échec ne casse pas l'export */
     }
@@ -795,6 +836,23 @@ function drawText(ctx: CanvasRenderingContext2D, l: TextLayer, sh: DevShadow | n
       ctx.stroke();
     }
   });
+  clearShadow(ctx);
+}
+
+async function drawElement(ctx: CanvasRenderingContext2D, l: ElementLayer, sh: DevShadow | null, scale = 1) {
+  // Import différé pour éviter tout cycle au chargement (design-elements ne
+  // consomme de ce module que des types).
+  const { elementSvgByRef } = await import("./design-elements");
+  const svg = elementSvgByRef(l.ref, l.fill, l.gradient);
+  if (!svg) return;
+  const img = await loadImage(`data:image/svg+xml;charset=utf-8,${encodeURIComponent(svg)}`);
+  // Rendu ÉTIRÉ (comme le DOM) dans un intermédiaire en pixels d'export.
+  const off = document.createElement("canvas");
+  off.width = Math.max(1, Math.round(l.w * scale));
+  off.height = Math.max(1, Math.round(l.h * scale));
+  off.getContext("2d")!.drawImage(img, 0, 0, off.width, off.height);
+  applyShadow(ctx, sh);
+  ctx.drawImage(off, 0, 0, l.w, l.h);
   clearShadow(ctx);
 }
 

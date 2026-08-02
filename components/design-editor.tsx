@@ -16,10 +16,10 @@ import { api, notifyRefresh } from "@/lib/api";
 import { useAutosave } from "./use-autosave";
 import {
   type DesignDoc, type Layer, type TextLayer, type ImageLayer, type ShapeKind, type LineDash,
-  parseDesign, makeShape, makeLine, makeText, makeImage, cloneLayer, rasterize,
+  parseDesign, makeShape, makeLine, makeText, makeImage, makeElement, cloneLayer, rasterize,
 } from "@/lib/design";
 import { type TextPreset } from "@/lib/design-presets";
-import { elementDataUri, type ElementDef } from "@/lib/design-elements";
+import { type ElementDef } from "@/lib/design-elements";
 import { LayerVisual, layerBoxStyle, textStyle } from "./design-render";
 import {
   type EditorCtl, type LayerPatch, type DockTab, type CtxMenuItem,
@@ -37,6 +37,7 @@ const TYPE_KEYS: Record<Layer["type"], Set<string>> = {
   line: new Set(["stroke", "strokeWidth", "dash"]),
   text: new Set(["text", "color", "fontFamily", "fontSize", "fontWeight", "italic", "underline", "uppercase", "align", "lineHeight", "letterSpacing", "strokeColor", "strokeWidth"]),
   image: new Set(["src", "filters", "radius", "naturalW", "naturalH"]),
+  element: new Set(["ref", "fill", "gradient"]),
 };
 function applyPatch(l: Layer, patch: LayerPatch): Layer {
   const out: Record<string, unknown> = { ...l };
@@ -227,8 +228,8 @@ export function DesignEditor({
     }));
   }, [canEdit, addAndSelect]);
 
-  // Élément de la bibliothèque : inséré comme calque image (SVG en data URI),
-  // à sa taille naturelle mise à l'échelle de la toile (ratio préservé).
+  // Élément de la bibliothèque : calque vectoriel monochrome dont la couleur
+  // (unie ou dégradé) reste éditable — inséré au ratio natif de sa géométrie.
   const addElement = useCallback((el: ElementDef) => {
     if (!canEdit) return;
     const d = docRef.current;
@@ -236,14 +237,15 @@ export function DesignEditor({
     const k = base / Math.max(el.w, el.h);
     const w = Math.round(el.w * k);
     const h = Math.round(el.h * k);
-    addAndSelect(makeImage(d, {
-      src: elementDataUri(el),
+    addAndSelect(makeElement(d, {
+      ref: el.id,
       name: el.label,
+      fill: el.defaultColor ?? "#8b5cf6",
       w, h,
       x: Math.round((d.width - w) / 2),
       y: Math.round((d.height - h) / 2),
-      naturalW: el.w,
-      naturalH: el.h,
+      natW: el.w,
+      natH: el.h,
     }));
   }, [canEdit, addAndSelect]);
 

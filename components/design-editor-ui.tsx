@@ -18,7 +18,7 @@ import {
 } from "lucide-react";
 import {
   type DesignDoc, type Layer, type ShapeKind, type LineDash, type GradientFill,
-  type Filters, type Shadow, type TextLayer, type ImageLayer, type ShapeLayer, type LineLayer,
+  type Filters, type Shadow, type TextLayer, type ImageLayer, type ShapeLayer, type LineLayer, type ElementLayer,
   SHAPE_KINDS, FONTS, BLEND_MODES, SIZE_PRESETS, NEUTRAL_FILTERS, DEFAULT_SHADOW,
   shapePath, backgroundCss,
 } from "@/lib/design";
@@ -26,7 +26,7 @@ import {
   EMOJI_GROUPS, BG_SOLIDS, GRADIENT_PRESETS, FILTER_PRESETS, TEXT_PRESETS,
   TEMPLATES, templateDoc, type TextPreset,
 } from "@/lib/design-presets";
-import { ELEMENTS, ELEMENT_CATEGORIES, elementDataUri, normalizeSearch, type ElementDef } from "@/lib/design-elements";
+import { ELEMENTS, ELEMENT_CATEGORIES, elementThumbSrc, normalizeSearch, type ElementDef } from "@/lib/design-elements";
 import { DocPreview } from "./design-render";
 
 export const ACCENT = "#a855f7";
@@ -419,13 +419,21 @@ export function ContextBar({ ctl }: { ctl: EditorCtl }) {
 
   return (
     // flex-wrap plutôt qu'overflow-x-auto : un conteneur défilant rognerait les
-    // popovers (couleur, formes, filtres) ouverts depuis la barre.
-    <div className="flex min-h-12 shrink-0 flex-wrap items-center gap-1 border-b border-white/10 bg-white/[0.03] px-2 py-1 backdrop-blur-xl" onPointerDown={(e) => e.stopPropagation()}>
+    // popovers ouverts depuis la barre. relative z-30 : le backdrop-blur crée un
+    // contexte d'empilement — sans z explicite, l'espace de travail (frère
+    // suivant dans le DOM) peindrait PAR-DESSUS les popovers.
+    <div className="relative z-30 flex min-h-12 shrink-0 flex-wrap items-center gap-1 border-b border-white/10 bg-white/[0.03] px-2 py-1 backdrop-blur-xl" onPointerDown={(e) => e.stopPropagation()}>
       {/* Contrôles spécifiques au type */}
       {sameType === "text" && one && <TextQuick l={one as TextLayer} ctl={ctl} />}
       {sameType === "shape" && <ShapeQuick l={ls[0] as ShapeLayer} ctl={ctl} />}
       {sameType === "line" && <LineQuick l={ls[0] as LineLayer} ctl={ctl} />}
       {sameType === "image" && one && <ImageQuick l={one as ImageLayer} ctl={ctl} />}
+      {sameType === "element" && (
+        <ColorChip compact label="Couleur de l'élément" value={(ls[0] as ElementLayer).fill} gradient={(ls[0] as ElementLayer).gradient}
+          onChange={(v) => ctl.patchSel({ fill: v, gradient: null }, true)}
+          onGradient={(g) => ctl.patchSel({ gradient: g }, true)}
+          anchor="left" />
+      )}
 
       {ls.length > 1 && (
         <>
@@ -668,7 +676,9 @@ const DOCK_TABS: { id: DockTab; label: string; icon: typeof Shapes }[] = [
 
 export function LeftDock({ tab, setTab, ctl }: { tab: DockTab | null; setTab: (t: DockTab | null) => void; ctl: EditorCtl }) {
   return (
-    <div className="flex shrink-0" onPointerDown={(e) => e.stopPropagation()}>
+    // relative z-30 : les popovers du dock (fond personnalisé…) doivent peindre
+    // au-dessus de l'espace de travail, frère suivant dans le DOM.
+    <div className="relative z-30 flex shrink-0" onPointerDown={(e) => e.stopPropagation()}>
       {/* Rail d'onglets */}
       <div className="flex w-[68px] shrink-0 flex-col items-center gap-1 border-r border-white/10 bg-white/[0.02] py-2">
         {DOCK_TABS.map((t) => {
@@ -827,10 +837,10 @@ function ElementGrid({ els, onPick }: { els: ElementDef[]; onPick: (el: ElementD
   return (
     <div className="grid grid-cols-3 gap-1.5">
       {els.map((el) => (
-        <button key={el.id} title={el.label} onClick={() => onPick(el)}
+        <button key={el.id} title={`${el.label} — recolorable`} onClick={() => onPick(el)}
           className="group grid aspect-square place-items-center overflow-hidden rounded-xl border border-white/10 bg-[#262a36] p-1.5 transition hover:border-purple-400/40 hover:bg-[#2d3140]">
           {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src={elementDataUri(el)} alt={el.label} loading="lazy" draggable={false}
+          <img src={elementThumbSrc(el)} alt={el.label} loading="lazy" draggable={false}
             className="max-h-full max-w-full transition group-hover:scale-105" />
         </button>
       ))}
@@ -1053,6 +1063,15 @@ function PropsPanel({ ctl }: { ctl: EditorCtl }) {
         </Section>
       )}
       {one.type === "image" && <ImageProps l={one} ctl={ctl} dis={dis} />}
+      {one.type === "element" && (
+        <Section title="Couleur de l'élément">
+          <ColorChip label="Couleur" value={one.fill} gradient={one.gradient}
+            onChange={(v) => ctl.patchSel({ fill: v, gradient: null }, true)}
+            onGradient={(g) => ctl.patchSel({ gradient: g }, true)}
+            disabled={dis} />
+          <p className="text-[10.5px] leading-relaxed text-muted">Élément monochrome : une seule couleur, remplaçable par n'importe quelle teinte ou un dégradé.</p>
+        </Section>
+      )}
 
       <ShadowProps l={one} ctl={ctl} dis={dis} />
 
@@ -1204,6 +1223,7 @@ function LayersPanel({ ctl }: { ctl: EditorCtl }) {
               {l.type === "shape" ? <ShapeGlyph kind={l.shape} size={13} />
                 : l.type === "text" ? <Type className="size-3 text-muted" />
                 : l.type === "image" ? <ImageIcon className="size-3 text-muted" />
+                : l.type === "element" ? <Sparkles className="size-3 text-muted" />
                 : <Minus className="size-3 text-muted" />}
             </span>
             <input

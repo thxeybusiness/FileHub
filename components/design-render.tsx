@@ -4,16 +4,34 @@
 // les aperçus (galerie, modèles) et tout autre affichage statique.
 // Le canvas d'export (lib/design.ts → rasterize) réplique exactement ces règles.
 
-import { useId, useLayoutEffect, useRef, useState } from "react";
+import { useId, useLayoutEffect, useMemo, useRef, useState } from "react";
 import {
   type DesignDoc, type Layer, type GradientFill,
   shapePath, filterCss, shadowCss, backgroundCss,
   linearGradientPoints, radialGradientRadius,
 } from "@/lib/design";
+import { elementSvgByRef } from "@/lib/design-elements";
 
 /* ── Contenu visuel d'un calque (remplit 100 % de sa boîte) ── */
 export function LayerVisual({ layer: l }: { layer: Layer }) {
   const uid = useId();
+
+  // Élément de bibliothèque : SVG monochrome reconstruit avec la couleur (ou
+  // le dégradé) du calque, étiré dans sa boîte — même règle que l'export.
+  const elementSrc = useMemo(() => {
+    if (l.type !== "element") return null;
+    const svg = elementSvgByRef(l.ref, l.fill, l.gradient);
+    return svg ? `data:image/svg+xml;charset=utf-8,${encodeURIComponent(svg)}` : null;
+  }, [l.type === "element" ? l.ref : "", l.type === "element" ? l.fill : "", l.type === "element" ? JSON.stringify(l.gradient) : ""]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  if (l.type === "element") {
+    return elementSrc ? (
+      // eslint-disable-next-line @next/next/no-img-element
+      <img src={elementSrc} alt="" draggable={false} style={{ width: "100%", height: "100%", objectFit: "fill", display: "block" }} />
+    ) : (
+      <div style={{ width: "100%", height: "100%", border: "2px dashed rgba(148,163,184,0.4)", borderRadius: 8 }} />
+    );
+  }
 
   if (l.type === "shape") {
     const gid = `g-${uid}`;
