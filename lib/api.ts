@@ -216,7 +216,7 @@ export const api = {
   },
   // ── Application « Design » ──
   listDesigns() {
-    return req<{ items: { id: string; name: string; updatedAt: string; width: number; height: number; background: string; layers: number }[] }>("/api/designs");
+    return req<{ items: { id: string; name: string; updatedAt: string; content: string }[] }>("/api/designs");
   },
   saveContent(id: string, patch: { content?: string; name?: string }, keepalive = false) {
     return req<{ ok: boolean; updatedAt: string }>(`/api/content/${id}`, (keepalive ? jsonInitKeepalive : jsonInit)("PUT", patch));

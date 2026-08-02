@@ -1,85 +1,62 @@
 "use client";
 
+// Studio Design — cœur de l'éditeur : état du document, historique,
+// interactions toile (déplacer/redimensionner/pivoter/lasso/pan/zoom),
+// raccourcis, presse-papiers, upload d'images et export.
+// L'UI (barre contextuelle, dock, panneaux, modales) vit dans design-editor-ui.tsx.
+
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import {
-  ArrowLeft, Home, ChevronRight, Check, Loader2, Shapes, Type, Square, Circle,
-  Triangle as TriangleIcon, Minus, Image as ImageIcon, Undo2, Redo2, Download,
-  ZoomIn, ZoomOut, Maximize2, Trash2, Copy, Eye, EyeOff, Lock, Unlock, X, Plus,
-  AlignLeft, AlignCenter, AlignRight, AlignStartVertical, AlignCenterVertical,
-  AlignEndVertical, AlignStartHorizontal, AlignCenterHorizontal, AlignEndHorizontal,
-  Bold, Italic, Underline, ChevronUp, ChevronDown, Layers as LayersIcon,
-  SlidersHorizontal, LayoutGrid, Sparkles,
+  ArrowLeft, Check, Loader2, Shapes, Undo2, Redo2, Download, ZoomIn, ZoomOut,
+  Maximize2, Lock, LayoutGrid, Keyboard, Copy, Trash2, ClipboardPaste, Scissors,
+  BringToFront, SendToBack, ArrowUp, ArrowDown, Lock as LockIcon, Unlock, MousePointerSquareDashed,
 } from "lucide-react";
-import { api } from "@/lib/api";
+import { api, notifyRefresh } from "@/lib/api";
 import { useAutosave } from "./use-autosave";
 import {
-  type DesignDoc, type Layer, type TextLayer, type ImageLayer, type Filters,
-  parseDesign, makeLayer, filterCss, newId, FONTS, BLEND_MODES, SIZE_PRESETS,
-  NEUTRAL_FILTERS, rasterize,
+  type DesignDoc, type Layer, type TextLayer, type ImageLayer, type ShapeKind, type LineDash,
+  parseDesign, makeShape, makeLine, makeText, makeImage, cloneLayer, rasterize,
 } from "@/lib/design";
+import { type TextPreset } from "@/lib/design-presets";
+import { LayerVisual, layerBoxStyle, textStyle } from "./design-render";
+import {
+  type EditorCtl, type LayerPatch, type DockTab, type CtxMenuItem,
+  ContextBar, LeftDock, RightPanel, SizeModal, ExportModal, ShortcutsModal, ContextMenu, ACCENT,
+} from "./design-editor-ui";
 
 type Crumb = { id: string; name: string };
-const ACCENT = "#a855f7";
 const MIN_SIZE = 8;
-
-/* ───────── couleur : conversions minimales ───────── */
 const clampN = (n: number, a: number, b: number) => Math.max(a, Math.min(b, n));
-const to2 = (n: number) => clampN(Math.round(n), 0, 255).toString(16).padStart(2, "0");
-function normHex(h: string): string {
-  let s = (h || "").trim().replace(/^#/, "");
-  if (/^[0-9a-fA-F]{3}$/.test(s)) s = s.split("").map((c) => c + c).join("");
-  if (!/^[0-9a-fA-F]{6}$/.test(s)) return "#000000";
-  return "#" + s.toLowerCase();
-}
-function hexToRgb(h: string): [number, number, number] {
-  const s = normHex(h).slice(1);
-  return [parseInt(s.slice(0, 2), 16), parseInt(s.slice(2, 4), 16), parseInt(s.slice(4, 6), 16)];
-}
-const rgbToHex = (r: number, g: number, b: number) => "#" + to2(r) + to2(g) + to2(b);
-function hexToHsv(hex: string): [number, number, number] {
-  let [r, g, b] = hexToRgb(hex); r /= 255; g /= 255; b /= 255;
-  const max = Math.max(r, g, b), min = Math.min(r, g, b), d = max - min;
-  let h = 0;
-  if (d !== 0) {
-    if (max === r) h = ((g - b) / d) % 6;
-    else if (max === g) h = (b - r) / d + 2;
-    else h = (r - g) / d + 4;
-    h *= 60; if (h < 0) h += 360;
+
+/* ── Filtrage des patches par type (évite de polluer les calques) ── */
+const BASE_KEYS = new Set(["name", "x", "y", "w", "h", "rotation", "opacity", "blend", "visible", "locked", "flipX", "flipY", "shadow"]);
+const TYPE_KEYS: Record<Layer["type"], Set<string>> = {
+  shape: new Set(["shape", "fill", "gradient", "stroke", "strokeWidth", "radius"]),
+  line: new Set(["stroke", "strokeWidth", "dash"]),
+  text: new Set(["text", "color", "fontFamily", "fontSize", "fontWeight", "italic", "underline", "uppercase", "align", "lineHeight", "letterSpacing", "strokeColor", "strokeWidth"]),
+  image: new Set(["src", "filters", "radius", "naturalW", "naturalH"]),
+};
+function applyPatch(l: Layer, patch: LayerPatch): Layer {
+  const out: Record<string, unknown> = { ...l };
+  for (const [k, v] of Object.entries(patch)) {
+    if (BASE_KEYS.has(k) || TYPE_KEYS[l.type].has(k)) out[k] = v;
   }
-  return [h, (max === 0 ? 0 : d / max) * 100, max * 100];
+  return out as unknown as Layer;
 }
-function hsvToHex(h: number, s: number, v: number): string {
-  h = ((h % 360) + 360) % 360; s /= 100; v /= 100;
-  const c = v * s, x = c * (1 - Math.abs(((h / 60) % 2) - 1)), m = v - c;
-  let r = 0, g = 0, b = 0;
-  if (h < 60) [r, g, b] = [c, x, 0];
-  else if (h < 120) [r, g, b] = [x, c, 0];
-  else if (h < 180) [r, g, b] = [0, c, x];
-  else if (h < 240) [r, g, b] = [0, x, c];
-  else if (h < 300) [r, g, b] = [x, 0, c];
-  else [r, g, b] = [c, 0, x];
-  return rgbToHex((r + m) * 255, (g + m) * 255, (b + m) * 255);
+
+function bboxOf(layers: Layer[]) {
+  const x1 = Math.min(...layers.map((l) => l.x));
+  const y1 = Math.min(...layers.map((l) => l.y));
+  const x2 = Math.max(...layers.map((l) => l.x + l.w));
+  const y2 = Math.max(...layers.map((l) => l.y + l.h));
+  return { x: x1, y: y1, w: x2 - x1, h: y2 - y1 };
 }
-const PRESETS = [
-  "#000000", "#374151", "#6b7280", "#d1d5db", "#ffffff",
-  "#ef4444", "#f97316", "#f59e0b", "#eab308", "#84cc16",
-  "#22c55e", "#10b981", "#06b6d4", "#3b82f6", "#6366f1",
-  "#8b5cf6", "#a855f7", "#d946ef", "#ec4899", "#f43f5e",
-];
 
-type LayerPatch = Partial<{
-  name: string; x: number; y: number; w: number; h: number; rotation: number;
-  opacity: number; blend: Layer["blend"]; visible: boolean; locked: boolean;
-  fill: string; stroke: string; strokeWidth: number; radius: number;
-  text: string; color: string; fontFamily: string; fontSize: number; fontWeight: number;
-  italic: boolean; underline: boolean; align: "left" | "center" | "right"; lineHeight: number; letterSpacing: number;
-  src: string; filters: Filters; naturalW: number; naturalH: number;
-}>;
+/* ═══════════════ Composant principal ═══════════════ */
 
-/* ═══════════════════════ Composant principal ═══════════════════════ */
 export function DesignEditor({
-  id, initialName, initialContent, backHref, crumbs, canEdit = true,
+  id, initialName, initialContent, backHref, crumbs: _crumbs, canEdit = true,
 }: {
   id: string;
   initialName: string;
@@ -90,24 +67,35 @@ export function DesignEditor({
 }) {
   const [name, setName] = useState(initialName);
   const [doc, setDoc] = useState<DesignDoc>(() => parseDesign(initialContent));
-  const [selId, setSelId] = useState<string | null>(null);
-  const [zoom, setZoom] = useState(0.5);
+  const [selIds, setSelIds] = useState<string[]>([]);
+  const [zoom, setZoom] = useState(0.4);
   const [past, setPast] = useState<DesignDoc[]>([]);
   const [future, setFuture] = useState<DesignDoc[]>([]);
-  const [tab, setTab] = useState<"props" | "layers">("layers");
+  const [dockTab, setDockTab] = useState<DockTab | null>("elements");
+  const [rightTab, setRightTab] = useState<"props" | "layers">("layers");
   const [editingId, setEditingId] = useState<string | null>(null);
   const [guides, setGuides] = useState<{ x: number[]; y: number[] }>({ x: [], y: [] });
+  const [marquee, setMarquee] = useState<{ x: number; y: number; w: number; h: number } | null>(null);
+  const [badge, setBadge] = useState<string | null>(null);
   const [sizeOpen, setSizeOpen] = useState(false);
   const [exportOpen, setExportOpen] = useState(false);
+  const [shortcutsOpen, setShortcutsOpen] = useState(false);
+  const [ctxMenu, setCtxMenu] = useState<{ x: number; y: number; onCanvas: boolean } | null>(null);
   const [uploading, setUploading] = useState(false);
+  const [spaceDown, setSpaceDown] = useState(false);
 
   const docRef = useRef(doc); docRef.current = doc;
+  const selRef = useRef(selIds); selRef.current = selIds;
   const zoomRef = useRef(zoom); zoomRef.current = zoom;
   const innerRef = useRef<HTMLDivElement | null>(null);
-  const workspaceRef = useRef<HTMLDivElement | null>(null);
+  const scrollRef = useRef<HTMLDivElement | null>(null);
   const fileRef = useRef<HTMLInputElement | null>(null);
+  const replaceRef = useRef<HTMLInputElement | null>(null);
   const editRef = useRef<HTMLDivElement | null>(null);
+  const clipboardRef = useRef<Layer[]>([]);
+  const liveBaseRef = useRef<DesignDoc | null>(null);
 
+  /* ── Sauvegarde ── */
   const doSave = useCallback(
     (p: { content?: string; name?: string }, keepalive: boolean) => api.saveContent(id, p, keepalive),
     [id],
@@ -119,61 +107,142 @@ export function DesignEditor({
     schedule({ content: JSON.stringify(next) });
   }, [canEdit, schedule]);
 
-  /* ── modifications du document ── */
+  /* ── Historique ── */
+  const pushHistory = useCallback((snapshot: DesignDoc) => {
+    setPast((p) => [...p, snapshot].slice(-80));
+    setFuture([]);
+  }, []);
+
   const setLive = useCallback((updater: (d: DesignDoc) => DesignDoc) => {
     setDoc((prev) => { const next = updater(prev); persist(next); return next; });
   }, [persist]);
 
-  const pushHistory = useCallback((snapshot: DesignDoc) => {
-    setPast((p) => [...p, snapshot].slice(-60));
-    setFuture([]);
-  }, []);
-
-  // Modification atomique (crée un point d'annulation).
+  /** Mutation avec point d'annulation (prend en compte les live-patches précédents). */
   const commit = useCallback((updater: (d: DesignDoc) => DesignDoc) => {
     if (!canEdit) return;
-    pushHistory(docRef.current);
+    const base = liveBaseRef.current ?? docRef.current;
+    liveBaseRef.current = null;
+    pushHistory(base);
     setLive(updater);
   }, [canEdit, pushHistory, setLive]);
 
-  const sel = useMemo(() => doc.layers.find((l) => l.id === selId) ?? null, [doc.layers, selId]);
-
-  const patchLayer = useCallback((lid: string, patch: LayerPatch) => {
-    setLive((d) => ({ ...d, layers: d.layers.map((l) => (l.id === lid ? ({ ...l, ...patch } as Layer) : l)) }));
-  }, [setLive]);
-  const commitPatch = useCallback((lid: string, patch: LayerPatch) => {
+  /** Mutation sans historique (aperçu pendant un glissement de curseur). */
+  const live = useCallback((updater: (d: DesignDoc) => DesignDoc) => {
     if (!canEdit) return;
-    pushHistory(docRef.current);
-    patchLayer(lid, patch);
-  }, [canEdit, pushHistory, patchLayer]);
+    if (!liveBaseRef.current) liveBaseRef.current = docRef.current;
+    setLive(updater);
+  }, [canEdit, setLive]);
 
-  /* ── ajout / suppression / ordre ── */
-  const addLayer = useCallback((type: Layer["type"], patch?: Partial<Layer>) => {
-    if (!canEdit) return;
-    const l = makeLayer(type, docRef.current, patch);
+  const undo = useCallback(() => {
+    liveBaseRef.current = null;
+    setPast((p) => {
+      if (!p.length) return p;
+      const prev = p[p.length - 1];
+      setFuture((f) => [docRef.current, ...f].slice(0, 80));
+      setDoc(prev); persist(prev);
+      return p.slice(0, -1);
+    });
+  }, [persist]);
+  const redo = useCallback(() => {
+    liveBaseRef.current = null;
+    setFuture((f) => {
+      if (!f.length) return f;
+      const next = f[0];
+      setPast((p) => [...p, docRef.current].slice(-80));
+      setDoc(next); persist(next);
+      return f.slice(1);
+    });
+  }, [persist]);
+
+  /* ── Sélection ── */
+  const selLayers = useMemo(() => doc.layers.filter((l) => selIds.includes(l.id)), [doc.layers, selIds]);
+
+  const select = useCallback((lid: string, additive = false) => {
+    setSelIds((prev) => {
+      if (additive) return prev.includes(lid) ? prev.filter((i) => i !== lid) : [...prev, lid];
+      return prev.includes(lid) ? prev : [lid];
+    });
+  }, []);
+
+  /* ── Patches ── */
+  const patchLayers = useCallback((ids: string[], patch: LayerPatch, withCommit?: boolean) => {
+    const fn = (d: DesignDoc): DesignDoc => ({
+      ...d,
+      layers: d.layers.map((l) => (ids.includes(l.id) ? applyPatch(l, patch) : l)),
+    });
+    if (withCommit) commit(fn); else live(fn);
+  }, [commit, live]);
+
+  const patchSel = useCallback((patch: LayerPatch, withCommit?: boolean) => {
+    patchLayers(selRef.current, patch, withCommit);
+  }, [patchLayers]);
+
+  const patchLayer = useCallback((lid: string, patch: LayerPatch, withCommit?: boolean) => {
+    patchLayers([lid], patch, withCommit);
+  }, [patchLayers]);
+
+  const commitDoc = useCallback((patch: Partial<DesignDoc>) => {
+    commit((d) => ({ ...d, ...patch }));
+  }, [commit]);
+
+  /* ── Ajout de calques ── */
+  const addAndSelect = useCallback((l: Layer) => {
     commit((d) => ({ ...d, layers: [...d.layers, l] }));
-    setSelId(l.id);
-    setTab("props");
+    setSelIds([l.id]);
+    setRightTab("props");
     return l;
+  }, [commit]);
+
+  const addShape = useCallback((k: ShapeKind) => { if (canEdit) addAndSelect(makeShape(k, docRef.current)); }, [canEdit, addAndSelect]);
+  const addLine = useCallback((dash: LineDash) => { if (canEdit) addAndSelect(makeLine(docRef.current, { dash })); }, [canEdit, addAndSelect]);
+  const addText = useCallback((preset?: TextPreset) => {
+    if (!canEdit) return;
+    const d = docRef.current;
+    const l = preset
+      ? makeText(d, { text: preset.sample, fontSize: preset.fontSize(d.width), fontWeight: preset.fontWeight, name: preset.label })
+      : makeText(d);
+    addAndSelect(l);
+    requestAnimationFrame(() => setEditingId(l.id));
+  }, [canEdit, addAndSelect]);
+  const addEmoji = useCallback((emoji: string) => {
+    if (!canEdit) return;
+    const d = docRef.current;
+    const size = Math.round(d.width * 0.2);
+    addAndSelect(makeText(d, {
+      text: emoji, name: emoji, fontSize: size, fontWeight: 400,
+      w: Math.round(size * 1.35), h: Math.round(size * 1.35),
+      x: Math.round(d.width / 2 - size * 0.675), y: Math.round(d.height / 2 - size * 0.675),
+      color: "#000000",
+    }));
+  }, [canEdit, addAndSelect]);
+
+  const applyTemplate = useCallback((tpl: DesignDoc) => {
+    if (!canEdit) return;
+    if (docRef.current.layers.length > 0 && !window.confirm("Appliquer ce modèle remplace le contenu actuel de la toile (annulable avec ⌘Z). Continuer ?")) return;
+    commit(() => tpl);
+    setSelIds([]);
   }, [canEdit, commit]);
 
-  const removeLayer = useCallback((lid: string) => {
-    commit((d) => ({ ...d, layers: d.layers.filter((l) => l.id !== lid) }));
-    setSelId((s) => (s === lid ? null : s));
+  /* ── Suppression / duplication / ordre ── */
+  const removeIds = useCallback((ids: string[]) => {
+    if (!ids.length) return;
+    commit((d) => ({ ...d, layers: d.layers.filter((l) => !ids.includes(l.id)) }));
+    setSelIds((prev) => prev.filter((i) => !ids.includes(i)));
   }, [commit]);
+  const removeSel = useCallback(() => removeIds(selRef.current), [removeIds]);
+  const removeLayer = useCallback((lid: string) => removeIds([lid]), [removeIds]);
 
-  const duplicateLayer = useCallback((lid: string) => {
-    const src = docRef.current.layers.find((l) => l.id === lid);
-    if (!src) return;
-    const copy = { ...src, id: newId(), x: src.x + 24, y: src.y + 24, name: `${src.name} copie` } as Layer;
-    commit((d) => {
-      const i = d.layers.findIndex((l) => l.id === lid);
-      const layers = [...d.layers]; layers.splice(i + 1, 0, copy); return { ...d, layers };
-    });
-    setSelId(copy.id);
+  const duplicateIds = useCallback((ids: string[]) => {
+    const src = docRef.current.layers.filter((l) => ids.includes(l.id));
+    if (!src.length) return;
+    const copies = src.map((l) => ({ ...cloneLayer(l, 24, 24), name: `${l.name} copie` }));
+    commit((d) => ({ ...d, layers: [...d.layers, ...copies] }));
+    setSelIds(copies.map((c) => c.id));
   }, [commit]);
+  const duplicateSel = useCallback(() => duplicateIds(selRef.current), [duplicateIds]);
+  const duplicateLayer = useCallback((lid: string) => duplicateIds([lid]), [duplicateIds]);
 
-  const moveLayerOrder = useCallback((lid: string, dir: -1 | 1) => {
+  const reorderLayer = useCallback((lid: string, dir: 1 | -1) => {
     commit((d) => {
       const i = d.layers.findIndex((l) => l.id === lid);
       const j = i + dir;
@@ -184,47 +253,94 @@ export function DesignEditor({
     });
   }, [commit]);
 
-  const alignSel = useCallback((edge: "l" | "c" | "r" | "t" | "m" | "b") => {
-    if (!sel) return;
+  const order = useCallback((op: "front" | "back" | "forward" | "backward") => {
+    const ids = selRef.current;
+    if (!ids.length) return;
+    commit((d) => {
+      const inSel = d.layers.filter((l) => ids.includes(l.id));
+      const rest = d.layers.filter((l) => !ids.includes(l.id));
+      if (op === "front") return { ...d, layers: [...rest, ...inSel] };
+      if (op === "back") return { ...d, layers: [...inSel, ...rest] };
+      const layers = [...d.layers];
+      const idxs = inSel.map((l) => layers.indexOf(l)).sort((a, b) => (op === "forward" ? b - a : a - b));
+      for (const i of idxs) {
+        const j = op === "forward" ? i + 1 : i - 1;
+        if (j < 0 || j >= layers.length || ids.includes(layers[j].id)) continue;
+        [layers[i], layers[j]] = [layers[j], layers[i]];
+      }
+      return { ...d, layers };
+    });
+  }, [commit]);
+
+  /* ── Alignement / répartition / miroir ── */
+  const align = useCallback((edge: "l" | "c" | "r" | "t" | "m" | "b") => {
+    const ls = docRef.current.layers.filter((l) => selRef.current.includes(l.id));
+    if (!ls.length) return;
     const d = docRef.current;
-    let patch: LayerPatch = {};
-    if (edge === "l") patch = { x: 0 };
-    else if (edge === "c") patch = { x: Math.round((d.width - sel.w) / 2) };
-    else if (edge === "r") patch = { x: d.width - sel.w };
-    else if (edge === "t") patch = { y: 0 };
-    else if (edge === "m") patch = { y: Math.round((d.height - sel.h) / 2) };
-    else patch = { y: d.height - sel.h };
-    commitPatch(sel.id, patch);
-  }, [sel, commitPatch]);
+    const box = ls.length > 1 ? bboxOf(ls) : { x: 0, y: 0, w: d.width, h: d.height };
+    commit((dd) => ({
+      ...dd,
+      layers: dd.layers.map((l) => {
+        if (!selRef.current.includes(l.id)) return l;
+        if (edge === "l") return { ...l, x: box.x };
+        if (edge === "c") return { ...l, x: Math.round(box.x + (box.w - l.w) / 2) };
+        if (edge === "r") return { ...l, x: box.x + box.w - l.w };
+        if (edge === "t") return { ...l, y: box.y };
+        if (edge === "m") return { ...l, y: Math.round(box.y + (box.h - l.h) / 2) };
+        return { ...l, y: box.y + box.h - l.h };
+      }),
+    }));
+  }, [commit]);
 
-  /* ── historique ── */
-  const undo = useCallback(() => {
-    setPast((p) => {
-      if (!p.length) return p;
-      const prev = p[p.length - 1];
-      setFuture((f) => [docRef.current, ...f].slice(0, 60));
-      setDoc(prev); persist(prev);
-      return p.slice(0, -1);
-    });
-  }, [persist]);
-  const redo = useCallback(() => {
-    setFuture((f) => {
-      if (!f.length) return f;
-      const next = f[0];
-      setPast((p) => [...p, docRef.current].slice(-60));
-      setDoc(next); persist(next);
-      return f.slice(1);
-    });
-  }, [persist]);
+  const distribute = useCallback((axis: "h" | "v") => {
+    const ls = docRef.current.layers.filter((l) => selRef.current.includes(l.id));
+    if (ls.length < 3) return;
+    const sorted = [...ls].sort((a, b) => (axis === "h" ? a.x - b.x : a.y - b.y));
+    const first = sorted[0], last = sorted[sorted.length - 1];
+    const span = axis === "h" ? last.x + last.w - first.x : last.y + last.h - first.y;
+    const total = sorted.reduce((s, l) => s + (axis === "h" ? l.w : l.h), 0);
+    const gap = (span - total) / (sorted.length - 1);
+    let cursor = axis === "h" ? first.x : first.y;
+    const pos = new Map<string, number>();
+    for (const l of sorted) {
+      pos.set(l.id, Math.round(cursor));
+      cursor += (axis === "h" ? l.w : l.h) + gap;
+    }
+    commit((d) => ({
+      ...d,
+      layers: d.layers.map((l) => (pos.has(l.id) ? (axis === "h" ? { ...l, x: pos.get(l.id)! } : { ...l, y: pos.get(l.id)! }) : l)),
+    }));
+  }, [commit]);
 
-  /* ── nom ── */
+  const flipSel = useCallback((axis: "x" | "y") => {
+    commit((d) => ({
+      ...d,
+      layers: d.layers.map((l) => (selRef.current.includes(l.id) ? (axis === "x" ? { ...l, flipX: !l.flipX } : { ...l, flipY: !l.flipY }) : l)),
+    }));
+  }, [commit]);
+
+  /* ── Presse-papiers interne ── */
+  const copySel = useCallback(() => {
+    const ls = docRef.current.layers.filter((l) => selRef.current.includes(l.id));
+    if (ls.length) clipboardRef.current = ls.map((l) => cloneLayer(l));
+  }, []);
+  const cutSel = useCallback(() => { copySel(); removeSel(); }, [copySel, removeSel]);
+  const pasteInternal = useCallback(() => {
+    if (!clipboardRef.current.length || !canEdit) return;
+    const copies = clipboardRef.current.map((l) => cloneLayer(l, 32, 32));
+    clipboardRef.current = copies.map((l) => cloneLayer(l)); // le prochain collage se décale encore
+    commit((d) => ({ ...d, layers: [...d.layers, ...copies] }));
+    setSelIds(copies.map((c) => c.id));
+  }, [canEdit, commit]);
+
+  /* ── Nom du document ── */
   const onName = (v: string) => {
     if (!canEdit) return;
     setName(v);
     schedule({ name: v.trim() || "Création" });
   };
 
-  /* ── conversion pointeur → coordonnées toile ── */
+  /* ── Coordonnées toile ── */
   const toCanvas = useCallback((clientX: number, clientY: number) => {
     const el = innerRef.current;
     if (!el) return { x: 0, y: 0 };
@@ -232,118 +348,232 @@ export function DesignEditor({
     return { x: (clientX - r.left) / zoomRef.current, y: (clientY - r.top) / zoomRef.current };
   }, []);
 
-  /* ── interactions (déplacer / redimensionner / tourner) ── */
-  type Drag =
-    | { mode: "move"; id: string; startX: number; startY: number; orig: Layer; pushed: boolean; snap: DesignDoc }
-    | { mode: "resize"; id: string; handle: string; orig: Layer; pushed: boolean; snap: DesignDoc }
-    | { mode: "rotate"; id: string; cx: number; cy: number; startAngle: number; origRot: number; pushed: boolean; snap: DesignDoc };
-  const dragRef = useRef<Drag | null>(null);
-
+  /* ── Interactions pointeur ── */
   const HANDLES: Record<string, { x: number; y: number }> = {
     nw: { x: -1, y: -1 }, n: { x: 0, y: -1 }, ne: { x: 1, y: -1 }, e: { x: 1, y: 0 },
     se: { x: 1, y: 1 }, s: { x: 0, y: 1 }, sw: { x: -1, y: 1 }, w: { x: -1, y: 0 },
   };
-  const rotate = (vx: number, vy: number, ang: number) => ({
+  const rot2 = (vx: number, vy: number, ang: number) => ({
     x: vx * Math.cos(ang) - vy * Math.sin(ang),
     y: vx * Math.sin(ang) + vy * Math.cos(ang),
   });
 
-  const ensurePushed = () => {
+  type Drag =
+    | { mode: "move"; startX: number; startY: number; origs: Map<string, Layer>; bbox: { x: number; y: number; w: number; h: number }; pushed: boolean; snap: DesignDoc }
+    | { mode: "resize"; id: string; handle: string; orig: Layer; pushed: boolean; snap: DesignDoc }
+    | { mode: "rotate"; id: string; cx: number; cy: number; startAngle: number; origRot: number; pushed: boolean; snap: DesignDoc }
+    | { mode: "marquee"; startX: number; startY: number; additive: boolean; moved: boolean }
+    | { mode: "pan"; startClientX: number; startClientY: number; startL: number; startT: number };
+  const dragRef = useRef<Drag | null>(null);
+
+  const ensurePushed = useCallback(() => {
     const dg = dragRef.current;
-    if (dg && !dg.pushed) { pushHistory(dg.snap); dg.pushed = true; }
-  };
+    if (dg && "pushed" in dg && !dg.pushed) { pushHistory(dg.snap); dg.pushed = true; }
+  }, [pushHistory]);
 
   const onPointerMove = useCallback((e: PointerEvent) => {
     const dg = dragRef.current;
     if (!dg) return;
+
+    if (dg.mode === "pan") {
+      const el = scrollRef.current;
+      if (el) {
+        el.scrollLeft = dg.startL - (e.clientX - dg.startClientX);
+        el.scrollTop = dg.startT - (e.clientY - dg.startClientY);
+      }
+      return;
+    }
+
     const p = toCanvas(e.clientX, e.clientY);
+
+    if (dg.mode === "marquee") {
+      dg.moved = true;
+      const x = Math.min(dg.startX, p.x), y = Math.min(dg.startY, p.y);
+      setMarquee({ x, y, w: Math.abs(p.x - dg.startX), h: Math.abs(p.y - dg.startY) });
+      return;
+    }
 
     if (dg.mode === "move") {
       ensurePushed();
-      let nx = Math.round(dg.orig.x + (p.x - dg.startX));
-      let ny = Math.round(dg.orig.y + (p.y - dg.startY));
-      const gx: number[] = []; const gy: number[] = [];
-      if (dg.orig.rotation === 0) {
-        const d = docRef.current;
-        const th = 6 / zoomRef.current;
-        const w = dg.orig.w, h = dg.orig.h;
-        const targX = [0, (d.width - w) / 2, d.width - w];
-        const lineX = [0, d.width / 2, d.width];
-        targX.forEach((t, i) => { if (Math.abs(nx - t) < th) { nx = Math.round(t); gx.push(lineX[i]); } });
-        const targY = [0, (d.height - h) / 2, d.height - h];
-        const lineY = [0, d.height / 2, d.height];
-        targY.forEach((t, i) => { if (Math.abs(ny - t) < th) { ny = Math.round(t); gy.push(lineY[i]); } });
+      const dx0 = p.x - dg.startX;
+      const dy0 = p.y - dg.startY;
+      // Aimantation : bords/centres de la toile + des autres calques.
+      const d = docRef.current;
+      const th = 6 / zoomRef.current;
+      const bb = { x: dg.bbox.x + dx0, y: dg.bbox.y + dy0, w: dg.bbox.w, h: dg.bbox.h };
+      const candX = [bb.x, bb.x + bb.w / 2, bb.x + bb.w];
+      const candY = [bb.y, bb.y + bb.h / 2, bb.y + bb.h];
+      const targX: number[] = [0, d.width / 2, d.width];
+      const targY: number[] = [0, d.height / 2, d.height];
+      for (const o of d.layers) {
+        if (dg.origs.has(o.id) || !o.visible) continue;
+        targX.push(o.x, o.x + o.w / 2, o.x + o.w);
+        targY.push(o.y, o.y + o.h / 2, o.y + o.h);
+      }
+      let sx = 0, sy = 0, bestX = th, bestY = th;
+      const gx: number[] = [], gy: number[] = [];
+      for (const c of candX) for (const t of targX) {
+        const diff = Math.abs(c - t);
+        if (diff < bestX) { bestX = diff; sx = t - c; gx.length = 0; gx.push(t); }
+      }
+      for (const c of candY) for (const t of targY) {
+        const diff = Math.abs(c - t);
+        if (diff < bestY) { bestY = diff; sy = t - c; gy.length = 0; gy.push(t); }
       }
       setGuides({ x: gx, y: gy });
-      patchLayer(dg.id, { x: nx, y: ny });
+      const dx = Math.round(dx0 + sx), dy = Math.round(dy0 + sy);
+      live((dd) => ({
+        ...dd,
+        layers: dd.layers.map((l) => {
+          const o = dg.origs.get(l.id);
+          return o ? { ...l, x: o.x + dx, y: o.y + dy } : l;
+        }),
+      }));
       return;
     }
 
     if (dg.mode === "rotate") {
       ensurePushed();
-      let deg = dg.origRot + (Math.atan2(p.y - dg.cy, p.x - dg.cx) - dg.startAngle) * 180 / Math.PI;
+      let deg = dg.origRot + ((Math.atan2(p.y - dg.cy, p.x - dg.cx) - dg.startAngle) * 180) / Math.PI;
       if (e.shiftKey) deg = Math.round(deg / 15) * 15;
-      patchLayer(dg.id, { rotation: Math.round(deg) });
+      for (const snap of [-360, -270, -180, -90, 0, 90, 180, 270, 360]) {
+        if (Math.abs(deg - snap) < 3) { deg = snap; break; }
+      }
+      deg = Math.round(deg);
+      setBadge(`${((deg % 360) + 360) % 360}°`);
+      patchLayer(dg.id, { rotation: deg });
       return;
     }
 
-    // resize
+    // resize — le repère local intègre rotation ET miroirs (transform DOM :
+    // rotate ∘ flip), sinon les poignées d'un calque en miroir agissent à l'envers.
     ensurePushed();
     const o = dg.orig;
     const rad = (o.rotation * Math.PI) / 180;
+    const fxs = o.flipX ? -1 : 1, fys = o.flipY ? -1 : 1;
+    const fwd = (vx: number, vy: number) => rot2(vx * fxs, vy * fys, rad);
+    const inv = (vx: number, vy: number) => { const r = rot2(vx, vy, -rad); return { x: r.x * fxs, y: r.y * fys }; };
     const a = HANDLES[dg.handle];
+    const isCorner = a.x !== 0 && a.y !== 0;
     const cxo = o.x + o.w / 2, cyo = o.y + o.h / 2;
-    const foff = rotate((-a.x) * o.w / 2, (-a.y) * o.h / 2, rad);
-    const fx = cxo + foff.x, fy = cyo + foff.y;
-    const local = rotate(p.x - fx, p.y - fy, -rad);
+    const qFix = { x: (-a.x * o.w) / 2, y: (-a.y * o.h) / 2 }; // coin opposé (repère modèle)
+    const fixOff = fwd(qFix.x, qFix.y);
+    const fx = cxo + fixOff.x, fy = cyo + fixOff.y; // position toile du coin fixe
+    const qp = inv(p.x - cxo, p.y - cyo);
+    const local = { x: qp.x - qFix.x, y: qp.y - qFix.y };
     let nw = a.x !== 0 ? Math.max(MIN_SIZE, local.x * a.x) : o.w;
     let nh = a.y !== 0 ? Math.max(MIN_SIZE, local.y * a.y) : o.h;
-    if (e.shiftKey && a.x !== 0 && a.y !== 0) {
-      const aspect = o.w / o.h;
-      nh = nw / aspect;
+    const aspect = o.w / Math.max(1, o.h);
+    const keepAspect = isCorner && (o.type === "text" || (o.type === "image" ? !e.shiftKey : e.shiftKey));
+    if (keepAspect) {
+      if (nw / aspect > nh) nh = nw / aspect; else nw = nh * aspect;
     }
-    const noff = rotate(a.x * nw / 2, a.y * nh / 2, rad);
+    const noff = fwd((a.x * nw) / 2, (a.y * nh) / 2);
     const ncx = fx + noff.x, ncy = fy + noff.y;
-    patchLayer(dg.id, {
+    const patch: LayerPatch = {
       x: Math.round(ncx - nw / 2), y: Math.round(ncy - nh / 2),
       w: Math.round(nw), h: Math.round(nh),
-    });
-  }, [toCanvas, patchLayer, pushHistory]);
+    };
+    // Texte : le redimensionnement au coin met la police à l'échelle (façon Canva).
+    if (o.type === "text" && isCorner) {
+      const ratio = nw / o.w;
+      patch.fontSize = Math.max(4, Math.round((o as TextLayer).fontSize * ratio));
+      patch.letterSpacing = Math.round((o as TextLayer).letterSpacing * ratio * 10) / 10;
+    }
+    setBadge(`${Math.round(nw)} × ${Math.round(nh)}`);
+    patchLayer(dg.id, patch);
+  }, [toCanvas, live, patchLayer, ensurePushed]);
 
   const onPointerUp = useCallback(() => {
+    const dg = dragRef.current;
     dragRef.current = null;
     setGuides({ x: [], y: [] });
+    setBadge(null);
+    // Le point d'annulation du geste a déjà été posé (ensurePushed) : on libère
+    // la base « live » pour que le prochain commit reparte du document actuel.
+    liveBaseRef.current = null;
+    if (dg?.mode === "marquee") {
+      if (dg.moved && marqueeRefState.current) {
+        const m = marqueeRefState.current;
+        const hits = docRef.current.layers
+          .filter((l) => l.visible && !l.locked)
+          .filter((l) => l.x < m.x + m.w && l.x + l.w > m.x && l.y < m.y + m.h && l.y + l.h > m.y)
+          .map((l) => l.id);
+        setSelIds((prev) => (dg.additive ? Array.from(new Set([...prev, ...hits])) : hits));
+      } else if (!dg.additive) {
+        setSelIds([]);
+        setEditingId(null);
+      }
+      setMarquee(null);
+    }
     window.removeEventListener("pointermove", onPointerMove);
     window.removeEventListener("pointerup", onPointerUp);
   }, [onPointerMove]);
 
-  const startDrag = (dg: Drag) => {
+  // Le rectangle de lasso vit dans un state ; on garde un miroir en ref pour le pointerup.
+  const marqueeRefState = useRef<typeof marquee>(null);
+  marqueeRefState.current = marquee;
+
+  const startDrag = useCallback((dg: Drag) => {
     dragRef.current = dg;
     window.addEventListener("pointermove", onPointerMove);
     window.addEventListener("pointerup", onPointerUp);
-  };
+  }, [onPointerMove, onPointerUp]);
 
-  const beginMove = (l: Layer, e: React.PointerEvent) => {
+  const beginMove = useCallback((l: Layer, e: React.PointerEvent) => {
+    // Clic principal uniquement ; en mode « espace » ou clic molette, l'événement
+    // remonte à l'espace de travail (déplacement de la vue).
+    if (e.button !== 0 || spaceDown) return;
     if (!canEdit || l.locked || editingId === l.id) return;
     e.stopPropagation();
-    setSelId(l.id); setTab("props");
+    const additive = e.shiftKey;
+    let ids = selRef.current;
+    if (!ids.includes(l.id)) {
+      ids = additive ? [...ids, l.id] : [l.id];
+      setSelIds(ids);
+    } else if (additive) {
+      setSelIds(ids.filter((i) => i !== l.id));
+      return;
+    }
+    const layers = docRef.current.layers.filter((x) => ids.includes(x.id) && !x.locked);
+    if (!layers.length) return;
     const p = toCanvas(e.clientX, e.clientY);
-    startDrag({ mode: "move", id: l.id, startX: p.x, startY: p.y, orig: l, pushed: false, snap: docRef.current });
-  };
-  const beginResize = (l: Layer, handle: string, e: React.PointerEvent) => {
+    startDrag({
+      mode: "move", startX: p.x, startY: p.y,
+      origs: new Map(layers.map((x) => [x.id, x])),
+      bbox: bboxOf(layers),
+      pushed: false, snap: docRef.current,
+    });
+  }, [canEdit, editingId, spaceDown, toCanvas, startDrag]);
+
+  const beginResize = useCallback((l: Layer, handle: string, e: React.PointerEvent) => {
     if (!canEdit || l.locked) return;
     e.stopPropagation();
     startDrag({ mode: "resize", id: l.id, handle, orig: l, pushed: false, snap: docRef.current });
-  };
-  const beginRotate = (l: Layer, e: React.PointerEvent) => {
+  }, [canEdit, startDrag]);
+
+  const beginRotate = useCallback((l: Layer, e: React.PointerEvent) => {
     if (!canEdit || l.locked) return;
     e.stopPropagation();
     const cx = l.x + l.w / 2, cy = l.y + l.h / 2;
     const p = toCanvas(e.clientX, e.clientY);
     startDrag({ mode: "rotate", id: l.id, cx, cy, startAngle: Math.atan2(p.y - cy, p.x - cx), origRot: l.rotation, pushed: false, snap: docRef.current });
-  };
+  }, [canEdit, toCanvas, startDrag]);
 
-  /* ── édition texte inline ── */
+  const onWorkspaceDown = useCallback((e: React.PointerEvent) => {
+    setCtxMenu(null);
+    const el = scrollRef.current;
+    if (e.button === 1 || spaceDown) {
+      if (el) startDrag({ mode: "pan", startClientX: e.clientX, startClientY: e.clientY, startL: el.scrollLeft, startT: el.scrollTop });
+      return;
+    }
+    if (e.button !== 0) return;
+    if (editingId) setEditingId(null);
+    const p = toCanvas(e.clientX, e.clientY);
+    startDrag({ mode: "marquee", startX: p.x, startY: p.y, additive: e.shiftKey, moved: false });
+  }, [spaceDown, editingId, toCanvas, startDrag]);
+
+  /* ── Édition de texte en place ── */
   useEffect(() => {
     if (editingId && editRef.current) {
       const l = docRef.current.layers.find((x) => x.id === editingId);
@@ -352,47 +582,133 @@ export function DesignEditor({
         editRef.current.focus();
         const range = document.createRange();
         range.selectNodeContents(editRef.current);
-        range.collapse(false);
         const s = window.getSelection();
         s?.removeAllRanges(); s?.addRange(range);
       }
     }
   }, [editingId]);
 
-  /* ── raccourcis clavier ── */
+  const startEdit = useCallback((l: Layer) => {
+    if (l.type !== "text" || !canEdit || l.locked) return;
+    pushHistory(docRef.current);
+    setEditingId(l.id);
+    setSelIds([l.id]);
+  }, [canEdit, pushHistory]);
+
+  /* ── Raccourcis clavier & espace (pan) ── */
   useEffect(() => {
-    const onKey = (e: KeyboardEvent) => {
-      const t = e.target as HTMLElement;
-      const typing = t && (t.tagName === "INPUT" || t.tagName === "TEXTAREA" || t.isContentEditable);
+    const isTyping = (t: EventTarget | null) => {
+      const el = t as HTMLElement | null;
+      return !!el && (el.tagName === "INPUT" || el.tagName === "TEXTAREA" || el.tagName === "SELECT" || el.isContentEditable);
+    };
+    const onKeyDown = (e: KeyboardEvent) => {
+      const typing = isTyping(e.target);
       const mod = e.metaKey || e.ctrlKey;
+      if (e.code === "Space" && !typing) { setSpaceDown(true); }
+      // Pendant la saisie (nom, textarea, texte en place), on laisse faire le
+      // navigateur — y compris son propre annuler/rétablir de texte.
+      if (typing) return;
       if (mod && e.key.toLowerCase() === "z") { e.preventDefault(); if (e.shiftKey) redo(); else undo(); return; }
       if (mod && e.key.toLowerCase() === "y") { e.preventDefault(); redo(); return; }
-      if (typing) return;
-      if (!selId) return;
-      if (mod && e.key.toLowerCase() === "d") { e.preventDefault(); duplicateLayer(selId); return; }
-      if (e.key === "Delete" || e.key === "Backspace") { e.preventDefault(); if (canEdit) removeLayer(selId); return; }
-      if (e.key === "Escape") { setSelId(null); return; }
+      if (mod && e.key.toLowerCase() === "a") { e.preventDefault(); setSelIds(docRef.current.layers.filter((l) => l.visible && !l.locked).map((l) => l.id)); return; }
+      if (mod && e.key.toLowerCase() === "d") { e.preventDefault(); duplicateSel(); return; }
+      if (mod && e.key.toLowerCase() === "c") { copySel(); return; }
+      if (mod && e.key.toLowerCase() === "x") { e.preventDefault(); cutSel(); return; }
+      if (mod) return; // ⌘/Ctrl+0, ⌘+-, etc. : zoom du navigateur, pas le nôtre
+      if (e.key === "Escape") { setSelIds([]); setEditingId(null); setCtxMenu(null); return; }
+      if (e.key === "+" || e.key === "=") { setZoom((z) => clampN(z + 0.1, 0.03, 4)); return; }
+      if (e.key === "-") { setZoom((z) => clampN(z - 0.1, 0.03, 4)); return; }
+      if (e.key === "0") { fit(); return; }
+      if (e.key === "1") { setZoom(1); return; }
+      if (e.key === "?") { setShortcutsOpen(true); return; }
+      if (!selRef.current.length) return;
+      if (e.key === "Delete" || e.key === "Backspace") { e.preventDefault(); if (canEdit) removeSel(); return; }
+      if (e.key === "[") { order("backward"); return; }
+      if (e.key === "]") { order("forward"); return; }
       const step = e.shiftKey ? 10 : 1;
-      if (e.key === "ArrowLeft") { e.preventDefault(); commitPatch(selId, { x: (sel?.x ?? 0) - step }); }
-      else if (e.key === "ArrowRight") { e.preventDefault(); commitPatch(selId, { x: (sel?.x ?? 0) + step }); }
-      else if (e.key === "ArrowUp") { e.preventDefault(); commitPatch(selId, { y: (sel?.y ?? 0) - step }); }
-      else if (e.key === "ArrowDown") { e.preventDefault(); commitPatch(selId, { y: (sel?.y ?? 0) + step }); }
+      const move = (dx: number, dy: number) => {
+        e.preventDefault();
+        patchLayers(selRef.current, {}, false); // s'assure d'un liveBase cohérent
+        commit((d) => ({
+          ...d,
+          layers: d.layers.map((l) => (selRef.current.includes(l.id) && !l.locked ? { ...l, x: l.x + dx, y: l.y + dy } : l)),
+        }));
+      };
+      if (e.key === "ArrowLeft") move(-step, 0);
+      else if (e.key === "ArrowRight") move(step, 0);
+      else if (e.key === "ArrowUp") move(0, -step);
+      else if (e.key === "ArrowDown") move(0, step);
     };
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, [selId, sel, canEdit, undo, redo, duplicateLayer, removeLayer, commitPatch]);
+    const onKeyUp = (e: KeyboardEvent) => { if (e.code === "Space") setSpaceDown(false); };
+    window.addEventListener("keydown", onKeyDown);
+    window.addEventListener("keyup", onKeyUp);
+    return () => { window.removeEventListener("keydown", onKeyDown); window.removeEventListener("keyup", onKeyUp); };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [undo, redo, duplicateSel, copySel, cutSel, removeSel, order, canEdit, commit, patchLayers]);
 
-  /* ── zoom ── */
+  /* ── Collage (⌘V) : fichiers image du presse-papiers OU calques internes ── */
+  useEffect(() => {
+    const onPaste = (e: ClipboardEvent) => {
+      const t = e.target as HTMLElement | null;
+      if (t && (t.tagName === "INPUT" || t.tagName === "TEXTAREA" || t.isContentEditable)) return;
+      const files = Array.from(e.clipboardData?.files ?? []).filter((f) => f.type.startsWith("image/"));
+      if (files.length) {
+        e.preventDefault();
+        files.forEach((f) => onPickImage(f));
+        return;
+      }
+      if (clipboardRef.current.length) { e.preventDefault(); pasteInternal(); }
+    };
+    document.addEventListener("paste", onPaste);
+    return () => document.removeEventListener("paste", onPaste);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pasteInternal]);
+
+  /* ── Zoom ── */
   const fit = useCallback(() => {
-    const el = workspaceRef.current;
+    const el = scrollRef.current;
     if (!el) return;
-    const pad = 64;
-    const z = Math.min((el.clientWidth - pad) / doc.width, (el.clientHeight - pad) / doc.height);
-    setZoom(clampN(z, 0.05, 3));
-  }, [doc.width, doc.height]);
-  useEffect(() => { fit(); /* eslint-disable-next-line react-hooks/exhaustive-deps */ }, [doc.width, doc.height]);
+    const pad = 96;
+    const d = docRef.current;
+    const z = Math.min((el.clientWidth - pad) / d.width, (el.clientHeight - pad) / d.height);
+    setZoom(clampN(z, 0.03, 4));
+  }, []);
+  useEffect(() => { fit(); }, [doc.width, doc.height, dockTab, fit]);
 
-  /* ── upload image ── */
+  const zoomAt = useCallback((clientX: number, clientY: number, dz: number) => {
+    const el = scrollRef.current;
+    if (!el) return;
+    const old = zoomRef.current;
+    const next = clampN(old * (1 + dz), 0.03, 4);
+    if (next === old) return;
+    const rect = el.getBoundingClientRect();
+    const px = clientX - rect.left + el.scrollLeft;
+    const py = clientY - rect.top + el.scrollTop;
+    const k = next / old;
+    setZoom(next);
+    requestAnimationFrame(() => {
+      el.scrollLeft = px * k - (clientX - rect.left);
+      el.scrollTop = py * k - (clientY - rect.top);
+    });
+  }, []);
+
+  // ⌘/Ctrl + molette (et pincement trackpad) : zoom vers le curseur.
+  // Écouteur NATIF non-passif — React attache wheel en passif, où
+  // preventDefault est ignoré et le navigateur zoomerait la page entière.
+  useEffect(() => {
+    const el = scrollRef.current;
+    if (!el) return;
+    const onWheel = (e: WheelEvent) => {
+      if (e.ctrlKey || e.metaKey) {
+        e.preventDefault();
+        zoomAt(e.clientX, e.clientY, -Math.sign(e.deltaY) * 0.12);
+      }
+    };
+    el.addEventListener("wheel", onWheel, { passive: false });
+    return () => el.removeEventListener("wheel", onWheel);
+  }, [zoomAt]);
+
+  /* ── Upload d'images ── */
   const uploadFile = useCallback(async (file: File): Promise<{ url: string; w: number; h: number } | null> => {
     const vector = file.type === "image/svg+xml" || file.type === "image/gif";
     let blob: Blob = file;
@@ -403,15 +719,15 @@ export function DesignEditor({
       }).catch(() => null);
       if (bmp) {
         natural = { w: bmp.naturalWidth, h: bmp.naturalHeight };
-        const MAXD = 2000;
-        const scale = Math.min(1, MAXD / Math.max(bmp.naturalWidth, bmp.naturalHeight));
-        if (scale < 1) {
+        const MAXD = 2200;
+        const k = Math.min(1, MAXD / Math.max(bmp.naturalWidth, bmp.naturalHeight));
+        if (k < 1) {
           const c = document.createElement("canvas");
-          c.width = Math.round(bmp.naturalWidth * scale);
-          c.height = Math.round(bmp.naturalHeight * scale);
+          c.width = Math.round(bmp.naturalWidth * k);
+          c.height = Math.round(bmp.naturalHeight * k);
           c.getContext("2d")!.drawImage(bmp, 0, 0, c.width, c.height);
           const isPng = file.type === "image/png" || file.type === "image/webp";
-          blob = await new Promise<Blob>((res) => c.toBlob((b) => res(b!), isPng ? "image/png" : "image/jpeg", 0.9))!;
+          blob = await new Promise<Blob>((res) => c.toBlob((b) => res(b!), isPng ? "image/png" : "image/jpeg", 0.92));
           natural = { w: c.width, h: c.height };
         }
       }
@@ -425,670 +741,338 @@ export function DesignEditor({
     return { url, w: natural.w, h: natural.h };
   }, []);
 
-  const onPickImage = useCallback(async (file: File) => {
+  const onPickImage = useCallback(async (file: File, at?: { x: number; y: number }) => {
+    if (!canEdit) return;
     setUploading(true);
     try {
       const up = await uploadFile(file);
-      if (!up) return;
+      if (!up) { window.alert("L'image n'a pas pu être envoyée (format non pris en charge ou fichier trop lourd — 12 Mo max)."); return; }
       const d = docRef.current;
       const aspect = up.w / up.h;
       let w = Math.min(d.width * 0.72, up.w);
       let h = w / aspect;
-      if (h > d.height * 0.8) { h = d.height * 0.8; w = h * aspect; }
-      addLayer("image", { src: up.url, w: Math.round(w), h: Math.round(h), x: Math.round((d.width - w) / 2), y: Math.round((d.height - h) / 2), naturalW: up.w, naturalH: up.h } as Partial<ImageLayer>);
+      if (h > d.height * 0.85) { h = d.height * 0.85; w = h * aspect; }
+      const x = at ? Math.round(at.x - w / 2) : Math.round((d.width - w) / 2);
+      const y = at ? Math.round(at.y - h / 2) : Math.round((d.height - h) / 2);
+      addAndSelect(makeImage(d, { src: up.url, w: Math.round(w), h: Math.round(h), x, y, naturalW: up.w, naturalH: up.h } as Partial<ImageLayer>));
     } finally {
       setUploading(false);
     }
-  }, [uploadFile, addLayer]);
+  }, [canEdit, uploadFile, addAndSelect]);
 
-  const replaceImage = useCallback(async (lid: string, file: File) => {
+  const replaceImage = useCallback(async (file: File) => {
+    const target = docRef.current.layers.find((l) => selRef.current.includes(l.id) && l.type === "image");
+    if (!target) return;
     setUploading(true);
     try {
       const up = await uploadFile(file);
-      if (up) commitPatch(lid, { src: up.url, naturalW: up.w, naturalH: up.h });
+      if (!up) { window.alert("L'image n'a pas pu être envoyée (format non pris en charge ou fichier trop lourd — 12 Mo max)."); return; }
+      patchLayer(target.id, { src: up.url, naturalW: up.w, naturalH: up.h }, true);
     } finally { setUploading(false); }
-  }, [uploadFile, commitPatch]);
+  }, [uploadFile, patchLayer]);
 
-  /* ── export ── */
-  const doExport = useCallback(async (format: "png" | "jpeg", scale: number) => {
-    const canvas = await rasterize(docRef.current, scale);
+  /* ── Export ── */
+  const doExport = useCallback(async (format: "png" | "jpeg", scale: number, transparent: boolean) => {
+    // JPEG ne gère pas la transparence : base blanche pour éviter un fond noir.
+    const canvas = await rasterize(docRef.current, scale, { transparent, flatten: format === "jpeg" ? "#ffffff" : undefined });
     const mime = format === "png" ? "image/png" : "image/jpeg";
     const url = canvas.toDataURL(mime, 0.95);
     const a = document.createElement("a");
     a.href = url;
-    a.download = `${(name || "design").replace(/[^\w\-]+/g, "_")}.${format === "jpeg" ? "jpg" : "png"}`;
+    a.download = `${(name || "design").replace(/[^\w-]+/g, "_")}.${format === "jpeg" ? "jpg" : "png"}`;
     a.click();
   }, [name]);
 
+  const doCopy = useCallback(async (scale: number, transparent: boolean): Promise<boolean> => {
+    try {
+      const canvas = await rasterize(docRef.current, scale, { transparent });
+      const blob = await new Promise<Blob | null>((res) => canvas.toBlob(res, "image/png"));
+      if (!blob) return false;
+      await navigator.clipboard.write([new ClipboardItem({ "image/png": blob })]);
+      return true;
+    } catch { return false; }
+  }, []);
+
+  /* ── Contrôleur passé à l'UI ── */
+  const ctl: EditorCtl = {
+    doc, selLayers, selIds, canEdit, uploading,
+    patchSel, patchLayer, commitDoc, select,
+    addShape, addLine, addText, addEmoji, applyTemplate,
+    uploadClick: () => fileRef.current?.click(),
+    replaceImageClick: () => replaceRef.current?.click(),
+    align, distribute, order, duplicateSel, removeSel, flipSel,
+    reorderLayer, removeLayer, duplicateLayer,
+  };
+
+  /* ── Menu contextuel ── */
+  const ctxItems: CtxMenuItem[] = ctxMenu?.onCanvas
+    ? [
+        { label: "Coller", icon: ClipboardPaste, onClick: pasteInternal, kbd: "⌘V" },
+        { label: "Tout sélectionner", icon: MousePointerSquareDashed, onClick: () => setSelIds(docRef.current.layers.filter((l) => l.visible && !l.locked).map((l) => l.id)), kbd: "⌘A" },
+      ]
+    : [
+        { label: "Copier", icon: Copy, onClick: copySel, kbd: "⌘C" },
+        { label: "Couper", icon: Scissors, onClick: cutSel, kbd: "⌘X" },
+        { label: "Coller", icon: ClipboardPaste, onClick: pasteInternal, kbd: "⌘V" },
+        { label: "Dupliquer", icon: Copy, onClick: duplicateSel, kbd: "⌘D" },
+        { label: "Avancer", icon: ArrowUp, onClick: () => order("forward"), kbd: "]", divider: true },
+        { label: "Reculer", icon: ArrowDown, onClick: () => order("backward"), kbd: "[" },
+        { label: "Premier plan", icon: BringToFront, onClick: () => order("front") },
+        { label: "Arrière-plan", icon: SendToBack, onClick: () => order("back") },
+        selLayers[0]?.locked
+          ? { label: "Déverrouiller", icon: Unlock, onClick: () => patchSel({ locked: false }, true), divider: true }
+          : { label: "Verrouiller", icon: LockIcon, onClick: () => patchSel({ locked: true }, true), divider: true },
+        { label: "Supprimer", icon: Trash2, onClick: removeSel, danger: true, kbd: "⌫" },
+      ];
+
   const zoomPct = Math.round(zoom * 100);
+  const transparentBg = !doc.backgroundGradient && doc.background === "transparent";
 
   return (
-    <div className="flex h-full min-h-0 flex-col select-none">
-      {/* En-tête */}
-      <header className="h-14 shrink-0 border-b border-white/10 bg-white/[0.03] backdrop-blur-xl px-3 sm:px-4 flex items-center gap-2">
-        <Link href={backHref} className="grid size-9 shrink-0 place-items-center rounded-lg text-muted hover:bg-white/5 hover:text-white transition" title="Retour">
+    <div className="flex h-full min-h-0 select-none flex-col">
+      {/* ── Barre supérieure ── */}
+      <header className="flex h-14 shrink-0 items-center gap-2 border-b border-white/10 bg-white/[0.03] px-3 backdrop-blur-xl">
+        <Link href={backHref} className="grid size-9 shrink-0 place-items-center rounded-lg text-muted transition hover:bg-white/5 hover:text-white" title="Retour au studio">
           <ArrowLeft className="size-5" />
         </Link>
-        <div className="min-w-0 flex items-center gap-2">
-          <Shapes className="size-4 shrink-0" style={{ color: ACCENT }} />
-          <input value={name} onChange={(e) => onName(e.target.value)} disabled={!canEdit}
-            className="min-w-0 w-40 sm:w-56 bg-transparent text-sm font-semibold outline-none placeholder:text-white/30"
-            placeholder="Création sans titre" />
-        </div>
-        <div className="ml-1 hidden items-center gap-1 sm:flex">
-          <button onClick={() => setSizeOpen(true)} className="inline-flex items-center gap-1.5 rounded-lg border border-white/10 px-2.5 py-1.5 text-xs font-medium text-muted hover:bg-white/5 hover:text-white transition">
-            <LayoutGrid className="size-3.5" /> {doc.width}×{doc.height}
-          </button>
-        </div>
+        <span className="grid size-8 shrink-0 place-items-center rounded-xl bg-gradient-to-br from-[#a855f7] to-[#6366f1] shadow-lg shadow-purple-500/25">
+          <Shapes className="size-4 text-white" />
+        </span>
+        <input
+          value={name} onChange={(e) => onName(e.target.value)} onBlur={() => notifyRefresh()} disabled={!canEdit}
+          className="w-40 min-w-0 bg-transparent text-sm font-semibold outline-none placeholder:text-white/30 sm:w-60"
+          placeholder="Création sans titre"
+        />
+        <button onClick={() => setSizeOpen(true)} disabled={!canEdit}
+          className="hidden items-center gap-1.5 rounded-lg border border-white/10 px-2.5 py-1.5 text-xs font-medium text-muted transition hover:bg-white/5 hover:text-white disabled:opacity-40 sm:inline-flex">
+          <LayoutGrid className="size-3.5" /> {doc.width}×{doc.height}
+        </button>
 
         <div className="ml-auto flex items-center gap-1">
-          <button onClick={undo} disabled={!past.length} className="grid size-8 place-items-center rounded-lg text-muted hover:bg-white/5 hover:text-white disabled:opacity-30 transition" title="Annuler (⌘Z)"><Undo2 className="size-4" /></button>
-          <button onClick={redo} disabled={!future.length} className="grid size-8 place-items-center rounded-lg text-muted hover:bg-white/5 hover:text-white disabled:opacity-30 transition" title="Rétablir (⌘⇧Z)"><Redo2 className="size-4" /></button>
-          <div className="mx-1 hidden items-center gap-0.5 rounded-lg border border-white/10 px-1 py-0.5 sm:flex">
-            <button onClick={() => setZoom((z) => clampN(z - 0.1, 0.05, 3))} className="grid size-6 place-items-center rounded text-muted hover:text-white" title="Dézoomer"><ZoomOut className="size-3.5" /></button>
-            <span className="w-10 text-center text-[11px] tabular-nums text-muted">{zoomPct}%</span>
-            <button onClick={() => setZoom((z) => clampN(z + 0.1, 0.05, 3))} className="grid size-6 place-items-center rounded text-muted hover:text-white" title="Zoomer"><ZoomIn className="size-3.5" /></button>
-            <button onClick={fit} className="grid size-6 place-items-center rounded text-muted hover:text-white" title="Ajuster"><Maximize2 className="size-3.5" /></button>
+          <button onClick={undo} disabled={!past.length} className="grid size-8 place-items-center rounded-lg text-muted transition hover:bg-white/5 hover:text-white disabled:opacity-30" title="Annuler (⌘Z)"><Undo2 className="size-4" /></button>
+          <button onClick={redo} disabled={!future.length} className="grid size-8 place-items-center rounded-lg text-muted transition hover:bg-white/5 hover:text-white disabled:opacity-30" title="Rétablir (⌘⇧Z)"><Redo2 className="size-4" /></button>
+          <button onClick={() => setShortcutsOpen(true)} className="hidden size-8 place-items-center rounded-lg text-muted transition hover:bg-white/5 hover:text-white sm:grid" title="Raccourcis clavier (?)"><Keyboard className="size-4" /></button>
+          <div className="mx-1 hidden items-center gap-1.5 text-xs text-muted lg:flex">
+            {save === "saving" ? <Loader2 className="size-3.5 animate-spin" />
+              : save === "error" ? <span className="text-red-400">Erreur</span>
+              : <Check className="size-3.5 text-emerald-400" />}
           </div>
-          <button onClick={() => setExportOpen(true)} className="inline-flex items-center gap-1.5 rounded-lg bg-gradient-to-r from-[#a855f7] to-[#6366f1] px-3 py-1.5 text-xs font-semibold text-white shadow-lg shadow-purple-500/25 transition hover:brightness-110">
+          <button onClick={() => setExportOpen(true)}
+            className="inline-flex items-center gap-1.5 rounded-lg bg-gradient-to-r from-[#a855f7] to-[#6366f1] px-3.5 py-1.5 text-xs font-semibold text-white shadow-lg shadow-purple-500/25 transition hover:brightness-110">
             <Download className="size-3.5" /> Exporter
           </button>
-          <div className="ml-1 hidden items-center gap-1.5 text-xs text-muted lg:flex">
-            {save === "saving" ? (<Loader2 className="size-3.5 animate-spin" />)
-              : save === "error" ? (<span className="text-red-400">Erreur</span>)
-              : (<Check className="size-3.5 text-emerald-400" />)}
-          </div>
         </div>
       </header>
 
-      {/* Corps : rail + espace + panneau */}
+      {/* ── Corps ── */}
       <div className="flex min-h-0 flex-1">
-        {/* Rail d'outils */}
-        <div className="flex w-14 shrink-0 flex-col items-center gap-1 border-r border-white/10 bg-white/[0.02] py-2">
-          <RailBtn icon={Type} label="Texte" onClick={() => addLayer("text")} disabled={!canEdit} />
-          <RailBtn icon={Square} label="Rectangle" onClick={() => addLayer("rect")} disabled={!canEdit} />
-          <RailBtn icon={Circle} label="Cercle" onClick={() => addLayer("ellipse")} disabled={!canEdit} />
-          <RailBtn icon={TriangleIcon} label="Triangle" onClick={() => addLayer("triangle")} disabled={!canEdit} />
-          <RailBtn icon={Minus} label="Ligne" onClick={() => addLayer("line")} disabled={!canEdit} />
-          <RailBtn icon={uploading ? Loader2 : ImageIcon} label="Image" onClick={() => fileRef.current?.click()} disabled={!canEdit || uploading} spin={uploading} />
-          <input ref={fileRef} type="file" accept="image/*" hidden onChange={(e) => { const f = e.target.files?.[0]; if (f) onPickImage(f); e.target.value = ""; }} />
-        </div>
+        <LeftDock tab={canEdit ? dockTab : null} setTab={setDockTab} ctl={ctl} />
+        <input ref={fileRef} type="file" accept="image/*" multiple hidden
+          onChange={(e) => { Array.from(e.target.files ?? []).forEach((f) => onPickImage(f)); e.target.value = ""; }} />
+        <input ref={replaceRef} type="file" accept="image/*" hidden
+          onChange={(e) => { const f = e.target.files?.[0]; if (f) replaceImage(f); e.target.value = ""; }} />
 
-        {/* Espace de travail */}
-        <div
-          ref={workspaceRef}
-          className="relative min-w-0 flex-1 overflow-auto bg-[#0b0b11] [background-image:radial-gradient(circle,rgba(255,255,255,0.05)_1px,transparent_1px)] [background-size:22px_22px]"
-          onPointerDown={() => { if (!dragRef.current) { setSelId(null); if (editingId) setEditingId(null); } }}
-          onWheel={(e) => { if (e.ctrlKey || e.metaKey) { e.preventDefault(); setZoom((z) => clampN(z - Math.sign(e.deltaY) * 0.08, 0.05, 3)); } }}
-        >
-          <div className="min-h-full w-full grid place-items-center p-8">
-            <div className="relative" style={{ width: doc.width * zoom, height: doc.height * zoom }}>
-              <div
-                ref={innerRef}
-                className="absolute left-0 top-0 origin-top-left shadow-2xl shadow-black/50 ring-1 ring-black/40"
-                style={{
-                  width: doc.width, height: doc.height, transform: `scale(${zoom})`,
-                  background: doc.background === "transparent"
-                    ? "repeating-conic-gradient(#e5e7eb 0% 25%, #ffffff 0% 50%) 50% / 20px 20px"
-                    : doc.background,
-                }}
-                onPointerDown={(e) => e.stopPropagation()}
-              >
-                {doc.layers.map((l) => (
-                  <LayerView
-                    key={l.id}
-                    layer={l}
-                    zoom={zoom}
-                    selected={selId === l.id}
-                    editing={editingId === l.id}
-                    canEdit={canEdit}
-                    editRef={editingId === l.id ? editRef : undefined}
-                    onSelect={() => { setSelId(l.id); setTab("props"); }}
-                    onBeginMove={(e) => beginMove(l, e)}
-                    onBeginResize={(h, e) => beginResize(l, h, e)}
-                    onBeginRotate={(e) => beginRotate(l, e)}
-                    onStartEdit={() => { if (l.type === "text" && canEdit && !l.locked) { pushHistory(docRef.current); setEditingId(l.id); setSelId(l.id); } }}
-                    onEditInput={(text) => patchLayer(l.id, { text })}
-                    onEditBlur={() => setEditingId(null)}
-                  />
-                ))}
+        <div className="flex min-w-0 flex-1 flex-col">
+          <ContextBar ctl={ctl} />
 
-                {/* Repères d'alignement */}
-                {guides.x.map((gx, i) => (
-                  <div key={`gx${i}`} className="pointer-events-none absolute top-0 bg-fuchsia-400" style={{ left: gx, width: 1 / zoom, height: doc.height }} />
-                ))}
-                {guides.y.map((gy, i) => (
-                  <div key={`gy${i}`} className="pointer-events-none absolute left-0 bg-fuchsia-400" style={{ top: gy, height: 1 / zoom, width: doc.width }} />
-                ))}
+          {/* Espace de travail */}
+          <div
+            ref={scrollRef}
+            className="relative min-h-0 flex-1 overflow-auto bg-[#0a0a10] [background-image:radial-gradient(circle,rgba(255,255,255,0.05)_1px,transparent_1px)] [background-size:22px_22px]"
+            style={{ cursor: spaceDown ? "grab" : undefined }}
+            onPointerDown={onWorkspaceDown}
+            onDragOver={(e) => e.preventDefault()}
+            onDrop={(e) => {
+              e.preventDefault();
+              const files = Array.from(e.dataTransfer?.files ?? []).filter((f) => f.type.startsWith("image/"));
+              const p = toCanvas(e.clientX, e.clientY);
+              files.forEach((f, i) => onPickImage(f, { x: p.x + i * 30, y: p.y + i * 30 }));
+            }}
+            onContextMenu={(e) => { e.preventDefault(); setCtxMenu({ x: e.clientX, y: e.clientY, onCanvas: true }); }}
+          >
+            <div className="grid min-h-full w-max min-w-full place-items-center p-12">
+              <div className="relative" style={{ width: doc.width * zoom, height: doc.height * zoom }}>
+                <div
+                  ref={innerRef}
+                  className="absolute left-0 top-0 origin-top-left shadow-2xl shadow-black/60 ring-1 ring-black/40"
+                  style={{
+                    width: doc.width, height: doc.height, transform: `scale(${zoom})`,
+                    background: transparentBg
+                      ? "repeating-conic-gradient(#e5e7eb 0% 25%, #ffffff 0% 50%) 50% / 24px 24px"
+                      : doc.backgroundGradient
+                        ? undefined
+                        : doc.background,
+                    backgroundImage: doc.backgroundGradient
+                      ? doc.backgroundGradient.type === "linear"
+                        ? `linear-gradient(${doc.backgroundGradient.angle}deg, ${doc.backgroundGradient.from}, ${doc.backgroundGradient.to})`
+                        : `radial-gradient(circle, ${doc.backgroundGradient.from}, ${doc.backgroundGradient.to})`
+                      : undefined,
+                  }}
+                >
+                  {doc.layers.map((l) => (
+                    <InteractiveLayer
+                      key={l.id}
+                      layer={l}
+                      zoom={zoom}
+                      selected={selIds.includes(l.id)}
+                      soloSelected={selIds.length === 1 && selIds[0] === l.id}
+                      editing={editingId === l.id}
+                      canEdit={canEdit}
+                      editRef={editingId === l.id ? editRef : undefined}
+                      onBeginMove={(e) => beginMove(l, e)}
+                      onBeginResize={(h, e) => beginResize(l, h, e)}
+                      onBeginRotate={(e) => beginRotate(l, e)}
+                      onStartEdit={() => startEdit(l)}
+                      onEditInput={(text) => patchLayer(l.id, { text })}
+                      onEditBlur={() => { setEditingId(null); liveBaseRef.current = null; /* point déjà posé par startEdit */ }}
+                      onContext={(e) => {
+                        e.preventDefault(); e.stopPropagation();
+                        if (!selRef.current.includes(l.id)) setSelIds([l.id]);
+                        setCtxMenu({ x: e.clientX, y: e.clientY, onCanvas: false });
+                      }}
+                    />
+                  ))}
+
+                  {/* Repères d'aimantation */}
+                  {guides.x.map((gx, i) => (
+                    <div key={`gx${i}`} className="pointer-events-none absolute top-0 bg-fuchsia-400" style={{ left: gx, width: Math.max(1, 1 / zoom), height: doc.height }} />
+                  ))}
+                  {guides.y.map((gy, i) => (
+                    <div key={`gy${i}`} className="pointer-events-none absolute left-0 bg-fuchsia-400" style={{ top: gy, height: Math.max(1, 1 / zoom), width: doc.width }} />
+                  ))}
+
+                  {/* Lasso */}
+                  {marquee && (
+                    <div className="pointer-events-none absolute border border-purple-400/70 bg-purple-400/10"
+                      style={{ left: marquee.x, top: marquee.y, width: marquee.w, height: marquee.h, borderWidth: Math.max(1, 1 / zoom) }} />
+                  )}
+                </div>
               </div>
             </div>
-          </div>
 
-          {!canEdit && (
-            <div className="pointer-events-none absolute left-1/2 top-3 -translate-x-1/2 rounded-full border border-white/10 bg-black/60 px-3 py-1 text-xs text-muted backdrop-blur">
-              <Lock className="mr-1 inline size-3" /> Lecture seule
+            {/* Badge dimensions / angle */}
+            {badge && (
+              <div className="pointer-events-none absolute bottom-16 left-1/2 -translate-x-1/2 rounded-full border border-white/10 bg-black/75 px-3 py-1 text-xs font-medium tabular-nums text-white backdrop-blur">
+                {badge}
+              </div>
+            )}
+
+            {/* Lecture seule */}
+            {!canEdit && (
+              <div className="pointer-events-none absolute left-1/2 top-3 -translate-x-1/2 rounded-full border border-white/10 bg-black/60 px-3 py-1 text-xs text-muted backdrop-blur">
+                <Lock className="mr-1 inline size-3" /> Lecture seule
+              </div>
+            )}
+
+            {/* Zoom flottant */}
+            <div className="absolute bottom-4 left-1/2 flex -translate-x-1/2 items-center gap-0.5 rounded-full border border-white/10 bg-black/70 px-1.5 py-1 shadow-xl backdrop-blur" onPointerDown={(e) => e.stopPropagation()}>
+              <button onClick={() => setZoom((z) => clampN(z - 0.1, 0.03, 4))} className="grid size-7 place-items-center rounded-full text-muted hover:text-white" title="Zoom arrière (−)"><ZoomOut className="size-3.5" /></button>
+              <span className="w-12 text-center text-[11px] font-medium tabular-nums text-white/85">{zoomPct}%</span>
+              <button onClick={() => setZoom((z) => clampN(z + 0.1, 0.03, 4))} className="grid size-7 place-items-center rounded-full text-muted hover:text-white" title="Zoom avant (+)"><ZoomIn className="size-3.5" /></button>
+              <div className="mx-0.5 h-4 w-px bg-white/15" />
+              <button onClick={fit} className="grid size-7 place-items-center rounded-full text-muted hover:text-white" title="Ajuster (0)"><Maximize2 className="size-3.5" /></button>
+              <button onClick={() => setZoom(1)} className="rounded-full px-1.5 text-[11px] font-medium text-muted hover:text-white" title="Taille réelle (1)">1:1</button>
             </div>
-          )}
+          </div>
         </div>
 
-        {/* Panneau droit */}
-        <div className="flex w-72 shrink-0 flex-col border-l border-white/10 bg-white/[0.02]">
-          <div className="flex shrink-0 border-b border-white/10 text-sm">
-            <button onClick={() => setTab("props")} className={`flex flex-1 items-center justify-center gap-1.5 py-2.5 font-medium transition ${tab === "props" ? "text-white border-b-2 border-purple-400" : "text-muted hover:text-white"}`}>
-              <SlidersHorizontal className="size-3.5" /> Propriétés
-            </button>
-            <button onClick={() => setTab("layers")} className={`flex flex-1 items-center justify-center gap-1.5 py-2.5 font-medium transition ${tab === "layers" ? "text-white border-b-2 border-purple-400" : "text-muted hover:text-white"}`}>
-              <LayersIcon className="size-3.5" /> Calques
-            </button>
-          </div>
-          <div className="min-h-0 flex-1 overflow-y-auto">
-            {tab === "props"
-              ? <PropsPanel doc={doc} sel={sel} canEdit={canEdit} onPatch={commitPatch} onPatchLive={patchLayer} onAlign={alignSel} onDocPatch={(p) => commit((d) => ({ ...d, ...p }))} onReplaceImage={(f) => sel && replaceImage(sel.id, f)} uploading={uploading} />
-              : <LayersPanel layers={doc.layers} selId={selId} canEdit={canEdit} onSelect={(lid) => { setSelId(lid); }} onToggle={(lid, k, v) => commitPatch(lid, k === "visible" ? { visible: v } : { locked: v })} onDelete={removeLayer} onDup={duplicateLayer} onMove={moveLayerOrder} onRename={(lid, n) => patchLayer(lid, { name: n })} />}
-          </div>
-        </div>
+        <RightPanel ctl={ctl} tab={rightTab} setTab={setRightTab} />
       </div>
 
-      {sizeOpen && (
-        <SizeModal doc={doc} onClose={() => setSizeOpen(false)} onApply={(w, h, bg) => { commit((d) => ({ ...d, width: w, height: h, background: bg })); setSizeOpen(false); }} />
-      )}
-      {exportOpen && (
-        <ExportModal onClose={() => setExportOpen(false)} onExport={doExport} doc={doc} />
-      )}
+      {/* ── Modales & menu contextuel ── */}
+      {sizeOpen && <SizeModal doc={doc} onClose={() => setSizeOpen(false)} onApply={(w, h) => { commitDoc({ width: w, height: h }); setSizeOpen(false); }} />}
+      {exportOpen && <ExportModal doc={doc} onClose={() => setExportOpen(false)} onExport={doExport} onCopy={doCopy} />}
+      {shortcutsOpen && <ShortcutsModal onClose={() => setShortcutsOpen(false)} />}
+      {ctxMenu && <ContextMenu x={ctxMenu.x} y={ctxMenu.y} items={ctxItems} onClose={() => setCtxMenu(null)} />}
     </div>
   );
 }
 
-/* ═══════════════════════ Rail button ═══════════════════════ */
-function RailBtn({ icon: Icon, label, onClick, disabled, spin }: { icon: typeof Type; label: string; onClick: () => void; disabled?: boolean; spin?: boolean }) {
-  return (
-    <button onClick={onClick} disabled={disabled} title={label}
-      className="group relative grid size-10 place-items-center rounded-xl text-muted transition hover:bg-white/10 hover:text-white disabled:opacity-40">
-      <Icon className={`size-[18px] ${spin ? "animate-spin" : ""}`} />
-      <span className="pointer-events-none absolute left-full ml-2 hidden whitespace-nowrap rounded-md bg-black/80 px-2 py-1 text-[11px] text-white group-hover:block z-20">{label}</span>
-    </button>
-  );
-}
+/* ═══════════════ Calque interactif (visuel partagé + poignées) ═══════════════ */
 
-/* ═══════════════════════ Un calque + poignées ═══════════════════════ */
-function LayerView({
-  layer: l, zoom, selected, editing, canEdit, editRef,
-  onSelect, onBeginMove, onBeginResize, onBeginRotate, onStartEdit, onEditInput, onEditBlur,
+function InteractiveLayer({
+  layer: l, zoom, selected, soloSelected, editing, canEdit, editRef,
+  onBeginMove, onBeginResize, onBeginRotate, onStartEdit, onEditInput, onEditBlur, onContext,
 }: {
-  layer: Layer; zoom: number; selected: boolean; editing: boolean; canEdit: boolean;
+  layer: Layer; zoom: number; selected: boolean; soloSelected: boolean; editing: boolean; canEdit: boolean;
   editRef?: React.RefObject<HTMLDivElement | null>;
-  onSelect: () => void;
   onBeginMove: (e: React.PointerEvent) => void;
   onBeginResize: (handle: string, e: React.PointerEvent) => void;
   onBeginRotate: (e: React.PointerEvent) => void;
   onStartEdit: () => void;
   onEditInput: (text: string) => void;
   onEditBlur: () => void;
+  onContext: (e: React.MouseEvent) => void;
 }) {
-  const hz = 1 / zoom; // taille écran constante des poignées
-  const common: React.CSSProperties = {
-    position: "absolute", left: l.x, top: l.y, width: l.w, height: l.h,
-    transform: `rotate(${l.rotation}deg)`, transformOrigin: "center",
-    opacity: l.opacity, mixBlendMode: l.blend as React.CSSProperties["mixBlendMode"],
-    visibility: l.visible ? "visible" : "hidden",
+  const hz = 1 / zoom;
+  const style: React.CSSProperties = {
+    ...layerBoxStyle(l),
     pointerEvents: l.locked ? "none" : "auto",
     cursor: canEdit && !l.locked ? "move" : "default",
   };
 
-  let content: React.ReactNode = null;
-  if (l.type === "rect") content = <div style={{ width: "100%", height: "100%", background: l.fill, borderRadius: l.radius, border: l.strokeWidth ? `${l.strokeWidth}px solid ${l.stroke}` : undefined, boxSizing: "border-box" }} />;
-  else if (l.type === "ellipse") content = <div style={{ width: "100%", height: "100%", background: l.fill, borderRadius: "50%", border: l.strokeWidth ? `${l.strokeWidth}px solid ${l.stroke}` : undefined, boxSizing: "border-box" }} />;
-  else if (l.type === "triangle") content = <div style={{ width: "100%", height: "100%", background: l.fill, clipPath: "polygon(50% 0, 100% 100%, 0 100%)" }} />;
-  else if (l.type === "line") content = <div style={{ position: "absolute", top: "50%", left: 0, width: "100%", height: l.strokeWidth, background: l.stroke, borderRadius: 999, transform: "translateY(-50%)" }} />;
-  else if (l.type === "image") content = l.src
-    ? <img src={l.src} alt="" draggable={false} style={{ width: "100%", height: "100%", objectFit: "cover", borderRadius: l.radius, filter: filterCss(l.filters), display: "block" }} />
-    : <div style={{ width: "100%", height: "100%", background: "rgba(148,163,184,0.15)", display: "grid", placeItems: "center", color: "#94a3b8", fontSize: 14 }}>Image</div>;
-  else if (l.type === "text") {
-    const ts: React.CSSProperties = {
-      width: "100%", height: "100%", color: l.color, fontFamily: l.fontFamily,
-      fontSize: l.fontSize, fontWeight: l.fontWeight, fontStyle: l.italic ? "italic" : "normal",
-      textDecoration: l.underline ? "underline" : "none", textAlign: l.align,
-      lineHeight: l.lineHeight, letterSpacing: l.letterSpacing, whiteSpace: "pre-wrap",
-      wordBreak: "break-word", overflow: "hidden", outline: "none",
-    };
-    content = editing
-      ? <div ref={editRef} contentEditable suppressContentEditableWarning style={{ ...ts, cursor: "text" }}
-          onInput={(e) => onEditInput((e.currentTarget as HTMLDivElement).innerText)}
-          onBlur={onEditBlur} onPointerDown={(e) => e.stopPropagation()} />
-      : <div style={ts}>{l.text || " "}</div>;
-  }
+  const content = editing && l.type === "text" ? (
+    <div
+      ref={editRef}
+      contentEditable
+      suppressContentEditableWarning
+      style={{ ...textStyle(l), cursor: "text" }}
+      onInput={(e) => onEditInput((e.currentTarget as HTMLDivElement).innerText)}
+      onBlur={onEditBlur}
+      onPointerDown={(e) => e.stopPropagation()}
+    />
+  ) : (
+    <LayerVisual layer={l} />
+  );
 
   return (
     <div
-      style={common}
-      onPointerDown={(e) => { if (editing) return; onSelect(); onBeginMove(e); }}
+      style={style}
+      onPointerDown={(e) => { if (!editing) onBeginMove(e); }}
       onDoubleClick={(e) => { if (l.type === "text") { e.stopPropagation(); onStartEdit(); } }}
+      onContextMenu={onContext}
     >
       {content}
 
       {selected && canEdit && !editing && (
         <>
-          <div className="pointer-events-none absolute inset-0" style={{ outline: `${1.5 * hz}px solid ${ACCENT}`, outlineOffset: 0 }} />
-          {/* poignée de rotation */}
-          <div
-            onPointerDown={(e) => onBeginRotate(e)}
-            className="absolute rounded-full bg-white ring-2"
-            style={{ left: "50%", top: -22 * hz, width: 12 * hz, height: 12 * hz, transform: "translate(-50%,-50%)", cursor: "grab", boxShadow: `0 0 0 ${2 * hz}px ${ACCENT}` }}
-          />
-          <div className="pointer-events-none absolute bg-fuchsia-400" style={{ left: "50%", top: -22 * hz, width: 1.5 * hz, height: 22 * hz, transform: "translateX(-50%)" }} />
-          {/* poignées de redimensionnement */}
-          {Object.keys({ nw: 0, n: 0, ne: 0, e: 0, se: 0, s: 0, sw: 0, w: 0 }).map((h) => {
-            const pos: Record<string, [string, string, string]> = {
-              nw: ["0", "0", "nwse-resize"], n: ["50%", "0", "ns-resize"], ne: ["100%", "0", "nesw-resize"],
-              e: ["100%", "50%", "ew-resize"], se: ["100%", "100%", "nwse-resize"], s: ["50%", "100%", "ns-resize"],
-              sw: ["0", "100%", "nesw-resize"], w: ["0", "50%", "ew-resize"],
-            };
-            const [lft, tp, cur] = pos[h];
-            return (
-              <div key={h}
-                onPointerDown={(e) => onBeginResize(h, e)}
-                className="absolute rounded-sm bg-white"
-                style={{ left: lft, top: tp, width: 10 * hz, height: 10 * hz, transform: "translate(-50%,-50%)", cursor: cur, boxShadow: `0 0 0 ${1.5 * hz}px ${ACCENT}` }}
+          <div className="pointer-events-none absolute inset-0" style={{ outline: `${1.6 * hz}px solid ${ACCENT}` }} />
+          {soloSelected && (
+            <>
+              {/* Poignée de rotation */}
+              <div
+                onPointerDown={onBeginRotate}
+                className="absolute rounded-full bg-white"
+                style={{ left: "50%", top: -24 * hz, width: 13 * hz, height: 13 * hz, transform: "translate(-50%,-50%)", cursor: "grab", boxShadow: `0 0 0 ${2 * hz}px ${ACCENT}` }}
               />
-            );
-          })}
+              <div className="pointer-events-none absolute bg-fuchsia-400" style={{ left: "50%", top: -24 * hz, width: Math.max(1, 1.5 * hz), height: 24 * hz, transform: "translateX(-50%)" }} />
+              {/* Poignées de redimensionnement */}
+              {(["nw", "n", "ne", "e", "se", "s", "sw", "w"] as const).map((h) => {
+                const pos: Record<string, [string, string, string]> = {
+                  nw: ["0%", "0%", "nwse-resize"], n: ["50%", "0%", "ns-resize"], ne: ["100%", "0%", "nesw-resize"],
+                  e: ["100%", "50%", "ew-resize"], se: ["100%", "100%", "nwse-resize"], s: ["50%", "100%", "ns-resize"],
+                  sw: ["0%", "100%", "nesw-resize"], w: ["0%", "50%", "ew-resize"],
+                };
+                const [lft, tp, cur] = pos[h];
+                const corner = h.length === 2;
+                return (
+                  <div
+                    key={h}
+                    onPointerDown={(e) => onBeginResize(h, e)}
+                    className={`absolute bg-white ${corner ? "rounded-[3px]" : "rounded-full"}`}
+                    style={{
+                      left: lft, top: tp,
+                      width: (corner ? 11 : 9) * hz, height: (corner ? 11 : 9) * hz,
+                      transform: "translate(-50%,-50%)", cursor: cur,
+                      boxShadow: `0 0 0 ${1.6 * hz}px ${ACCENT}`,
+                    }}
+                  />
+                );
+              })}
+            </>
+          )}
         </>
       )}
-    </div>
-  );
-}
-
-/* ═══════════════════════ Panneau Calques ═══════════════════════ */
-function LayersPanel({ layers, selId, canEdit, onSelect, onToggle, onDelete, onDup, onMove, onRename }: {
-  layers: Layer[]; selId: string | null; canEdit: boolean;
-  onSelect: (id: string) => void;
-  onToggle: (id: string, key: "visible" | "locked", v: boolean) => void;
-  onDelete: (id: string) => void; onDup: (id: string) => void;
-  onMove: (id: string, dir: -1 | 1) => void;
-  onRename: (id: string, name: string) => void;
-}) {
-  const kindLabel = (l: Layer) => l.type === "text" ? (l as TextLayer).text.slice(0, 20) || "Texte" : l.name;
-  if (!layers.length) {
-    return (
-      <div className="grid h-full place-items-center px-6 text-center">
-        <div className="text-muted">
-          <Sparkles className="mx-auto mb-3 size-7 text-purple-300/70" />
-          <p className="text-sm font-medium text-white/80">Toile vide</p>
-          <p className="mt-1 text-xs">Ajoutez du texte, des formes ou une image depuis la barre d'outils à gauche.</p>
-        </div>
-      </div>
-    );
-  }
-  // Affichage haut → bas = premier plan → arrière-plan (donc index inversé).
-  const ordered = [...layers].reverse();
-  return (
-    <div className="p-2">
-      {ordered.map((l) => {
-        const isTop = layers[layers.length - 1].id === l.id;
-        const isBottom = layers[0].id === l.id;
-        return (
-          <div key={l.id}
-            onPointerDown={() => onSelect(l.id)}
-            className={`group mb-1 flex items-center gap-2 rounded-lg border px-2 py-1.5 transition ${selId === l.id ? "border-purple-400/50 bg-purple-500/10" : "border-transparent hover:bg-white/5"}`}>
-            <button onClick={(e) => { e.stopPropagation(); onToggle(l.id, "visible", !l.visible); }} disabled={!canEdit} className="grid size-6 shrink-0 place-items-center rounded text-muted hover:text-white disabled:opacity-40" title={l.visible ? "Masquer" : "Afficher"}>
-              {l.visible ? <Eye className="size-3.5" /> : <EyeOff className="size-3.5" />}
-            </button>
-            <span className="grid size-6 shrink-0 place-items-center rounded bg-white/5 text-[10px] text-muted">{iconFor(l.type)}</span>
-            <input
-              defaultValue={kindLabel(l)}
-              onPointerDown={(e) => e.stopPropagation()}
-              onBlur={(e) => onRename(l.id, e.target.value || l.name)}
-              disabled={!canEdit}
-              className="min-w-0 flex-1 truncate bg-transparent text-xs text-white/85 outline-none focus:text-white"
-            />
-            <div className="flex shrink-0 items-center gap-0.5 opacity-0 transition group-hover:opacity-100">
-              <button onClick={(e) => { e.stopPropagation(); onMove(l.id, 1); }} disabled={!canEdit || isTop} className="grid size-5 place-items-center rounded text-muted hover:text-white disabled:opacity-20" title="Avancer"><ChevronUp className="size-3.5" /></button>
-              <button onClick={(e) => { e.stopPropagation(); onMove(l.id, -1); }} disabled={!canEdit || isBottom} className="grid size-5 place-items-center rounded text-muted hover:text-white disabled:opacity-20" title="Reculer"><ChevronDown className="size-3.5" /></button>
-              <button onClick={(e) => { e.stopPropagation(); onToggle(l.id, "locked", !l.locked); }} disabled={!canEdit} className="grid size-5 place-items-center rounded text-muted hover:text-white disabled:opacity-40" title={l.locked ? "Déverrouiller" : "Verrouiller"}>{l.locked ? <Lock className="size-3.5" /> : <Unlock className="size-3.5" />}</button>
-              <button onClick={(e) => { e.stopPropagation(); onDup(l.id); }} disabled={!canEdit} className="grid size-5 place-items-center rounded text-muted hover:text-white disabled:opacity-40" title="Dupliquer"><Copy className="size-3.5" /></button>
-              <button onClick={(e) => { e.stopPropagation(); onDelete(l.id); }} disabled={!canEdit} className="grid size-5 place-items-center rounded text-muted hover:text-red-400 disabled:opacity-40" title="Supprimer"><Trash2 className="size-3.5" /></button>
-            </div>
-          </div>
-        );
-      })}
-    </div>
-  );
-}
-function iconFor(t: Layer["type"]): string {
-  return t === "text" ? "T" : t === "image" ? "◧" : t === "ellipse" ? "○" : t === "triangle" ? "△" : t === "line" ? "─" : "▢";
-}
-
-/* ═══════════════════════ Panneau Propriétés ═══════════════════════ */
-function PropsPanel({ doc, sel, canEdit, onPatch, onPatchLive, onAlign, onDocPatch, onReplaceImage, uploading }: {
-  doc: DesignDoc; sel: Layer | null; canEdit: boolean;
-  onPatch: (id: string, patch: LayerPatch) => void;
-  onPatchLive: (id: string, patch: LayerPatch) => void;
-  onAlign: (edge: "l" | "c" | "r" | "t" | "m" | "b") => void;
-  onDocPatch: (p: Partial<DesignDoc>) => void;
-  onReplaceImage: (f: File) => void;
-  uploading: boolean;
-}) {
-  const replaceRef = useRef<HTMLInputElement | null>(null);
-  if (!sel) {
-    return (
-      <div className="space-y-4 p-4">
-        <Section title="Fond de la toile">
-          <ColorField label="Couleur" value={doc.background === "transparent" ? "#ffffff" : doc.background} allowTransparent isTransparent={doc.background === "transparent"} onChange={(v) => onDocPatch({ background: v })} disabled={!canEdit} />
-        </Section>
-        <p className="px-1 text-xs text-muted">Sélectionnez un élément pour modifier ses propriétés, ou ajoutez-en un depuis la barre d'outils.</p>
-      </div>
-    );
-  }
-  const patch = (p: LayerPatch) => onPatch(sel.id, p);
-  const live = (p: LayerPatch) => onPatchLive(sel.id, p);
-
-  return (
-    <div className="space-y-4 p-4">
-      {/* Position & taille */}
-      <Section title="Disposition">
-        <div className="grid grid-cols-2 gap-2">
-          <NumField label="X" value={Math.round(sel.x)} onChange={(v) => patch({ x: v })} disabled={!canEdit} />
-          <NumField label="Y" value={Math.round(sel.y)} onChange={(v) => patch({ y: v })} disabled={!canEdit} />
-          <NumField label="L" value={Math.round(sel.w)} onChange={(v) => patch({ w: Math.max(MIN_SIZE, v) })} disabled={!canEdit} />
-          <NumField label="H" value={Math.round(sel.h)} onChange={(v) => patch({ h: Math.max(MIN_SIZE, v) })} disabled={!canEdit} />
-          <NumField label="Rotation°" value={Math.round(sel.rotation)} onChange={(v) => patch({ rotation: v })} disabled={!canEdit} />
-        </div>
-        <div className="mt-2 flex flex-wrap gap-1">
-          {([["l", AlignStartVertical], ["c", AlignCenterVertical], ["r", AlignEndVertical], ["t", AlignStartHorizontal], ["m", AlignCenterHorizontal], ["b", AlignEndHorizontal]] as const).map(([e, Ic]) => (
-            <button key={e} onClick={() => onAlign(e)} disabled={!canEdit} className="grid size-8 place-items-center rounded-lg border border-white/10 text-muted hover:bg-white/5 hover:text-white disabled:opacity-40" title="Aligner">
-              <Ic className="size-4" />
-            </button>
-          ))}
-        </div>
-      </Section>
-
-      {/* Spécifique au type */}
-      {sel.type === "text" && <TextProps l={sel} patch={patch} live={live} disabled={!canEdit} />}
-      {(sel.type === "rect" || sel.type === "ellipse") && (
-        <Section title="Apparence">
-          <ColorField label="Remplissage" value={sel.fill} allowTransparent isTransparent={sel.fill === "transparent"} onChange={(v) => patch({ fill: v })} disabled={!canEdit} />
-          <ColorField label="Contour" value={sel.stroke} onChange={(v) => patch({ stroke: v })} disabled={!canEdit} />
-          <RangeField label="Épaisseur contour" value={sel.strokeWidth} min={0} max={80} onChange={(v) => live({ strokeWidth: v })} onCommit={(v) => patch({ strokeWidth: v })} disabled={!canEdit} />
-          {sel.type === "rect" && <RangeField label="Arrondi" value={sel.radius} min={0} max={Math.round(Math.min(sel.w, sel.h) / 2)} onChange={(v) => live({ radius: v })} onCommit={(v) => patch({ radius: v })} disabled={!canEdit} />}
-        </Section>
-      )}
-      {sel.type === "triangle" && (
-        <Section title="Apparence"><ColorField label="Remplissage" value={sel.fill} onChange={(v) => patch({ fill: v })} disabled={!canEdit} /></Section>
-      )}
-      {sel.type === "line" && (
-        <Section title="Apparence">
-          <ColorField label="Couleur" value={sel.stroke} onChange={(v) => patch({ stroke: v })} disabled={!canEdit} />
-          <RangeField label="Épaisseur" value={sel.strokeWidth} min={1} max={80} onChange={(v) => live({ strokeWidth: v })} onCommit={(v) => patch({ strokeWidth: v })} disabled={!canEdit} />
-        </Section>
-      )}
-      {sel.type === "image" && (
-        <>
-          <Section title="Image">
-            <button onClick={() => replaceRef.current?.click()} disabled={!canEdit || uploading} className="flex w-full items-center justify-center gap-2 rounded-lg border border-white/10 py-2 text-xs font-medium text-muted hover:bg-white/5 hover:text-white disabled:opacity-40">
-              {uploading ? <Loader2 className="size-3.5 animate-spin" /> : <ImageIcon className="size-3.5" />} Remplacer l'image
-            </button>
-            <input ref={replaceRef} type="file" accept="image/*" hidden onChange={(e) => { const f = e.target.files?.[0]; if (f) onReplaceImage(f); e.target.value = ""; }} />
-            <RangeField label="Arrondi des coins" value={sel.radius} min={0} max={Math.round(Math.min(sel.w, sel.h) / 2)} onChange={(v) => live({ radius: v })} onCommit={(v) => patch({ radius: v })} disabled={!canEdit} />
-          </Section>
-          <ImageFilters l={sel} live={live} commit={patch} disabled={!canEdit} />
-        </>
-      )}
-
-      {/* Commun : opacité + fusion */}
-      <Section title="Fusion">
-        <RangeField label="Opacité" value={Math.round(sel.opacity * 100)} min={0} max={100} onChange={(v) => live({ opacity: v / 100 })} onCommit={(v) => patch({ opacity: v / 100 })} disabled={!canEdit} />
-        <SelectField label="Mode de fusion" value={sel.blend} options={BLEND_MODES.map((b) => ({ value: b.id, label: b.label }))} onChange={(v) => patch({ blend: v as Layer["blend"] })} disabled={!canEdit} />
-      </Section>
-    </div>
-  );
-}
-
-function TextProps({ l, patch, live, disabled }: { l: TextLayer; patch: (p: LayerPatch) => void; live: (p: LayerPatch) => void; disabled: boolean }) {
-  return (
-    <Section title="Texte">
-      <textarea value={l.text} onChange={(e) => live({ text: e.target.value })} onBlur={(e) => patch({ text: e.target.value })} disabled={disabled}
-        rows={2} className="w-full resize-none rounded-lg border border-white/10 bg-white/5 px-2.5 py-2 text-sm text-white outline-none focus:border-purple-400/50" placeholder="Votre texte…" />
-      <SelectField label="Police" value={l.fontFamily} options={FONTS.map((f) => ({ value: f.css, label: f.label }))} onChange={(v) => patch({ fontFamily: v })} disabled={disabled} />
-      <div className="grid grid-cols-2 gap-2">
-        <NumField label="Taille" value={l.fontSize} onChange={(v) => patch({ fontSize: Math.max(4, v) })} disabled={disabled} />
-        <SelectField label="Graisse" value={String(l.fontWeight)} options={[["300", "Fin"], ["400", "Normal"], ["500", "Moyen"], ["600", "Semi"], ["700", "Gras"], ["800", "Extra"], ["900", "Noir"]].map(([v, t]) => ({ value: v, label: t }))} onChange={(v) => patch({ fontWeight: Number(v) })} disabled={disabled} />
-      </div>
-      <ColorField label="Couleur" value={l.color} onChange={(v) => patch({ color: v })} disabled={disabled} />
-      <div className="flex items-center gap-1">
-        <ToggleBtn active={l.italic} onClick={() => patch({ italic: !l.italic })} disabled={disabled}><Italic className="size-4" /></ToggleBtn>
-        <ToggleBtn active={l.underline} onClick={() => patch({ underline: !l.underline })} disabled={disabled}><Underline className="size-4" /></ToggleBtn>
-        <ToggleBtn active={l.fontWeight >= 700} onClick={() => patch({ fontWeight: l.fontWeight >= 700 ? 400 : 700 })} disabled={disabled}><Bold className="size-4" /></ToggleBtn>
-        <div className="mx-1 h-5 w-px bg-white/10" />
-        {([["left", AlignLeft], ["center", AlignCenter], ["right", AlignRight]] as const).map(([a, Ic]) => (
-          <ToggleBtn key={a} active={l.align === a} onClick={() => patch({ align: a })} disabled={disabled}><Ic className="size-4" /></ToggleBtn>
-        ))}
-      </div>
-      <RangeField label="Interligne" value={Math.round(l.lineHeight * 100)} min={70} max={250} onChange={(v) => live({ lineHeight: v / 100 })} onCommit={(v) => patch({ lineHeight: v / 100 })} disabled={disabled} />
-      <RangeField label="Espacement" value={l.letterSpacing} min={-5} max={30} onChange={(v) => live({ letterSpacing: v })} onCommit={(v) => patch({ letterSpacing: v })} disabled={disabled} />
-    </Section>
-  );
-}
-
-function ImageFilters({ l, live, commit, disabled }: { l: ImageLayer; live: (p: LayerPatch) => void; commit: (p: LayerPatch) => void; disabled: boolean }) {
-  const set = (k: keyof Filters, v: number, done: boolean) => {
-    const f = { ...l.filters, [k]: v } as Filters;
-    if (done) commit({ filters: f }); else live({ filters: f });
-  };
-  const F = l.filters;
-  return (
-    <Section title="Filtres">
-      <RangeField label="Luminosité" value={F.brightness} min={0} max={200} onChange={(v) => set("brightness", v, false)} onCommit={(v) => set("brightness", v, true)} disabled={disabled} />
-      <RangeField label="Contraste" value={F.contrast} min={0} max={200} onChange={(v) => set("contrast", v, false)} onCommit={(v) => set("contrast", v, true)} disabled={disabled} />
-      <RangeField label="Saturation" value={F.saturate} min={0} max={200} onChange={(v) => set("saturate", v, false)} onCommit={(v) => set("saturate", v, true)} disabled={disabled} />
-      <RangeField label="Flou" value={F.blur} min={0} max={30} onChange={(v) => set("blur", v, false)} onCommit={(v) => set("blur", v, true)} disabled={disabled} />
-      <RangeField label="Niveaux de gris" value={F.grayscale} min={0} max={100} onChange={(v) => set("grayscale", v, false)} onCommit={(v) => set("grayscale", v, true)} disabled={disabled} />
-      <RangeField label="Sépia" value={F.sepia} min={0} max={100} onChange={(v) => set("sepia", v, false)} onCommit={(v) => set("sepia", v, true)} disabled={disabled} />
-      <RangeField label="Teinte°" value={F.hueRotate} min={0} max={360} onChange={(v) => set("hueRotate", v, false)} onCommit={(v) => set("hueRotate", v, true)} disabled={disabled} />
-      <button onClick={() => commit({ filters: { ...NEUTRAL_FILTERS } })} disabled={disabled} className="mt-1 w-full rounded-lg border border-white/10 py-1.5 text-xs text-muted hover:bg-white/5 hover:text-white disabled:opacity-40">Réinitialiser les filtres</button>
-    </Section>
-  );
-}
-
-/* ═══════════════════════ Petits contrôles ═══════════════════════ */
-function Section({ title, children }: { title: string; children: React.ReactNode }) {
-  return (
-    <div>
-      <h3 className="mb-2 text-[11px] font-semibold uppercase tracking-wide text-muted">{title}</h3>
-      <div className="space-y-2.5">{children}</div>
-    </div>
-  );
-}
-function NumField({ label, value, onChange, disabled }: { label: string; value: number; onChange: (v: number) => void; disabled?: boolean }) {
-  return (
-    <label className="flex items-center gap-1.5 rounded-lg border border-white/10 bg-white/5 px-2 py-1.5">
-      <span className="text-[11px] text-muted">{label}</span>
-      <input type="number" value={value} disabled={disabled} onChange={(e) => onChange(Math.round(Number(e.target.value) || 0))}
-        className="min-w-0 flex-1 bg-transparent text-right text-xs tabular-nums text-white outline-none disabled:opacity-60" />
-    </label>
-  );
-}
-function RangeField({ label, value, min, max, onChange, onCommit, disabled }: { label: string; value: number; min: number; max: number; onChange: (v: number) => void; onCommit?: (v: number) => void; disabled?: boolean }) {
-  return (
-    <label className="block">
-      <div className="mb-1 flex items-center justify-between text-[11px] text-muted"><span>{label}</span><span className="tabular-nums text-white/70">{value}</span></div>
-      <input type="range" min={min} max={max} value={value} disabled={disabled}
-        onChange={(e) => onChange(Number(e.target.value))}
-        onPointerUp={(e) => onCommit?.(Number((e.target as HTMLInputElement).value))}
-        onKeyUp={(e) => onCommit?.(Number((e.target as HTMLInputElement).value))}
-        className="w-full accent-purple-500 disabled:opacity-40" style={{ height: 4 }} />
-    </label>
-  );
-}
-function SelectField({ label, value, options, onChange, disabled }: { label: string; value: string; options: { value: string; label: string }[]; onChange: (v: string) => void; disabled?: boolean }) {
-  return (
-    <label className="block">
-      <span className="mb-1 block text-[11px] text-muted">{label}</span>
-      <select value={value} disabled={disabled} onChange={(e) => onChange(e.target.value)}
-        className="w-full rounded-lg border border-white/10 bg-[#15151d] px-2 py-1.5 text-xs text-white outline-none focus:border-purple-400/50 disabled:opacity-60">
-        {options.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
-      </select>
-    </label>
-  );
-}
-function ToggleBtn({ active, onClick, disabled, children }: { active: boolean; onClick: () => void; disabled?: boolean; children: React.ReactNode }) {
-  return (
-    <button onClick={onClick} disabled={disabled} className={`grid size-8 place-items-center rounded-lg border transition disabled:opacity-40 ${active ? "border-purple-400/50 bg-purple-500/15 text-white" : "border-white/10 text-muted hover:bg-white/5 hover:text-white"}`}>{children}</button>
-  );
-}
-
-/* ── Sélecteur de couleur (popover intégré) ── */
-function ColorField({ label, value, onChange, disabled, allowTransparent, isTransparent }: {
-  label: string; value: string; onChange: (v: string) => void; disabled?: boolean; allowTransparent?: boolean; isTransparent?: boolean;
-}) {
-  const [open, setOpen] = useState(false);
-  const ref = useRef<HTMLDivElement | null>(null);
-  useEffect(() => {
-    if (!open) return;
-    const onDoc = (e: MouseEvent) => { if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false); };
-    document.addEventListener("mousedown", onDoc);
-    return () => document.removeEventListener("mousedown", onDoc);
-  }, [open]);
-  const hex = normHex(value);
-  const [h, s, v] = hexToHsv(hex);
-  const svRef = useRef<HTMLDivElement | null>(null);
-
-  const pickSV = (e: React.PointerEvent) => {
-    const el = svRef.current; if (!el) return;
-    (e.target as HTMLElement).setPointerCapture?.(e.pointerId);
-    const move = (cx: number, cy: number) => {
-      const r = el.getBoundingClientRect();
-      const ns = clampN((cx - r.left) / r.width, 0, 1) * 100;
-      const nv = (1 - clampN((cy - r.top) / r.height, 0, 1)) * 100;
-      onChange(hsvToHex(h, ns, nv));
-    };
-    move(e.clientX, e.clientY);
-    const mv = (ev: PointerEvent) => move(ev.clientX, ev.clientY);
-    const up = () => { window.removeEventListener("pointermove", mv); window.removeEventListener("pointerup", up); };
-    window.addEventListener("pointermove", mv); window.addEventListener("pointerup", up);
-  };
-
-  return (
-    <div className="relative" ref={ref}>
-      <div className="flex items-center gap-2">
-        <span className="flex-1 text-[11px] text-muted">{label}</span>
-        <button type="button" disabled={disabled} onClick={() => setOpen((o) => !o)}
-          className="flex items-center gap-2 rounded-lg border border-white/10 bg-white/5 px-2 py-1 disabled:opacity-40">
-          <span className="size-5 rounded ring-1 ring-black/30" style={{ background: isTransparent ? "repeating-conic-gradient(#cbd5e1 0% 25%, #fff 0% 50%) 50% / 8px 8px" : hex }} />
-          <span className="text-[11px] uppercase tabular-nums text-white/80">{isTransparent ? "Aucun" : hex}</span>
-        </button>
-      </div>
-      {open && !disabled && (
-        <div className="absolute right-0 z-30 mt-2 w-56 rounded-xl border border-white/10 bg-[#15151d] p-3 shadow-2xl shadow-black/60">
-          <div ref={svRef} onPointerDown={pickSV} className="relative mb-2 h-28 w-full cursor-crosshair rounded-lg"
-            style={{ background: `linear-gradient(to top, #000, transparent), linear-gradient(to right, #fff, ${hsvToHex(h, 100, 100)})` }}>
-            <div className="pointer-events-none absolute size-3 -translate-x-1/2 -translate-y-1/2 rounded-full border-2 border-white shadow" style={{ left: `${s}%`, top: `${100 - v}%` }} />
-          </div>
-          <input type="range" min={0} max={360} value={Math.round(h)} onChange={(e) => onChange(hsvToHex(Number(e.target.value), s || 100, v || 100))}
-            className="mb-2 w-full" style={{ height: 10, background: "linear-gradient(to right,#f00,#ff0,#0f0,#0ff,#00f,#f0f,#f00)", borderRadius: 999, appearance: "none" }} />
-          <div className="mb-2 flex items-center gap-2">
-            <input value={hex} onChange={(e) => onChange(normHex(e.target.value))} className="min-w-0 flex-1 rounded-lg border border-white/10 bg-white/5 px-2 py-1 text-center text-xs uppercase text-white outline-none" />
-            {allowTransparent && <button onClick={() => onChange("transparent")} className="rounded-lg border border-white/10 px-2 py-1 text-[11px] text-muted hover:text-white">Aucun</button>}
-          </div>
-          <div className="grid grid-cols-10 gap-1">
-            {PRESETS.map((p) => <button key={p} onClick={() => onChange(p)} className="size-4 rounded ring-1 ring-black/30 hover:scale-110 transition" style={{ background: p }} />)}
-          </div>
-        </div>
-      )}
-    </div>
-  );
-}
-
-/* ═══════════════════════ Modales ═══════════════════════ */
-function SizeModal({ doc, onClose, onApply }: { doc: DesignDoc; onClose: () => void; onApply: (w: number, h: number, bg: string) => void }) {
-  const [w, setW] = useState(doc.width);
-  const [h, setH] = useState(doc.height);
-  const [bg, setBg] = useState(doc.background);
-  const groups = useMemo(() => {
-    const g: Record<string, typeof SIZE_PRESETS> = {};
-    for (const p of SIZE_PRESETS) (g[p.group] ??= []).push(p);
-    return g;
-  }, []);
-  return (
-    <Modal onClose={onClose} title="Format de la toile" icon={LayoutGrid}>
-      <div className="max-h-[50vh] space-y-3 overflow-y-auto pr-1">
-        {Object.entries(groups).map(([group, items]) => (
-          <div key={group}>
-            <p className="mb-1.5 text-[11px] font-semibold uppercase tracking-wide text-muted">{group}</p>
-            <div className="grid grid-cols-2 gap-2">
-              {items.map((p) => (
-                <button key={p.id} onClick={() => { setW(p.w); setH(p.h); }}
-                  className={`rounded-lg border px-3 py-2 text-left text-xs transition ${w === p.w && h === p.h ? "border-purple-400/50 bg-purple-500/10 text-white" : "border-white/10 text-muted hover:bg-white/5 hover:text-white"}`}>
-                  <span className="block font-medium">{p.label}</span>
-                  <span className="tabular-nums opacity-70">{p.w}×{p.h}</span>
-                </button>
-              ))}
-            </div>
-          </div>
-        ))}
-      </div>
-      <div className="mt-4 grid grid-cols-2 gap-2 border-t border-white/10 pt-3">
-        <NumField label="Largeur" value={w} onChange={setW} />
-        <NumField label="Hauteur" value={h} onChange={setH} />
-      </div>
-      <div className="mt-2"><ColorField label="Fond" value={bg === "transparent" ? "#ffffff" : bg} allowTransparent isTransparent={bg === "transparent"} onChange={setBg} /></div>
-      <div className="mt-4 flex justify-end gap-2">
-        <button onClick={onClose} className="rounded-lg border border-white/10 px-3 py-1.5 text-sm text-muted hover:text-white">Annuler</button>
-        <button onClick={() => onApply(clampN(Math.round(w), 16, 8000), clampN(Math.round(h), 16, 8000), bg)} className="rounded-lg bg-gradient-to-r from-[#a855f7] to-[#6366f1] px-4 py-1.5 text-sm font-semibold text-white">Appliquer</button>
-      </div>
-    </Modal>
-  );
-}
-
-function ExportModal({ onClose, onExport, doc }: { onClose: () => void; onExport: (f: "png" | "jpeg", scale: number) => Promise<void>; doc: DesignDoc }) {
-  const [format, setFormat] = useState<"png" | "jpeg">("png");
-  const [scale, setScale] = useState(1);
-  const [busy, setBusy] = useState(false);
-  return (
-    <Modal onClose={onClose} title="Exporter" icon={Download}>
-      <div className="space-y-3">
-        <div>
-          <p className="mb-1.5 text-[11px] font-semibold uppercase tracking-wide text-muted">Format</p>
-          <div className="grid grid-cols-2 gap-2">
-            {(["png", "jpeg"] as const).map((f) => (
-              <button key={f} onClick={() => setFormat(f)} className={`rounded-lg border px-3 py-2 text-sm font-medium transition ${format === f ? "border-purple-400/50 bg-purple-500/10 text-white" : "border-white/10 text-muted hover:bg-white/5"}`}>
-                {f === "png" ? "PNG (transparence)" : "JPG (photo)"}
-              </button>
-            ))}
-          </div>
-        </div>
-        <div>
-          <p className="mb-1.5 text-[11px] font-semibold uppercase tracking-wide text-muted">Résolution</p>
-          <div className="grid grid-cols-3 gap-2">
-            {[1, 2, 3].map((s) => (
-              <button key={s} onClick={() => setScale(s)} className={`rounded-lg border px-2 py-2 text-xs font-medium transition ${scale === s ? "border-purple-400/50 bg-purple-500/10 text-white" : "border-white/10 text-muted hover:bg-white/5"}`}>
-                {s}× <span className="block tabular-nums opacity-60">{doc.width * s}×{doc.height * s}</span>
-              </button>
-            ))}
-          </div>
-        </div>
-      </div>
-      <div className="mt-4 flex justify-end gap-2">
-        <button onClick={onClose} className="rounded-lg border border-white/10 px-3 py-1.5 text-sm text-muted hover:text-white">Fermer</button>
-        <button disabled={busy} onClick={async () => { setBusy(true); try { await onExport(format, scale); onClose(); } finally { setBusy(false); } }}
-          className="inline-flex items-center gap-2 rounded-lg bg-gradient-to-r from-[#a855f7] to-[#6366f1] px-4 py-1.5 text-sm font-semibold text-white disabled:opacity-60">
-          {busy ? <Loader2 className="size-4 animate-spin" /> : <Download className="size-4" />} Télécharger
-        </button>
-      </div>
-    </Modal>
-  );
-}
-
-function Modal({ title, icon: Icon, onClose, children }: { title: string; icon: typeof Download; onClose: () => void; children: React.ReactNode }) {
-  return (
-    <div className="fixed inset-0 z-50 grid place-items-center bg-black/60 p-4 backdrop-blur-sm" onClick={onClose}>
-      <div className="w-full max-w-md rounded-2xl border border-white/10 bg-[#101018] p-5 shadow-2xl" onClick={(e) => e.stopPropagation()}>
-        <div className="mb-4 flex items-center gap-2">
-          <Icon className="size-4" style={{ color: ACCENT }} />
-          <h2 className="text-sm font-semibold text-white">{title}</h2>
-          <button onClick={onClose} className="ml-auto grid size-7 place-items-center rounded-lg text-muted hover:bg-white/5 hover:text-white"><X className="size-4" /></button>
-        </div>
-        {children}
-      </div>
     </div>
   );
 }

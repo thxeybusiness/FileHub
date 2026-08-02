@@ -15,17 +15,14 @@ export async function GET() {
     select: { id: true, name: true, updatedAt: true, content: true },
   });
 
-  const items = rows.map((r) => {
-    let width = 1080, height = 1080, background = "#ffffff", layers = 0;
-    try {
-      const d = JSON.parse(r.content ?? "{}");
-      if (typeof d.width === "number") width = d.width;
-      if (typeof d.height === "number") height = d.height;
-      if (typeof d.background === "string") background = d.background;
-      if (Array.isArray(d.layers)) layers = d.layers.length;
-    } catch { /* contenu vide/illisible : valeurs par défaut */ }
-    return { id: r.id, name: r.name, updatedAt: r.updatedAt.toISOString(), width, height, background, layers };
-  });
+  // Le contenu complet est renvoyé : les documents sont de petits JSON et la
+  // galerie s'en sert pour rendre de vrais aperçus miniatures.
+  const items = rows.map((r) => ({
+    id: r.id,
+    name: r.name,
+    updatedAt: r.updatedAt.toISOString(),
+    content: r.content ?? "",
+  }));
 
   return NextResponse.json({ items });
 }
