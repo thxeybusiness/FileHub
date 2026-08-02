@@ -1797,6 +1797,344 @@ function tint(id: string, color: string) {
   for (let s = 0; s < 16; s++) { const r = rng(s * 71 + 5); const nb = 3 + Math.floor(r() * 4); let g = stroke(`M 20 184 Q ${N(90 + r() * 30)} ${N(110 + r() * 20)} 182 ${N(18 + r() * 14)}`, N(4 + r() * 2)); for (let i = 1; i <= nb; i++) { const t = i / (nb + 1); const x = 20 + 160 * t, y = 184 - 164 * t; const side = i % 2 ? 1 : -1; g += `<ellipse cx="${N(x + side * 15)}" cy="${N(y - 8)}" rx="${N(14 + r() * 8)}" ry="${N(6 + r() * 3)}" fill="${C}" transform="rotate(${N(-40 + side * 35)} ${N(x + side * 15)} ${N(y - 8)})"/>`; } add("nature", `xbranch${s}`, "Branche", "nature branche rameau feuillage", 200, 200, g); }
 })();
 
+/* ═══════════ Vague « nature → droite » : variantes & compléments ═══════════ */
+
+/* ── 28. Icônes UI / réseaux / montage ── */
+(() => {
+  const K = "icône symbole pictogramme ui interface app";
+  const I = (id: string, l: string, kw: string, body: string, color?: string) => add("icons", id, l, `${K} ${kw}`, 200, 200, body, color);
+  I("share1", "Partager", "share partage", `<circle cx="152" cy="46" r="20" fill="${C}"/><circle cx="50" cy="100" r="20" fill="${C}"/><circle cx="152" cy="154" r="20" fill="${C}"/>` + stroke("M 68 91 L 134 55 M 68 109 L 134 145", 8));
+  I("send1", "Envoyer", "send avion papier message", fillp("M 18 100 L 184 28 L 132 182 L 104 116 Z") + stroke("M 104 116 L 184 28", 4, `opacity="0.4"`));
+  I("download1", "Télécharger", "download bas", stroke("M 100 22 V 128", 12) + stroke("M 58 90 L 100 134 L 142 90", 12) + stroke("M 40 168 H 160", 12));
+  I("upload1", "Envoyer fichier", "upload haut", stroke("M 100 134 V 28", 12) + stroke("M 58 66 L 100 22 L 142 66", 12) + stroke("M 40 168 H 160", 12));
+  I("bookmark1", "Marque-page", "bookmark favori", fillp("M 56 22 H 144 V 178 L 100 142 L 56 178 Z"));
+  I("bookmarko1", "Marque-page contour", "bookmark favori contour", stroke("M 56 24 H 144 V 176 L 100 140 L 56 176 Z", 10));
+  I("trash1", "Corbeille", "trash supprimer poubelle", stroke("M 40 48 H 160", 10) + stroke("M 56 48 V 168 H 144 V 48", 10) + stroke("M 78 34 H 122", 10) + stroke("M 84 74 V 146 M 116 74 V 146", 7, `opacity="0.5"`));
+  I("settings1", "Réglages", "settings sliders curseurs", stroke("M 30 60 H 170 M 30 100 H 170 M 30 140 H 170", 9) + `<circle cx="72" cy="60" r="13" fill="${C}"/><circle cx="130" cy="100" r="13" fill="${C}"/><circle cx="90" cy="140" r="13" fill="${C}"/>`);
+  I("filter1", "Filtre", "filter entonnoir tri", fillp("M 26 34 H 174 L 116 106 V 172 L 84 152 V 106 Z"));
+  I("crop1", "Rogner", "crop recadrer", stroke("M 52 20 V 148 H 180 M 20 52 H 148 V 180", 10));
+  I("magic1", "Baguette IA", "magic ia sparkle magie", fillp(starPts(72, 72, 4, 34, 12)) + op(starPts(140, 60, 4, 16, 6), 0.6) + op(starPts(150, 130, 4, 13, 5), 0.5) + op(starPts(96, 140, 4, 11, 4), 0.5));
+  I("minusc1", "Moins", "minus retirer moins cercle", `<circle cx="100" cy="100" r="88" fill="none" stroke="${C}" stroke-width="10"/>` + stroke("M 56 100 H 144", 12));
+  I("menu1", "Menu", "menu hamburger lignes", stroke("M 34 60 H 166 M 34 100 H 166 M 34 140 H 166", 12));
+  I("dots1", "Options", "menu points options plus", `<circle cx="100" cy="46" r="14" fill="${C}"/><circle cx="100" cy="100" r="14" fill="${C}"/><circle cx="100" cy="154" r="14" fill="${C}"/>`);
+  I("grid1", "Grille", "grid grille disposition", [[40, 40], [116, 40], [40, 116], [116, 116]].map(([x, y]) => `<rect x="${x}" y="${y}" width="44" height="44" rx="8" fill="${C}"/>`).join(""));
+  I("list1", "Liste", "list liste", `<circle cx="34" cy="52" r="9" fill="${C}"/><circle cx="34" cy="100" r="9" fill="${C}"/><circle cx="34" cy="148" r="9" fill="${C}"/>` + stroke("M 62 52 H 172 M 62 100 H 172 M 62 148 H 172", 9));
+  I("eyeoff1", "Masquer", "eye off masquer oeil barré", stroke("M 12 70 C 50 18 150 18 188 70 C 176 90 158 106 138 116 M 62 122 C 44 112 26 96 12 76", 8) + `<circle cx="110" cy="70" r="22" fill="${C}" opacity="0.6"/>` + stroke("M 40 168 L 160 32", 9));
+  I("micoff1", "Micro coupé", "micro mute coupé off", stroke("M 80 30 A 22 22 0 0 1 120 44 V 90 M 122 118 A 22 22 0 0 1 78 106 V 96", 8) + stroke("M 56 96 A 44 44 0 0 0 96 138 M 100 138 V 172 M 68 172 H 132", 8) + stroke("M 44 40 L 156 168", 9));
+  I("video1", "Vidéo", "video caméra film", `<rect x="24" y="60" width="110" height="80" rx="12" fill="${C}"/>` + fillp("M 134 84 L 180 60 V 140 L 134 116 Z"));
+  I("volume1", "Volume", "volume son haut-parleur", fillp("M 24 76 H 56 L 96 40 V 160 L 56 124 H 24 Z") + stroke("M 120 74 A 40 40 0 0 1 120 126 M 138 56 A 66 66 0 0 1 138 144", 8));
+  I("mute1", "Muet", "mute silence son coupé", fillp("M 24 76 H 56 L 96 40 V 160 L 56 124 H 24 Z") + stroke("M 126 78 L 174 122 M 174 78 L 126 122", 9));
+  I("tag1", "Étiquette", "tag étiquette prix label", eo("M 22 60 L 100 60 L 170 130 L 130 170 L 60 100 L 22 100 Z" + holeC(52, 82, 11)));
+  I("copy1", "Copier", "copy copier dupliquer", `<rect x="34" y="34" width="90" height="110" rx="12" fill="none" stroke="${C}" stroke-width="9"/><rect x="76" y="66" width="90" height="110" rx="12" fill="none" stroke="${C}" stroke-width="9"/>`);
+  I("user1", "Profil", "user profil compte personne", `<circle cx="100" cy="74" r="38" fill="${C}"/>` + fillp("M 32 178 C 32 128 168 128 168 178 Z"));
+  I("users1", "Groupe", "users groupe équipe personnes", `<circle cx="76" cy="76" r="32" fill="${C}"/>` + fillp("M 20 170 C 20 126 132 126 132 170 Z") + `<circle cx="146" cy="82" r="26" fill="${C}" opacity="0.6"/>` + op("M 118 168 C 118 132 190 130 190 168 Z", 0.6));
+  I("globe1", "Globe", "globe monde web internet", `<circle cx="100" cy="100" r="84" fill="none" stroke="${C}" stroke-width="9"/>` + stroke("M 16 100 H 184 M 100 16 V 184 M 100 16 C 56 50 56 150 100 184 M 100 16 C 144 50 144 150 100 184", 7));
+  I("chartbar1", "Barres", "chart graphique barres stats", fillp("M 34 110 H 66 V 168 H 34 Z M 84 70 H 116 V 168 H 84 Z M 134 40 H 166 V 168 H 134 Z"));
+  I("chartline1", "Courbe", "chart graphique courbe stats", stroke("M 28 32 V 168 H 176", 9) + stroke("M 44 140 L 84 96 L 116 118 L 168 52", 9));
+  I("chartpie1", "Camembert", "chart graphique camembert stats", `<circle cx="100" cy="100" r="76" fill="none" stroke="${C}" stroke-width="10"/>` + fillp("M 100 100 V 24 A 76 76 0 0 1 168 108 Z"));
+  I("coin1", "Pièce", "coin pièce monnaie argent", `<circle cx="100" cy="100" r="82" fill="${C}"/>` + `<circle cx="100" cy="100" r="62" fill="none" stroke="${C}" stroke-width="5" opacity="0.4"/>` + stroke("M 100 58 V 142 M 82 74 H 112 A 14 14 0 0 1 112 102 H 82 H 118", 7, `opacity="0.5"`), "#fbbf24");
+  I("card1", "Carte", "credit card carte bancaire paiement", `<rect x="20" y="48" width="160" height="104" rx="14" fill="none" stroke="${C}" stroke-width="9"/>` + fillp("M 20 74 H 180 V 92 H 20 Z") + stroke("M 40 124 H 90", 8, `opacity="0.5"`));
+  I("cart1", "Panier", "cart panier achat shopping", stroke("M 16 28 H 44 L 64 128 H 150 L 168 60 H 56", 9) + `<circle cx="72" cy="164" r="14" fill="${C}"/><circle cx="146" cy="164" r="14" fill="${C}"/>`);
+  I("wallet1", "Portefeuille", "wallet portefeuille argent", `<rect x="24" y="48" width="152" height="104" rx="16" fill="none" stroke="${C}" stroke-width="9"/>` + fillp("M 132 88 H 184 V 116 H 132 Z") + `<circle cx="150" cy="102" r="7" fill="${C}"/>`);
+  I("bell1", "Cloche contour", "bell notification cloche contour", stroke("M 100 30 C 66 30 50 56 50 90 V 128 L 34 150 H 166 L 150 128 V 90 C 150 56 134 30 100 30 Z", 9) + stroke("M 84 162 A 16 16 0 0 0 116 162", 9));
+  I("belloff1", "Cloche coupée", "bell off notification coupée", stroke("M 66 60 C 76 42 100 34 122 44 C 142 54 150 74 150 90 V 128 L 166 150 H 70", 8) + stroke("M 84 162 A 16 16 0 0 0 116 162", 8) + stroke("M 40 36 L 164 170", 9));
+  I("flame1", "Flamme contour", "flamme feu hot contour", stroke("M 80 16 C 96 52 128 70 128 116 A 48 48 0 0 1 32 116 C 32 92 44 74 56 60 C 56 80 64 88 72 92 C 66 64 70 38 80 16 Z", 9), "#f97316");
+  I("stargroup1", "Note 5 étoiles", "rating note étoiles avis", [30, 70, 110, 150, 190].map((cx) => fillp(starPts(cx, 100, 5, 18, 8))).join(""), "#fbbf24");
+  I("checkbox1", "Case cochée", "checkbox case cochée validé", `<rect x="28" y="28" width="144" height="144" rx="24" fill="${C}"/>` + stroke("M 62 102 L 90 132 L 142 72", 12, `opacity="0.85"`));
+  I("radio1", "Bouton radio", "radio sélection", `<circle cx="100" cy="100" r="80" fill="none" stroke="${C}" stroke-width="10"/><circle cx="100" cy="100" r="40" fill="${C}"/>`);
+  I("toggle1", "Interrupteur", "toggle switch bascule", `<rect x="20" y="66" width="160" height="68" rx="34" fill="${C}"/><circle cx="146" cy="100" r="24" fill="${C}" opacity="0.85"/>`);
+  I("home1", "Accueil", "home maison accueil", fillp("M 100 24 L 180 92 H 158 V 172 H 118 V 122 H 82 V 172 H 42 V 92 H 20 Z"));
+  I("ff1", "Avance rapide", "avance rapide fast forward", fillp("M 24 50 L 96 100 L 24 150 Z M 104 50 L 176 100 L 104 150 Z"));
+  I("rw1", "Retour rapide", "retour rapide rewind", fillp("M 176 50 L 104 100 L 176 150 Z M 96 50 L 24 100 L 96 150 Z"));
+  I("skipnext1", "Suivant", "suivant next piste", fillp("M 30 50 L 120 100 L 30 150 Z") + fillp("M 140 46 H 168 V 154 H 140 Z"));
+  I("skipprev1", "Précédent", "précédent previous piste", fillp("M 170 50 L 80 100 L 170 150 Z") + fillp("M 32 46 H 60 V 154 H 32 Z"));
+  I("repeat1", "Répéter", "repeat boucle répétition", stroke("M 46 78 H 138 A 26 26 0 0 1 138 130 H 60", 9) + fillp("M 62 60 L 34 78 L 62 96 Z") + fillp("M 138 112 L 166 130 L 138 148 Z"));
+  I("shuffle1", "Aléatoire", "shuffle aléatoire mélange", stroke("M 30 60 H 70 L 130 140 H 170 M 30 140 H 70 L 90 112 M 150 88 L 130 60 H 170", 9) + fillp("M 154 44 L 182 60 L 154 76 Z M 154 124 L 182 140 L 154 156 Z"));
+  I("record1", "Enregistrer", "record enregistrement rec", `<circle cx="100" cy="100" r="52" fill="${C}"/>`, "#ef4444");
+  I("fullscreen1", "Plein écran", "fullscreen agrandir plein écran", stroke("M 40 72 V 40 H 72 M 128 40 H 160 V 72 M 160 128 V 160 H 128 M 72 160 H 40 V 128", 10));
+  I("layers1", "Calques", "layers calques couches", fillp("M 100 24 L 176 64 L 100 104 L 24 64 Z") + stroke("M 24 100 L 100 140 L 176 100 M 24 136 L 100 176 L 176 136", 8, `opacity="0.5"`));
+  I("adjust1", "Réglage image", "adjust luminosité contraste réglage", `<circle cx="100" cy="100" r="78" fill="none" stroke="${C}" stroke-width="9"/>` + fillp("M 100 22 A 78 78 0 0 1 100 178 Z"));
+  I("brightness1", "Luminosité", "brightness luminosité soleil", `<circle cx="100" cy="100" r="34" fill="${C}"/>` + Array.from({ length: 8 }, (_, k) => { const [x1, y1] = polar(100, 100, 52, k * 45), [x2, y2] = polar(100, 100, 76, k * 45); return stroke(`M ${N(x1)} ${N(y1)} L ${N(x2)} ${N(y2)}`, 9); }).join(""), "#fbbf24");
+  I("contrast1", "Contraste", "contrast contraste demi", `<circle cx="100" cy="100" r="80" fill="none" stroke="${C}" stroke-width="9"/>` + fillp("M 100 20 A 80 80 0 0 1 100 180 Z"));
+  I("rotate1", "Pivoter", "rotate pivoter rotation", stroke("M 56 74 A 60 60 0 1 1 48 118", 10) + fillp("M 40 50 L 62 82 L 28 88 Z"));
+  I("flip1", "Miroir", "flip miroir retourner symétrie", stroke("M 100 24 V 176", 8, `stroke-dasharray="10 10"`) + fillp("M 80 56 L 80 144 L 32 100 Z") + stroke("M 120 56 L 120 144 L 168 100 Z", 8));
+  I("qr1", "QR code", "qr code data scan", `<rect x="24" y="24" width="52" height="52" fill="none" stroke="${C}" stroke-width="9"/><rect x="42" y="42" width="16" height="16" fill="${C}"/>` + `<rect x="124" y="24" width="52" height="52" fill="none" stroke="${C}" stroke-width="9"/><rect x="142" y="42" width="16" height="16" fill="${C}"/>` + `<rect x="24" y="124" width="52" height="52" fill="none" stroke="${C}" stroke-width="9"/><rect x="42" y="142" width="16" height="16" fill="${C}"/>` + fillp("M 108 108 H 130 V 130 H 108 Z M 146 108 H 176 V 130 H 146 Z M 108 146 H 130 V 176 H 108 Z M 150 150 H 176 V 176 H 150 Z"));
+  I("verified1", "Vérifié", "verified certifié badge coche", fillp(starPts(100, 100, 10, 84, 66)) + stroke("M 62 100 L 90 128 L 140 74", 11, `opacity="0.85"`), "#38bdf8");
+  I("fire2", "Feu plein", "feu flamme hot tendance", fillp("M 96 12 C 116 52 150 74 150 122 A 54 54 0 0 1 42 122 C 42 96 56 76 70 62 C 68 84 78 94 88 98 C 80 66 84 40 96 12 Z"), "#f97316");
+})();
+
+/* ── 29. Objets : transport, musique, outils, maison, tech, mode ── */
+(() => {
+  const K = "objet objets";
+  const O = (id: string, l: string, kw: string, body: string, w = 200, h = 200, color?: string) => add("objects", id, l, `${K} ${kw}`, w, h, body, color);
+  // Transport
+  O("bike1", "Vélo", "vélo bicyclette transport", `<circle cx="52" cy="140" r="34" fill="none" stroke="${C}" stroke-width="8"/><circle cx="168" cy="140" r="34" fill="none" stroke="${C}" stroke-width="8"/>` + stroke("M 52 140 L 96 140 L 128 74 L 156 140 M 96 140 L 128 74 M 116 74 H 146 M 88 140 L 78 108 H 104", 7), 230);
+  O("moto1", "Moto", "moto motard transport", `<circle cx="48" cy="140" r="30" fill="none" stroke="${C}" stroke-width="9"/><circle cx="164" cy="140" r="30" fill="none" stroke="${C}" stroke-width="9"/>` + stroke("M 48 140 L 96 100 H 150 L 164 140 M 96 100 L 84 76 H 60 M 150 100 L 176 88", 9), 220);
+  O("bus1", "Bus", "bus autobus transport", `<rect x="20" y="40" width="160" height="104" rx="14" fill="none" stroke="${C}" stroke-width="8"/>` + stroke("M 40 66 H 160 M 100 66 V 110", 6, `opacity="0.5"`) + `<rect x="40" y="80" width="120" height="30" fill="${C}" opacity="0.3"/><circle cx="58" cy="160" r="16" fill="${C}"/><circle cx="142" cy="160" r="16" fill="${C}"/>`, 200, 200);
+  O("train1", "Train", "train métro transport", `<rect x="34" y="28" width="132" height="120" rx="20" fill="none" stroke="${C}" stroke-width="8"/>` + `<rect x="52" y="52" width="96" height="42" rx="8" fill="${C}" opacity="0.3"/>` + `<circle cx="70" cy="118" r="10" fill="${C}"/><circle cx="130" cy="118" r="10" fill="${C}"/>` + stroke("M 60 148 L 40 176 M 140 148 L 160 176", 8));
+  O("car1b", "Voiture", "voiture auto transport", fillp("M 18 108 L 34 72 C 40 58 52 52 66 52 H 134 C 148 52 160 60 168 74 L 184 108 V 128 H 18 Z") + op("M 62 56 L 54 80 H 146 L 138 56 Z", 0.35) + `<circle cx="60" cy="128" r="18" fill="${C}"/><circle cx="140" cy="128" r="18" fill="${C}"/>`, 200, 180);
+  O("taxi1", "Taxi", "taxi transport", fillp("M 18 108 L 34 72 C 40 58 52 52 66 52 H 134 C 148 52 160 60 168 74 L 184 108 V 128 H 18 Z") + fillp("M 78 34 H 122 V 52 H 78 Z", `opacity="0.7"`) + `<circle cx="60" cy="128" r="18" fill="${C}"/><circle cx="140" cy="128" r="18" fill="${C}"/>`, 200, 180, "#fbbf24");
+  O("scooter1", "Trottinette", "trottinette scooter transport", `<circle cx="44" cy="150" r="24" fill="none" stroke="${C}" stroke-width="8"/><circle cx="160" cy="150" r="24" fill="none" stroke="${C}" stroke-width="8"/>` + stroke("M 44 150 L 150 150 M 150 150 L 150 40 M 150 40 H 184", 9));
+  O("ship1", "Navire", "navire bateau cargo transport mer", fillp("M 18 120 H 182 L 160 168 H 40 Z") + `<rect x="60" y="70" width="80" height="50" fill="none" stroke="${C}" stroke-width="7"/>` + fillp("M 74 84 H 90 V 100 H 74 Z M 108 84 H 124 V 100 H 108 Z", `opacity="0.5"`) + stroke("M 100 40 V 70", 8));
+  O("plane2", "Avion", "avion vol transport voyage", fillp("M 100 14 C 110 14 116 30 116 56 V 84 L 186 128 V 146 L 116 126 V 164 L 140 182 V 194 L 100 184 L 60 194 V 182 L 84 164 V 126 L 14 146 V 128 L 84 84 V 56 C 84 30 90 14 100 14 Z"));
+  O("heli1", "Hélicoptère", "hélicoptère transport", stroke("M 30 52 H 170", 8) + fillp("M 70 80 C 60 80 54 92 54 108 C 54 128 74 140 104 140 H 150 L 176 108 L 150 92 H 104 Z") + stroke("M 100 52 V 80 M 150 140 V 168 M 120 168 H 180", 8) + `<circle cx="82" cy="110" r="12" fill="${C}" opacity="0.4"/>`);
+  O("balloon2", "Montgolfière", "montgolfière ballon transport voyage", fillp("M 100 16 C 50 16 30 66 40 108 C 46 132 70 152 76 160 H 124 C 130 152 154 132 160 108 C 170 66 150 16 100 16 Z") + stroke("M 100 20 V 158 M 66 30 C 58 80 62 130 76 158 M 134 30 C 142 80 138 130 124 158", 5, `opacity="0.35"`) + stroke("M 78 160 L 88 184 H 112 L 122 160", 6) + `<rect x="82" y="182" width="36" height="24" rx="4" fill="${C}"/>`);
+  O("rocket2", "Fusée", "fusée espace transport", fillp("M 100 12 C 134 44 144 96 134 148 H 66 C 56 96 66 44 100 12 Z") + `<circle cx="100" cy="66" r="16" fill="none" stroke="${C}" stroke-width="8"/>` + fillp("M 66 122 L 34 164 L 68 156 Z M 134 122 L 166 164 L 132 156 Z"));
+  O("anchor1", "Ancre", "ancre marine bateau", `<circle cx="100" cy="42" r="18" fill="none" stroke="${C}" stroke-width="9"/>` + stroke("M 100 60 V 184 M 62 96 H 138 M 100 184 C 54 184 30 148 28 122 M 100 184 C 146 184 170 148 172 122", 9));
+  // Musique
+  O("piano1", "Piano", "piano clavier musique instrument", `<rect x="24" y="40" width="152" height="120" rx="10" fill="none" stroke="${C}" stroke-width="8"/>` + stroke("M 62 44 V 156 M 100 44 V 156 M 138 44 V 156", 5, `opacity="0.5"`) + fillp("M 48 44 H 72 V 96 H 48 Z M 86 44 H 110 V 96 H 86 Z M 124 44 H 148 V 96 H 124 Z", `opacity="0.6"`));
+  O("drum1", "Batterie", "tambour batterie musique instrument", fillp("M 40 74 C 40 58 160 58 160 74 C 160 90 40 90 40 74 Z") + stroke("M 40 74 V 130 C 40 146 160 146 160 130 V 74", 8) + stroke("M 48 88 L 62 128 M 152 88 L 138 128 M 74 96 L 74 136 M 126 96 L 126 136", 5, `opacity="0.5"`) + stroke("M 30 44 L 70 84 M 170 44 L 130 84", 7));
+  O("trumpet1", "Trompette", "trompette musique instrument cuivre", stroke("M 20 100 H 120", 12) + fillp("M 120 74 L 180 54 V 146 L 120 126 Z") + `<circle cx="60" cy="76" r="9" fill="${C}"/><circle cx="86" cy="76" r="9" fill="${C}"/><circle cx="112" cy="76" r="9" fill="${C}"/>` + stroke("M 60 88 V 100 M 86 88 V 100 M 112 88 V 100", 6));
+  O("sax1", "Saxophone", "saxophone musique instrument", stroke("M 90 24 V 96 C 90 140 120 160 150 160 C 174 160 182 138 168 128", 12) + fillp("M 150 130 C 176 130 190 158 178 178 C 150 182 130 168 132 148 Z") + `<circle cx="90" cy="60" r="6" fill="${C}"/><circle cx="90" cy="84" r="6" fill="${C}"/>`);
+  O("violin1", "Violon", "violon musique instrument corde", fillp("M 100 40 C 130 40 140 70 122 92 C 150 100 156 150 120 172 C 100 184 100 184 80 172 C 44 150 50 100 78 92 C 60 70 70 40 100 40 Z") + stroke("M 100 30 V 96", 6) + fillp("M 88 20 H 112 V 34 H 88 Z", `opacity="0.6"`) + stroke("M 84 100 L 90 150 M 116 100 L 110 150", 3, `opacity="0.5"`));
+  O("speaker1", "Enceinte", "enceinte haut-parleur son musique", `<rect x="46" y="20" width="108" height="160" rx="14" fill="none" stroke="${C}" stroke-width="8"/>` + `<circle cx="100" cy="128" r="34" fill="none" stroke="${C}" stroke-width="7"/><circle cx="100" cy="128" r="12" fill="${C}"/><circle cx="100" cy="52" r="12" fill="none" stroke="${C}" stroke-width="6"/>`);
+  O("vinyl1", "Vinyle", "vinyle disque musique", `<circle cx="100" cy="100" r="84" fill="${C}"/><circle cx="100" cy="100" r="30" fill="${C}" opacity="0.85"/><circle cx="100" cy="100" r="8" fill="${C}"/>` + `<circle cx="100" cy="100" r="60" fill="none" stroke="${C}" stroke-width="3" opacity="0.4"/><circle cx="100" cy="100" r="48" fill="none" stroke="${C}" stroke-width="3" opacity="0.4"/>`);
+  O("cassette1", "Cassette", "cassette audio musique rétro", `<rect x="24" y="44" width="152" height="112" rx="12" fill="none" stroke="${C}" stroke-width="8"/>` + `<rect x="44" y="70" width="112" height="44" rx="6" fill="${C}" opacity="0.25"/>` + `<circle cx="74" cy="92" r="12" fill="none" stroke="${C}" stroke-width="6"/><circle cx="126" cy="92" r="12" fill="none" stroke="${C}" stroke-width="6"/>` + stroke("M 60 138 H 140", 6, `opacity="0.5"`));
+  O("headset1", "Casque micro", "casque gaming micro audio", stroke("M 36 116 V 96 A 64 64 0 0 1 164 96 V 116", 10) + `<rect x="22" y="112" width="30" height="58" rx="10" fill="${C}"/><rect x="148" y="112" width="30" height="58" rx="10" fill="${C}"/>` + stroke("M 148 150 H 120 A 10 10 0 0 0 110 160", 8));
+  // Outils
+  O("hammer1", "Marteau", "marteau outil bricolage", fillp("M 40 44 L 96 44 L 108 68 L 76 84 L 62 60 Z") + stroke("M 82 74 L 150 176", 13), 200, 200);
+  O("wrench1", "Clé", "clé outil bricolage écrou", stroke("M 150 40 A 34 34 0 1 0 168 84 L 96 156 A 20 20 0 0 1 68 128 L 140 56", 0) + fillp("M 156 34 A 36 36 0 1 0 176 80 L 100 156 L 74 130 L 150 54 A 22 22 0 0 1 156 34 Z"));
+  O("screwdriver1", "Tournevis", "tournevis outil bricolage", stroke("M 40 160 L 120 80", 12) + fillp("M 118 78 L 150 46 A 16 16 0 0 1 172 68 L 140 100 Z") + fillp("M 34 154 L 54 174 L 30 178 Z", `opacity="0.6"`));
+  O("saw1", "Scie", "scie outil bricolage", fillp("M 24 88 L 168 88 L 176 120 L 24 120 Z") + fillp("M 24 88 L 40 72 L 56 88 L 72 72 L 88 88 L 104 72 L 120 88 L 136 72 L 152 88 Z") + fillp("M 168 100 H 190 V 130 H 168 Z", `opacity="0.6"`));
+  O("paintroller1", "Rouleau", "rouleau peinture outil", `<rect x="30" y="40" width="120" height="46" rx="10" fill="${C}"/>` + stroke("M 150 63 H 172 V 96 H 108 V 176", 9));
+  O("scissors2", "Ciseaux", "ciseaux outil couper", `<circle cx="46" cy="52" r="22" fill="none" stroke="${C}" stroke-width="8"/><circle cx="46" cy="148" r="22" fill="none" stroke="${C}" stroke-width="8"/>` + stroke("M 64 64 L 172 152 M 64 136 L 172 48", 8));
+  O("ruler2", "Règle", "règle mesure outil", fillp("M 30 40 L 160 170 L 130 200 L 0 70 Z", `transform="translate(20 -10)"`) + stroke("M 60 60 L 78 42 M 88 88 L 106 70 M 116 116 L 134 98", 4, `opacity="0.4"`));
+  // Maison & divers
+  O("chair1", "Chaise", "chaise meuble maison", stroke("M 56 30 V 120 M 144 60 V 120 M 56 120 H 144 M 50 120 L 44 180 M 150 120 L 156 180 M 56 74 H 144", 9));
+  O("lamp1", "Lampe", "lampe luminaire maison", fillp("M 60 30 H 140 L 164 96 H 36 Z") + stroke("M 100 96 V 160 M 66 176 H 134", 9) + `<circle cx="100" cy="118" r="8" fill="${C}" opacity="0.5"/>`);
+  O("bed1", "Lit", "lit chambre meuble maison", stroke("M 24 100 V 160 M 176 100 V 160 M 24 130 H 176 M 24 100 C 24 84 40 76 60 76 H 140 C 160 76 176 84 176 100", 9) + `<rect x="44" y="86" width="50" height="28" rx="8" fill="${C}" opacity="0.4"/>`);
+  O("door1", "Porte", "porte maison entrée", stroke("M 48 24 H 152 V 176 H 48 Z", 9) + `<circle cx="128" cy="104" r="8" fill="${C}"/>`);
+  O("mirror1", "Miroir", "miroir maison reflet", `<rect x="56" y="20" width="88" height="150" rx="44" fill="none" stroke="${C}" stroke-width="9"/>` + stroke("M 82 60 L 72 110 M 100 50 L 84 130", 6, `opacity="0.4"`));
+  O("broom1", "Balai", "balai ménage nettoyer maison", stroke("M 140 30 L 70 130", 10) + fillp("M 70 128 L 108 156 C 88 186 52 190 30 172 C 44 152 56 138 70 128 Z") + stroke("M 46 150 L 60 174 M 62 138 L 78 166 M 82 132 L 96 158", 4, `opacity="0.4"`));
+  O("plug1", "Prise", "prise électrique branchement", stroke("M 78 20 V 60 M 122 20 V 60", 10) + fillp("M 56 60 H 144 V 100 A 44 44 0 0 1 56 100 Z") + stroke("M 100 144 V 176", 10));
+  O("battery1", "Batterie", "batterie énergie charge", `<rect x="24" y="60" width="140" height="80" rx="12" fill="none" stroke="${C}" stroke-width="8"/><rect x="168" y="82" width="14" height="36" rx="4" fill="${C}"/>` + `<rect x="38" y="74" width="80" height="52" rx="4" fill="${C}" opacity="0.6"/>`);
+  O("flashlight1", "Lampe torche", "torche lampe flashlight", fillp("M 40 80 H 96 V 120 H 40 Z") + fillp("M 96 68 L 140 52 V 148 L 96 132 Z") + stroke("M 150 76 L 178 66 M 150 100 H 182 M 150 124 L 178 134", 6, `opacity="0.5"`));
+  O("trashbin1", "Poubelle", "poubelle déchet corbeille", stroke("M 36 52 H 164 M 78 34 H 122", 9) + fillp("M 52 60 L 62 172 H 138 L 148 60 Z") + stroke("M 84 80 V 152 M 116 80 V 152", 6, `opacity="0.4"`));
+  // Stationery
+  O("pen1", "Stylo", "stylo écrire bureau", fillp("M 146 24 L 176 54 L 78 152 L 40 160 L 48 122 Z") + stroke("M 128 42 L 158 72", 5, `opacity="0.5"`) + fillp("M 40 160 L 48 122 L 78 152 Z", `opacity="0.55"`));
+  O("marker1", "Marqueur", "marqueur feutre surligneur", fillp("M 60 24 H 140 V 70 L 120 90 H 80 L 60 70 Z") + fillp("M 80 90 H 120 V 150 L 100 176 L 80 150 Z", `opacity="0.7"`));
+  O("notebook1", "Carnet", "carnet cahier notes bureau", stroke("M 50 24 H 156 V 176 H 50 Z", 9) + stroke("M 50 24 V 176", 14, `opacity="0.5"`) + stroke("M 78 60 H 138 M 78 90 H 138 M 78 120 H 120", 6, `opacity="0.5"`));
+  O("calculator1", "Calculatrice", "calculatrice calcul bureau", stroke("M 44 20 H 156 V 180 H 44 Z", 8) + `<rect x="60" y="36" width="80" height="34" rx="6" fill="${C}" opacity="0.3"/>` + [92, 122, 152].flatMap((y) => [66, 100, 134].map((x) => `<circle cx="${x}" cy="${y}" r="9" fill="${C}"/>`)).join(""));
+  O("paperclip1", "Trombone", "trombone attache bureau", stroke("M 66 176 V 60 A 34 34 0 0 1 134 60 V 150 A 20 20 0 0 1 94 150 V 78", 10));
+  O("stamp1", "Tampon", "tampon cachet bureau", fillp("M 70 26 H 130 L 116 96 H 84 Z") + `<rect x="44" y="96" width="112" height="30" rx="8" fill="${C}"/>` + stroke("M 30 150 H 170 M 40 168 H 160", 9));
+  // Tech devices
+  O("tablet1", "Tablette", "tablette écran tech", `<rect x="44" y="20" width="112" height="160" rx="14" fill="none" stroke="${C}" stroke-width="8"/><circle cx="100" cy="162" r="7" fill="${C}"/>` + `<rect x="60" y="40" width="80" height="104" rx="4" fill="${C}" opacity="0.25"/>`);
+  O("keyboard1", "Clavier", "clavier ordinateur tech", stroke("M 20 56 H 180 V 144 H 20 Z", 8) + [76, 106].flatMap((y) => Array.from({ length: 6 }, (_, i) => `<rect x="${34 + i * 24}" y="${y}" width="16" height="16" rx="3" fill="${C}" opacity="0.5"/>`)).join("") + `<rect x="60" y="120" width="80" height="14" rx="4" fill="${C}" opacity="0.5"/>`);
+  O("mouse1", "Souris", "souris ordinateur tech", `<rect x="60" y="24" width="80" height="152" rx="40" fill="none" stroke="${C}" stroke-width="8"/>` + stroke("M 100 30 V 90", 8) + `<rect x="92" y="44" width="16" height="30" rx="6" fill="${C}"/>`);
+  O("printer1", "Imprimante", "imprimante bureau tech", `<rect x="52" y="24" width="96" height="44" fill="none" stroke="${C}" stroke-width="7"/>` + fillp("M 30 68 H 170 V 128 H 30 Z") + `<rect x="52" y="120" width="96" height="56" fill="none" stroke="${C}" stroke-width="7"/>` + `<circle cx="150" cy="90" r="7" fill="${C}"/>`);
+  O("gamepad1", "Manette", "manette jeu gaming tech", fillp("M 60 66 H 140 C 176 66 190 130 172 158 C 158 178 138 150 128 138 H 72 C 62 150 42 178 28 158 C 10 130 24 66 60 66 Z") + stroke("M 56 96 V 122 M 43 109 H 69", 8, `opacity="0.7"`) + `<circle cx="134" cy="100" r="8" fill="${C}" opacity="0.7"/><circle cx="152" cy="118" r="8" fill="${C}" opacity="0.7"/>`, 200, 200);
+  O("watch2", "Montre connectée", "montre connectée smartwatch tech", `<rect x="60" y="52" width="80" height="96" rx="20" fill="none" stroke="${C}" stroke-width="9"/>` + fillp("M 74 24 H 126 L 120 52 H 80 Z M 80 148 H 120 L 126 176 H 74 Z", `opacity="0.6"`) + `<rect x="78" y="70" width="44" height="60" rx="8" fill="${C}" opacity="0.3"/>`);
+  O("robot1", "Robot", "robot ia androïde tech", `<rect x="44" y="56" width="112" height="96" rx="18" fill="none" stroke="${C}" stroke-width="8"/>` + `<circle cx="76" cy="98" r="12" fill="${C}"/><circle cx="124" cy="98" r="12" fill="${C}"/>` + stroke("M 80 128 H 120 M 100 34 V 56", 8) + `<circle cx="100" cy="28" r="9" fill="${C}"/>` + stroke("M 44 96 H 26 M 156 96 H 174", 8));
+  // Mode / vêtements
+  O("pants1", "Pantalon", "pantalon vêtement mode habit", fillp("M 52 24 H 148 V 60 L 130 176 H 108 L 100 80 L 92 176 H 70 L 52 60 Z"));
+  O("jacket1", "Veste", "veste manteau vêtement mode", fillp("M 70 24 L 40 44 L 24 110 L 48 122 V 176 H 152 V 122 L 176 110 L 160 44 L 130 24 L 100 52 Z") + stroke("M 100 52 V 176", 5, `opacity="0.4"`));
+  O("sock1", "Chaussette", "chaussette vêtement mode", fillp("M 70 20 H 118 V 96 C 118 116 130 122 150 130 L 176 140 C 190 146 186 172 168 170 L 120 150 C 90 138 70 118 70 92 Z"));
+  O("boot1", "Botte", "botte chaussure mode", fillp("M 60 20 H 108 V 110 C 108 130 130 140 160 148 L 180 154 V 180 H 60 Z"));
+  O("tie1", "Cravate", "cravate vêtement mode", fillp("M 78 24 H 122 L 112 56 L 130 90 L 100 180 L 70 90 L 88 56 Z"));
+  O("bag2", "Sac à main", "sac à main sacoche mode", stroke("M 66 66 C 66 40 134 40 134 66", 8) + fillp("M 40 66 H 160 L 150 168 H 50 Z"));
+  O("glasses2", "Lunettes", "lunettes vue mode", `<circle cx="60" cy="106" r="34" fill="none" stroke="${C}" stroke-width="9"/><circle cx="140" cy="106" r="34" fill="none" stroke="${C}" stroke-width="9"/>` + stroke("M 94 100 Q 100 88 106 100 M 26 92 L 12 74 M 174 92 L 188 74", 9));
+  O("crown2", "Couronne", "couronne roi reine premium", fillp("M 24 150 L 14 54 L 62 90 L 100 30 L 138 90 L 186 54 L 176 150 Z") + `<circle cx="14" cy="46" r="8" fill="${C}"/><circle cx="100" cy="24" r="8" fill="${C}"/><circle cx="186" cy="46" r="8" fill="${C}"/>`, 200, 180, "#fbbf24");
+  O("ring1", "Bague", "bague bijou diamant mode", `<circle cx="100" cy="128" r="52" fill="none" stroke="${C}" stroke-width="12"/>` + fillp("M 100 20 L 132 60 L 100 92 L 68 60 Z") + stroke("M 68 60 H 132 M 84 40 L 100 92 L 116 40", 4, `opacity="0.5"`), 200, 200, "#22d3ee");
+})();
+
+/* ── 30. Nourriture (2ᵉ vague) ── */
+(() => {
+  const K = "nourriture food cuisine repas";
+  const F = (id: string, l: string, kw: string, body: string, color?: string, w = 200, h = 200) => add("food", id, l, `${K} ${kw}`, w, h, body, color);
+  F("soda1", "Canette", "canette soda boisson", `<rect x="62" y="40" width="76" height="140" rx="14" fill="${C}"/>` + stroke("M 62 70 H 138 M 62 150 H 138", 5, `opacity="0.4"`) + `<ellipse cx="100" cy="40" rx="38" ry="10" fill="${C}" opacity="0.6"/><circle cx="100" cy="40" r="7" fill="${C}"/>`, "#ef4444", 200, 200);
+  F("juice1", "Jus", "jus brique boisson", fillp("M 56 40 H 144 V 180 H 56 Z") + fillp("M 56 40 L 100 20 L 144 40 Z", `opacity="0.6"`) + stroke("M 108 60 L 108 30 L 150 30", 7) + `<rect x="72" y="96" width="56" height="44" rx="6" fill="${C}" opacity="0.25"/>`, "#fb923c");
+  F("milkshake1", "Milkshake", "milkshake boisson dessert", fillp("M 60 70 H 140 L 128 180 H 72 Z") + `<circle cx="100" cy="58" r="26" fill="${C}"/>` + `<circle cx="82" cy="52" r="12" fill="${C}"/><circle cx="118" cy="54" r="10" fill="${C}"/>` + stroke("M 130 40 V 100", 6) + `<circle cx="100" cy="40" r="7" fill="${C}"/>`, "#f9a8d4");
+  F("beer1", "Bière", "bière chope boisson", stroke("M 46 44 H 132 V 168 H 46 Z", 8) + stroke("M 132 66 H 162 A 22 22 0 0 1 162 130 H 132", 8) + fillp("M 46 44 C 46 28 132 28 132 44 C 118 36 106 44 92 40 C 78 36 60 44 46 44 Z", `opacity="0.7"`) + stroke("M 46 100 H 132", 6, `opacity="0.35"`), "#fbbf24");
+  F("wine1", "Vin", "vin verre boisson", fillp("M 60 24 H 140 C 140 74 118 100 108 110 V 168 H 132 V 180 H 68 V 168 H 92 V 110 C 82 100 60 74 60 24 Z") + stroke("M 66 40 H 134", 5, `opacity="0.35"`), "#f43f5e", 200, 200);
+  F("sushi1", "Sushi", "sushi nigiri japonais", fillp("M 34 116 C 34 96 166 96 166 116 V 140 C 166 160 34 160 34 140 Z") + fillp("M 40 100 C 60 82 140 82 160 100 C 140 92 60 92 40 100 Z", `opacity="0.7"`) + `<rect x="82" y="96" width="36" height="52" rx="4" fill="${C}" opacity="0.5"/>`, "#fb7185");
+  F("sushiroll1", "Maki", "maki sushi rouleau japonais", `<circle cx="100" cy="100" r="72" fill="none" stroke="${C}" stroke-width="12"/>` + `<circle cx="100" cy="100" r="52" fill="${C}" opacity="0.3"/><circle cx="100" cy="100" r="22" fill="${C}"/>` + opc(78, 88, 8, 0.6) + opc(120, 110, 8, 0.6), "#22c55e");
+  F("ramen1", "Ramen", "ramen soupe nouilles bol japonais", fillp("M 24 96 C 24 150 176 150 176 96 Z") + stroke("M 20 96 H 180", 8) + stroke("M 60 96 C 60 70 80 64 84 84 M 100 96 C 100 66 120 60 122 82 M 130 96 C 132 72 150 68 150 90", 5, `opacity="0.5"`) + stroke("M 150 40 L 90 80", 6) + `<circle cx="76" cy="112" r="10" fill="${C}" opacity="0.5"/>`, "#fbbf24");
+  F("taco1", "Taco", "taco mexicain", fillp("M 20 150 A 80 80 0 0 1 180 150 Z") + fillp("M 20 150 A 80 66 0 0 1 180 150 Z", `opacity="0.55"`) + opc(70, 132, 8, 0.7) + opc(100, 126, 7, 0.7) + opc(130, 132, 8, 0.7), "#fbbf24", 200, 180);
+  F("sandwich1", "Sandwich", "sandwich fast food", fillp("M 30 70 C 30 50 170 50 170 70 V 82 H 30 Z") + fillp("M 30 90 H 170 V 104 H 30 Z", `opacity="0.55"`) + fillp("M 30 112 L 170 112 L 158 150 H 42 Z") + stroke("M 44 130 H 156", 4, `opacity="0.4"`), "#f59e0b");
+  F("hotdog2", "Hot-dog", "hotdog saucisse fast food", fillp("M 20 70 C 20 48 44 44 62 44 H 138 C 156 44 180 48 180 70 C 180 92 156 96 138 96 H 62 C 44 96 20 92 20 70 Z") + fillp("M 40 60 H 160 C 170 60 170 76 160 76 H 40 C 30 76 30 60 40 60 Z", `opacity="0.6"`), "#f59e0b", 200, 140);
+  F("bagel1", "Bagel", "bagel pain viennoiserie", eo(`M 20 100 a 80 80 0 1 0 160 0 a 80 80 0 1 0 -160 0 Z` + holeC(100, 100, 30)) + Array.from({ length: 10 }, (_, k) => opc(polar(100, 100, 74, k * 36)[0], polar(100, 100, 74, k * 36)[1], 3, 0.4)).join(""), "#d97706");
+  F("croissant2", "Croissant", "croissant viennoiserie", fillp("M 24 120 C 40 78 90 58 130 66 C 116 52 96 50 96 50 C 148 40 192 76 190 118 C 190 134 172 140 166 126 C 158 110 148 108 148 108 C 158 122 156 138 156 138 C 132 120 116 120 116 120 C 126 134 122 148 122 148 C 96 126 80 126 80 126 C 88 140 84 150 84 150 C 56 132 38 130 24 120 Z"), "#f59e0b", 220, 170);
+  F("pancake1", "Pancakes", "pancakes crêpes dessert", Array.from({ length: 3 }, (_, k) => `<ellipse cx="100" cy="${146 - k * 26}" rx="${72 - k * 4}" ry="20" fill="${C}"/>`).join("") + fillp("M 100 74 C 90 58 110 50 100 34 C 116 44 108 66 100 74 Z", `opacity="0.7"`) + `<ellipse cx="100" cy="74" rx="20" ry="7" fill="${C}" opacity="0.5"/>`, "#f59e0b");
+  F("waffle1", "Gaufre", "gaufre dessert", `<circle cx="100" cy="100" r="80" fill="${C}"/>` + stroke("M 44 60 H 156 M 44 100 H 156 M 44 140 H 156 M 60 44 V 156 M 100 44 V 156 M 140 44 V 156", 6, `opacity="0.35"`), "#fbbf24");
+  F("cookie3", "Cookie", "cookie biscuit dessert", `<circle cx="100" cy="100" r="82" fill="${C}"/>` + [[70, 74], [128, 88], [86, 130], [130, 138], [104, 100]].map(([x, y]) => opc(x, y, 8, 0.45)).join(""), "#d97706");
+  F("pie1", "Tarte", "tarte pie dessert", fillp("M 20 150 A 80 80 0 0 1 180 150 Z") + stroke("M 20 150 H 180", 8) + stroke("M 56 118 L 90 150 M 100 100 L 100 150 M 144 118 L 110 150 M 40 132 L 60 150 M 160 132 L 140 150", 5, `opacity="0.4"`), "#f59e0b", 200, 180);
+  F("candy2", "Sucette plate", "sucette bonbon spirale candy", `<circle cx="100" cy="76" r="58" fill="${C}"/>` + stroke("M 100 76 m 0 -44 a 44 44 0 0 1 0 88 a 30 30 0 0 1 0 -60 a 18 18 0 0 1 0 36", 6, `opacity="0.4"`) + stroke("M 100 134 V 190", 8), "#ec4899");
+  F("chocolate2", "Chocolat", "chocolat tablette dessert", fillp("M 34 34 H 166 V 166 H 34 Z") + stroke("M 100 34 V 166 M 34 100 H 166 M 66 34 V 166 M 134 34 V 166 M 34 66 H 166 M 34 134 H 166", 5, `opacity="0.3"`), "#a16207");
+  F("cherrypie1", "Part de gâteau", "gâteau part cake dessert", fillp("M 40 60 H 160 V 168 H 40 Z") + stroke("M 40 92 H 160 M 40 128 H 160", 6, `opacity="0.35"`) + fillp("M 40 60 Q 70 42 100 60 T 160 60", `opacity="0.7"`) + `<circle cx="100" cy="44" r="10" fill="${C}"/>`, "#f9a8d4");
+  F("honey1", "Miel", "miel pot abeille", fillp("M 56 60 H 144 V 172 A 12 12 0 0 1 132 184 H 68 A 12 12 0 0 1 56 172 Z") + fillp("M 48 40 H 152 V 60 H 48 Z", `opacity="0.7"`) + op("M 100 84 C 90 100 90 116 100 128 C 110 116 110 100 100 84 Z", 0.4), "#f59e0b");
+  F("egg2", "Œuf au plat", "oeuf plat fried egg", `<ellipse cx="100" cy="104" rx="78" ry="60" fill="${C}" opacity="0.35"/>` + `<circle cx="104" cy="104" r="30" fill="${C}"/>`, "#facc15");
+  F("cheese1", "Fromage", "fromage cheese", eo("M 24 150 L 34 74 L 190 66 L 178 150 Z" + holeC(72, 112, 12) + holeC(128, 98, 15) + holeC(150, 128, 9)), "#facc15", 210, 180);
+  F("grapes1b", "Raisin", "raisin grappe fruit", (() => { let g = stroke("M 100 24 C 96 40 100 48 100 56", 6); const rows = [[100], [80, 120], [66, 100, 134], [82, 118], [100]]; let cy = 66; rows.forEach((row) => { row.forEach((cx) => { g += `<circle cx="${cx}" cy="${cy}" r="20" fill="${C}"/>`; g += opc(cx - 6, cy - 6, 5, 0.4); }); cy += 32; }); return g; })(), "#a78bfa", 200, 210);
+  F("pineapple1", "Ananas", "ananas fruit tropical", fillp("M 85 66 C 46 66 34 110 40 154 C 46 194 70 210 85 210 C 100 210 124 194 130 154 C 136 110 124 66 85 66 Z") + Array.from({ length: 4 }, (_, r) => Array.from({ length: 3 }, (_, c) => `<path d="M ${54 + c * 22} ${96 + r * 22} l 12 12 M ${66 + c * 22} ${84 + r * 22} l -12 12" stroke="${C}" stroke-width="3" opacity="0.4" fill="none"/>`).join("")).join("") + fillp("M 85 66 C 70 40 60 22 40 12 C 58 14 74 26 85 40 C 96 26 112 14 130 12 C 110 22 100 40 85 66 Z", `opacity="0.8"`), "#facc15", 170, 220);
+  F("coconut1", "Noix de coco", "coco noix fruit tropical", fillp("M 100 20 A 80 80 0 1 0 100 180 A 80 80 0 0 1 100 20 Z", `transform="scale(-1 1) translate(-200 0)"`) + fillp("M 100 20 A 80 80 0 0 1 100 180 A 62 62 0 0 0 100 20 Z", `opacity="0.4"`) + opc(78, 78, 8, 0.6) + opc(122, 78, 8, 0.6) + opc(100, 106, 8, 0.6), "#a16207");
+  F("watermelon1", "Pastèque", "pastèque melon fruit", fillp("M 12 30 A 96 96 0 0 0 188 30 Z") + fillp("M 24 30 A 84 84 0 0 0 176 30 Z", `opacity="0.4"`) + Array.from({ length: 6 }, (_, k) => opc(44 + k * 22, 60 + (k % 2) * 12, 5, 0.85)).join(""), "#f43f5e", 200, 150);
+})();
+
+/* ── 31. Animaux (2ᵉ vague) ── */
+(() => {
+  const K = "animal animaux";
+  const A = (id: string, l: string, kw: string, body: string, color?: string, w = 200, h = 200) => add("animals", id, l, `${K} ${kw}`, w, h, body, color);
+  A("koala1", "Koala", "koala", `<circle cx="52" cy="70" r="30" fill="${C}"/><circle cx="148" cy="70" r="30" fill="${C}"/>` + opc(52, 70, 15, 0.4) + opc(148, 70, 15, 0.4) + eo(`M 38 112 a 62 62 0 1 0 124 0 a 62 62 0 1 0 -124 0 Z` + holeC(80, 106, 8) + holeC(120, 106, 8) + holeC(100, 128, 15)), "#94a3b8");
+  A("tiger1", "Tigre", "tigre félin chat", fillp("M 44 56 L 40 88 L 66 76 Z M 156 56 L 160 88 L 134 76 Z") + eo(`M 30 106 a 70 70 0 1 0 140 0 a 70 70 0 1 0 -140 0 Z` + holeC(80, 98, 9) + holeC(120, 98, 9) + holeC(100, 122, 10)), "#fb923c");
+  A("giraffe1", "Girafe", "girafe", fillp("M 78 176 V 90 C 78 60 122 60 122 90 V 176") + `<circle cx="100" cy="52" r="32" fill="${C}"/>` + stroke("M 84 26 V 12 M 116 26 V 12", 8) + `<circle cx="84" cy="12" r="7" fill="${C}"/><circle cx="116" cy="12" r="7" fill="${C}"/>` + opc(90, 110, 10, 0.4) + opc(112, 140, 10, 0.4) + opc(88, 160, 9, 0.4), "#fbbf24");
+  A("deer1", "Cerf", "cerf biche", stroke("M 68 60 C 50 40 44 24 44 12 M 68 44 C 54 40 46 32 42 24 M 132 60 C 150 40 156 24 156 12 M 132 44 C 146 40 154 32 158 24", 8) + eo(`M 58 120 a 42 52 0 1 0 84 0 a 42 52 0 1 0 -84 0 Z` + holeC(86, 108, 7) + holeC(114, 108, 7) + holeC(100, 132, 9)), "#d97706");
+  A("hippo1", "Hippo", "hippopotame", `<circle cx="58" cy="70" r="12" fill="${C}"/><circle cx="142" cy="70" r="12" fill="${C}"/>` + eo(`M 24 112 a 76 60 0 1 0 152 0 a 76 60 0 1 0 -152 0 Z` + holeC(76, 92, 8) + holeC(124, 92, 8)) + eo(`M 52 150 a 20 16 0 1 0 40 0 a 20 16 0 1 0 -40 0 Z M 108 150 a 20 16 0 1 0 40 0 a 20 16 0 1 0 -40 0 Z` + holeC(72, 150, 5) + holeC(128, 150, 5)), "#a78bfa");
+  A("monkey2", "Singe", "singe primate", `<circle cx="48" cy="90" r="24" fill="${C}"/><circle cx="152" cy="90" r="24" fill="${C}"/>` + opc(48, 90, 12, 0.4) + opc(152, 90, 12, 0.4) + eo(`M 34 104 a 66 66 0 1 0 132 0 a 66 66 0 1 0 -132 0 Z` + holeC(82, 92, 8) + holeC(118, 92, 8)) + `<ellipse cx="100" cy="132" rx="40" ry="30" fill="${C}" opacity="0.32"/>`, "#a16207");
+  A("wolf1", "Loup", "loup canin", fillp("M 40 40 L 74 90 L 48 100 Z M 160 40 L 126 90 L 152 100 Z") + eo("M 100 60 C 62 60 46 96 54 128 L 100 178 L 146 128 C 154 96 138 60 100 60 Z" + holeC(80, 104, 8) + holeC(120, 104, 8) + holeC(100, 150, 9)), "#94a3b8");
+  A("bearface2", "Ours", "ours nounours", `<circle cx="52" cy="56" r="26" fill="${C}"/><circle cx="148" cy="56" r="26" fill="${C}"/>` + opc(52, 56, 12, 0.4) + opc(148, 56, 12, 0.4) + eo(`M 28 112 a 72 72 0 1 0 144 0 a 72 72 0 1 0 -144 0 Z` + holeC(76, 100, 8) + holeC(124, 100, 8) + holeC(100, 122, 10)) + `<ellipse cx="100" cy="132" rx="26" ry="18" fill="${C}" opacity="0.35"/>`, "#d97706");
+  A("lion2", "Lion", "lion félin roi", Array.from({ length: 12 }, (_, k) => { const [x, y] = polar(105, 105, 92, k * 30); return `<circle cx="${N(x)}" cy="${N(y)}" r="20" fill="${C}" opacity="0.55"/>`; }).join("") + `<circle cx="105" cy="105" r="60" fill="${C}"/>` + `<circle cx="86" cy="96" r="7" fill="${C}"/><circle cx="124" cy="96" r="7" fill="${C}"/>` + fillp("M 105 112 L 94 126 H 116 Z"), "#f59e0b", 210, 210);
+  A("rooster1", "Coq", "coq poule oiseau ferme", fillp("M 60 120 C 40 100 44 70 70 66 C 90 40 140 44 150 80 C 176 90 176 130 150 140 C 140 168 80 168 66 144 C 58 138 56 130 60 120 Z") + fillp("M 70 60 C 66 44 76 38 84 42 M 90 54 C 88 36 100 30 108 36 M 108 54 C 108 36 122 32 128 40", `opacity="0.7"`) + fillp("M 150 90 L 178 84 L 158 104 Z") + `<circle cx="132" cy="92" r="6" fill="${C}"/>` + stroke("M 80 150 L 74 176 M 100 156 L 100 180 M 120 150 L 126 176", 7), "#ef4444");
+  A("flamingo1", "Flamant", "flamant rose oiseau", stroke("M 100 176 V 120 C 100 90 120 88 120 60 C 120 40 100 34 88 44", 10) + `<circle cx="86" cy="42" r="18" fill="${C}"/>` + fillp("M 72 44 L 48 40 L 72 54 Z") + fillp("M 100 120 C 120 108 150 110 160 130 C 150 146 116 144 100 130 Z"), "#f472b6");
+  A("parrot1", "Perroquet", "perroquet oiseau tropical", fillp("M 110 30 C 70 30 50 70 56 110 C 60 146 84 176 110 176 C 128 176 138 158 138 140 C 152 138 164 122 160 104 C 172 96 172 74 158 66 C 152 44 132 30 110 30 Z") + fillp("M 138 60 L 168 66 L 148 82 Z") + `<circle cx="120" cy="66" r="7" fill="${C}"/>` + stroke("M 90 90 C 100 130 100 150 96 170", 5, `opacity="0.4"`), "#22c55e");
+  A("swan1", "Cygne", "cygne oiseau mer", stroke("M 70 176 C 50 140 60 96 96 88 C 120 82 120 54 104 44", 10) + `<circle cx="102" cy="42" r="12" fill="${C}"/>` + fillp("M 90 44 L 66 40 L 90 52 Z") + fillp("M 40 176 C 40 130 120 120 160 150 C 130 178 70 180 40 176 Z"), "#e2e8f0");
+  A("peacock1", "Paon", "paon oiseau plumes", Array.from({ length: 7 }, (_, k) => { const a = -90 + (k - 3) * 22; const [x, y] = polar(100, 150, 96, a); return `<circle cx="${N(x)}" cy="${N(y)}" r="16" fill="${C}" opacity="0.5"/>` + stroke(`M 100 150 L ${N(x)} ${N(y)}`, 4, `opacity="0.4"`); }).join("") + `<ellipse cx="100" cy="150" rx="24" ry="34" fill="${C}"/>` + `<circle cx="100" cy="120" r="16" fill="${C}"/>` + stroke("M 100 104 V 88", 5) + `<circle cx="100" cy="84" r="5" fill="${C}"/>`, "#14b8a6", 200, 200);
+  A("frog2", "Grenouille", "grenouille frog", `<circle cx="60" cy="52" r="26" fill="${C}"/><circle cx="140" cy="52" r="26" fill="${C}"/>` + `<circle cx="60" cy="52" r="10" fill="${C}"/><circle cx="140" cy="52" r="10" fill="${C}"/>` + fillp("M 105 60 C 55 60 28 96 34 134 C 40 168 170 168 176 134 C 182 96 155 60 105 60 Z") + stroke("M 70 140 Q 105 162 140 140", 7), "#22c55e", 210, 190);
+  A("snake1", "Serpent", "serpent snake reptile", stroke("M 40 40 C 120 40 120 100 60 100 C 20 100 20 160 100 160 C 170 160 180 100 180 100", 14) + `<circle cx="184" cy="98" r="4" fill="${C}"/>` + stroke("M 188 96 L 200 90 M 188 100 L 200 106", 3), "#4ade80", 210, 200);
+  A("ladybug1", "Coccinelle", "coccinelle insecte", stroke("M 84 40 C 78 26 70 22 64 24 M 106 40 C 112 26 120 22 126 24", 4) + eo(`M 23 104 a 72 72 0 1 0 144 0 a 72 72 0 1 0 -144 0 Z` + holeC(66, 92, 10) + holeC(124, 92, 10) + holeC(70, 136, 9) + holeC(120, 136, 9) + holeC(95, 148, 8) + " M 91 40 L 99 40 L 99 176 L 91 176 Z"), "#ef4444", 190, 190);
+  A("dragonfly1", "Libellule", "libellule insecte", `<ellipse cx="100" cy="120" rx="10" ry="60" fill="${C}"/>` + `<circle cx="100" cy="50" r="18" fill="${C}"/>` + `<ellipse cx="60" cy="86" rx="44" ry="14" fill="${C}" opacity="0.5" transform="rotate(-20 60 86)"/><ellipse cx="140" cy="86" rx="44" ry="14" fill="${C}" opacity="0.5" transform="rotate(20 140 86)"/>` + `<ellipse cx="62" cy="112" rx="38" ry="12" fill="${C}" opacity="0.4" transform="rotate(-14 62 112)"/><ellipse cx="138" cy="112" rx="38" ry="12" fill="${C}" opacity="0.4" transform="rotate(14 138 112)"/>`, "#22d3ee");
+  A("spider1", "Araignée", "araignée insecte", `<circle cx="100" cy="112" r="40" fill="${C}"/><circle cx="100" cy="72" r="22" fill="${C}"/>` + stroke("M 72 98 L 24 72 M 72 112 L 20 112 M 72 126 L 24 152 M 128 98 L 176 72 M 128 112 L 180 112 M 128 126 L 176 152", 6) + `<circle cx="92" cy="70" r="4" fill="${C}"/><circle cx="108" cy="70" r="4" fill="${C}"/>`, "#818cf8", 220, 200);
+  A("crab1", "Crabe", "crabe crab mer", `<ellipse cx="110" cy="106" rx="66" ry="44" fill="${C}"/>` + `<circle cx="88" cy="96" r="7" fill="${C}"/><circle cx="132" cy="96" r="7" fill="${C}"/>` + stroke("M 44 96 C 20 90 12 70 24 56 M 176 96 C 200 90 208 70 196 56", 8) + fillp("M 24 56 L 8 48 L 20 40 Z M 196 56 L 212 48 L 200 40 Z") + stroke("M 50 132 L 26 152 M 74 144 L 58 168 M 146 144 L 162 168 M 170 132 L 194 152", 6), "#f87171", 220, 180);
+  A("octopus1", "Poulpe", "poulpe pieuvre mer", fillp("M 105 30 C 65 30 40 62 40 102 V 120 H 170 V 102 C 170 62 145 30 105 30 Z") + stroke("M 50 120 C 40 160 28 176 20 184 M 74 122 C 70 166 60 184 52 194 M 105 124 V 196 M 136 122 C 140 166 150 184 158 194 M 160 120 C 170 160 182 176 190 184", 10) + `<circle cx="84" cy="86" r="8" fill="${C}"/><circle cx="126" cy="86" r="8" fill="${C}"/>`, "#f472b6", 210, 210);
+  A("dolphin1", "Dauphin", "dauphin dolphin mer", fillp("M 20 150 C 40 90 110 60 180 66 C 160 46 150 34 150 34 C 200 40 206 96 200 120 C 196 140 170 148 152 138 C 120 120 70 130 46 168 C 40 176 26 168 20 150 Z") + fillp("M 60 150 L 40 186 L 76 172 Z", `opacity="0.7"`) + `<circle cx="176" cy="92" r="6" fill="${C}"/>`, "#38bdf8", 220, 190);
+  A("turtle1", "Tortue", "tortue turtle mer", fillp("M 60 120 A 60 46 0 0 1 180 120 Z") + stroke("M 120 76 V 120 M 82 96 L 100 120 M 158 96 L 140 120", 5, `opacity="0.5"`) + `<circle cx="196" cy="112" r="16" fill="${C}"/><circle cx="200" cy="108" r="3" fill="${C}"/>` + fillp("M 66 118 L 54 148 H 74 L 82 122 Z M 174 118 L 186 148 H 166 L 158 122 Z"), "#22c55e", 220, 170);
+  A("butterfly2", "Papillon", "papillon butterfly", fillp("M 104 100 C 60 40 20 44 24 88 C 26 120 66 128 104 108 Z") + fillp("M 104 100 C 148 40 188 44 184 88 C 182 120 142 128 104 108 Z") + fillp("M 104 100 C 66 120 34 140 46 172 C 58 196 96 168 104 120 Z") + fillp("M 104 100 C 142 120 174 140 162 172 C 150 196 112 168 104 120 Z") + stroke("M 104 74 V 150", 8) + stroke("M 104 74 C 92 56 82 50 74 48 M 104 74 C 116 56 126 50 134 48", 5) + opc(56, 82, 8, 0.4) + opc(152, 82, 8, 0.4), "#e879f9", 220, 200);
+})();
+
+/* ── 32. Météo (2ᵉ vague : phases de lune, variantes) ── */
+(() => {
+  const K = "météo ciel weather nuit espace";
+  const W = (id: string, l: string, kw: string, body: string, color?: string, w = 200, h = 200) => add("weather", id, l, `${K} ${kw}`, w, h, body, color);
+  // Phases de lune.
+  W("moonfull", "Pleine lune", "lune pleine full moon", `<circle cx="100" cy="100" r="80" fill="${C}"/>` + opc(72, 76, 12, 0.35) + opc(126, 108, 16, 0.3) + opc(88, 128, 9, 0.35), "#fde68a");
+  W("moonnew", "Nouvelle lune", "lune nouvelle new moon", `<circle cx="100" cy="100" r="80" fill="none" stroke="${C}" stroke-width="6"/>`, "#94a3b8");
+  W("moonq1", "Premier quartier", "lune quartier moon", fillp("M 100 20 A 80 80 0 0 1 100 180 Z"), "#fde68a");
+  W("moonq2", "Dernier quartier", "lune quartier moon", fillp("M 100 20 A 80 80 0 0 0 100 180 Z"), "#fde68a");
+  W("mooncw", "Croissant croissant", "lune croissant waxing", fillp("M 120 22 A 80 80 0 1 0 120 178 A 60 60 0 0 1 120 22 Z"), "#fde68a");
+  W("mooncd", "Croissant décroissant", "lune croissant waning", fillp("M 80 22 A 80 80 0 1 1 80 178 A 60 60 0 0 0 80 22 Z"), "#fde68a");
+  W("moongw", "Gibbeuse croissante", "lune gibbeuse gibbous", eo(`M 100 20 a 80 80 0 1 0 0.1 0 Z` + ` M 140 40 a 46 80 0 1 0 0.1 0 Z`), "#fde68a");
+  W("moongd", "Gibbeuse décroissante", "lune gibbeuse gibbous", eo(`M 100 20 a 80 80 0 1 0 0.1 0 Z` + ` M 60 40 a 46 80 0 1 0 0.1 0 Z`), "#fde68a");
+  // Soleil variantes.
+  W("sunwave", "Soleil ondulé", "soleil sun rayons ondulés", `<circle cx="100" cy="100" r="46" fill="${C}"/>` + Array.from({ length: 12 }, (_, k) => { const a = k * 30; const [x1, y1] = polar(100, 100, 58, a); const [x2, y2] = polar(100, 100, 82, a); return k % 2 ? stroke(`M ${N(x1)} ${N(y1)} L ${N(x2)} ${N(y2)}`, 7) : fillp(`M ${N(polar(100, 100, 58, a - 6)[0])} ${N(polar(100, 100, 58, a - 6)[1])} L ${N(x2)} ${N(y2)} L ${N(polar(100, 100, 58, a + 6)[0])} ${N(polar(100, 100, 58, a + 6)[1])} Z`); }).join(""), "#fbbf24");
+  W("sunset1", "Coucher de soleil", "coucher soleil sunset horizon", fillp("M 44 130 A 68 68 0 0 1 180 130 Z") + Array.from({ length: 7 }, (_, k) => { const a = 180 + k * 30; const [x1, y1] = polar(112, 130, 80, a); const [x2, y2] = polar(112, 130, 100, a); return stroke(`M ${N(x1)} ${N(y1)} L ${N(x2)} ${N(y2)}`, 7); }).join("") + stroke("M 12 130 H 200 M 30 150 H 90 M 120 150 H 190", 8, `opacity="0.6"`), "#fb923c", 220, 170);
+  // Nuage variantes.
+  W("cloudrain2", "Nuage pluie", "nuage pluie averse rain", fillp("M 52 122 A 30 30 0 0 1 46 66 A 40 40 0 0 1 120 46 A 34 34 0 0 1 178 68 A 30 30 0 0 1 172 122 Z") + stroke("M 62 140 L 52 178 M 108 140 L 98 178 M 154 140 L 144 178", 7, `opacity="0.7"`), "#38bdf8", 220, 200);
+  W("cloudsnow2", "Nuage neige", "nuage neige snow", fillp("M 52 122 A 30 30 0 0 1 46 66 A 40 40 0 0 1 120 46 A 34 34 0 0 1 178 68 A 30 30 0 0 1 172 122 Z") + [58, 104, 150].map((x) => `<circle cx="${x}" cy="166" r="8" fill="${C}" opacity="0.7"/>`).join(""), "#e2e8f0", 220, 200);
+  W("cloudbolt2", "Nuage orage", "nuage orage éclair storm", fillp("M 52 122 A 30 30 0 0 1 46 66 A 40 40 0 0 1 120 46 A 34 34 0 0 1 178 68 A 30 30 0 0 1 172 122 Z") + fillp("M 108 130 L 78 176 H 100 L 88 200 L 132 156 H 108 L 122 130 Z", `opacity="0.9"`), "#facc15", 220, 200);
+  W("rainbow2", "Arc-en-ciel", "arc-en-ciel rainbow", [0, 1, 2, 3, 4].map((k) => `<path d="M ${18 + k * 12} 150 A ${100 - k * 12} ${100 - k * 12} 0 0 1 ${182 - k * 12} 150" fill="none" stroke="${C}" stroke-width="9" opacity="${1 - k * 0.16}"/>`).join(""), "#f472b6", 200, 160);
+  W("wind2", "Vent", "vent brise wind souffle", stroke("M 20 56 H 130 A 22 22 0 1 0 108 34", 10) + stroke("M 20 100 H 168 A 24 24 0 1 1 144 124", 10, `opacity="0.75"`) + stroke("M 20 142 H 104 A 18 18 0 1 0 86 124", 10, `opacity="0.55"`), "#94a3b8", 200, 180);
+  W("star1", "Étoile scintillante", "étoile star nuit ciel scintille", fillp(starPts(100, 100, 4, 84, 26)), "#fde047");
+  W("planet1", "Planète", "planète saturne espace", `<circle cx="100" cy="100" r="54" fill="${C}"/>` + `<ellipse cx="100" cy="100" rx="92" ry="30" fill="none" stroke="${C}" stroke-width="8" transform="rotate(-20 100 100)"/>` + opc(84, 84, 10, 0.35), "#a78bfa");
+  W("thermohot1", "Chaleur", "thermomètre chaud chaleur température", stroke("M 60 22 V 150", 10) + `<circle cx="60" cy="176" r="26" fill="${C}"/>` + fillp("M 55 90 H 65 V 172 H 55 Z", `opacity="0.6"`) + Array.from({ length: 4 }, (_, k) => { const [x1, y1] = polar(140, 70, 20, k * 45), [x2, y2] = polar(140, 70, 36, k * 45); return stroke(`M ${N(x1)} ${N(y1)} L ${N(x2)} ${N(y2)}`, 6); }).join(""), "#f87171", 200, 210);
+  W("umbrellarain1", "Parapluie pluie", "parapluie pluie averse", fillp("M 100 30 C 52 30 24 74 24 96 C 46 84 58 84 62 100 C 76 84 88 84 100 100 C 112 84 124 84 138 100 C 142 84 154 84 176 96 C 176 74 148 30 100 30 Z") + stroke("M 100 30 V 150 C 100 168 82 168 78 154", 8) + stroke("M 40 130 L 34 152 M 150 120 L 156 142", 6, `opacity="0.6"`), "#38bdf8", 200, 200);
+})();
+
+/* ── 33. Sport (2ᵉ vague) ── */
+(() => {
+  const K = "sport loisir jeu";
+  const S = (id: string, l: string, kw: string, body: string, color?: string, w = 200, h = 200) => add("sport", id, l, `${K} ${kw}`, w, h, body, color);
+  S("golfball1", "Balle de golf", "golf balle", `<circle cx="100" cy="100" r="78" fill="${C}"/>` + Array.from({ length: 4 }, (_, r) => Array.from({ length: 4 }, (_, c) => opc(56 + c * 30 + (r % 2) * 15, 56 + r * 30, 5, 0.4)).join("")).join(""), "#e2e8f0");
+  S("puck1", "Palet hockey", "hockey palet puck", `<ellipse cx="100" cy="112" rx="72" ry="30" fill="${C}"/>` + fillp("M 28 92 A 72 30 0 0 0 172 92 V 112 A 72 30 0 0 1 28 112 Z", `opacity="0.5"`), "#334155");
+  S("hockeystick1", "Crosse hockey", "hockey crosse stick", stroke("M 150 24 L 60 150", 12) + fillp("M 60 150 L 40 178 H 88 L 74 156 Z"), "#f59e0b");
+  S("racket1", "Raquette", "raquette tennis badminton", `<ellipse cx="100" cy="76" rx="56" ry="66" fill="none" stroke="${C}" stroke-width="10"/>` + stroke("M 58 50 H 142 M 54 76 H 146 M 60 104 H 140 M 100 14 V 138 M 76 18 V 134 M 124 18 V 134", 4, `opacity="0.4"`) + stroke("M 100 142 V 190 M 84 190 H 116", 10), "#22c55e");
+  S("shuttle1", "Volant", "badminton volant shuttlecock", fillp("M 78 130 H 122 L 116 156 H 84 Z") + `<circle cx="100" cy="150" r="20" fill="${C}"/>` + Array.from({ length: 5 }, (_, k) => stroke(`M ${88 + k * 6} 130 L ${70 + k * 15} 40`, 6)).join(""), "#e2e8f0");
+  S("weights1", "Haltères", "haltère poids musculation fitness", fillp("M 14 50 H 40 V 150 H 14 Z M 46 40 H 72 V 160 H 46 Z") + fillp("M 186 50 H 160 V 150 H 186 Z M 154 40 H 128 V 160 H 154 Z") + fillp("M 72 88 H 128 V 112 H 72 Z"), "#818cf8", 200, 200);
+  S("barbell1", "Barre", "barre haltère musculation fitness", fillp("M 20 60 H 40 V 140 H 20 Z M 46 74 H 64 V 126 H 46 Z") + fillp("M 180 60 H 160 V 140 H 180 Z M 154 74 H 136 V 126 H 136 154 74 Z") + fillp("M 64 92 H 136 V 108 H 64 Z"), "#94a3b8");
+  S("punchbag1", "Sac de frappe", "boxe sac frappe punching", stroke("M 100 20 V 44 M 80 44 H 120 M 88 44 L 78 60 M 112 44 L 122 60", 7) + fillp("M 74 60 H 126 C 134 60 138 70 136 82 L 128 160 C 126 176 74 176 72 160 L 64 82 C 62 70 66 60 74 60 Z") + stroke("M 68 110 H 132 M 70 136 H 130", 6, `opacity="0.4"`), "#ef4444");
+  S("yoga1", "Tapis de yoga", "yoga tapis fitness", `<rect x="30" y="46" width="120" height="108" rx="16" fill="none" stroke="${C}" stroke-width="9"/>` + `<circle cx="160" cy="100" r="26" fill="none" stroke="${C}" stroke-width="9"/>` + stroke("M 30 100 H 150", 5, `opacity="0.4"`), "#14b8a6", 200, 200);
+  S("skate2", "Skateboard", "skate skateboard planche", fillp("M 20 60 C 20 44 44 44 60 46 H 170 C 186 44 210 44 210 60 C 210 76 186 76 170 74 H 60 C 44 76 20 76 20 60 Z") + `<circle cx="66" cy="104" r="18" fill="none" stroke="${C}" stroke-width="8"/><circle cx="164" cy="104" r="18" fill="none" stroke="${C}" stroke-width="8"/>`, "#fb923c", 230, 130);
+  S("surf2", "Surf", "surf surfboard planche mer", fillp("M 65 10 C 30 60 30 170 65 220 C 100 170 100 60 65 10 Z") + stroke("M 65 30 V 200", 5, `opacity="0.5"`), "#14b8a6", 130, 230);
+  S("ski1", "Ski", "ski neige montagne hiver", stroke("M 40 176 L 150 30 M 60 176 L 170 30", 8) + stroke("M 30 176 H 66 M 54 176 H 90", 5, `opacity="0.6"`) + `<circle cx="150" cy="30" r="8" fill="${C}"/><circle cx="170" cy="30" r="8" fill="${C}"/>`, "#38bdf8");
+  S("trophy2", "Trophée", "trophée coupe victoire prix", stroke("M 56 26 H 144 V 90 A 44 44 0 0 1 56 90 Z", 9) + stroke("M 56 42 H 24 A 32 32 0 0 0 60 90 M 144 42 H 176 A 32 32 0 0 1 140 90", 8) + stroke("M 100 134 V 160 M 64 184 H 136", 10) + fillp("M 64 160 H 136 V 180 H 64 Z"), "#fbbf24", 200, 210);
+  S("dumbbell2", "Haltère", "haltère fitness musculation", fillp("M 14 40 H 40 V 90 H 14 Z M 46 30 H 70 V 100 H 46 Z") + fillp("M 206 40 H 180 V 90 H 206 Z M 174 30 H 150 V 100 H 174 Z") + fillp("M 70 56 H 150 V 74 H 70 Z"), "#818cf8", 220, 130);
+})();
+
+/* ── 34. Nature (2ᵉ vague : fleurs, arbres, plantes) ── */
+(() => {
+  const K = "nature plante";
+  const NA = (id: string, l: string, kw: string, body: string, color?: string, w = 200, h = 200) => add("nature", id, l, `${K} ${kw}`, w, h, body, color);
+  NA("rose1", "Rose", "rose fleur", fillp("M 100 40 C 130 40 148 66 140 92 C 158 88 172 108 162 128 C 174 140 166 166 144 168 C 148 186 122 194 108 180 C 100 190 80 186 78 172 C 58 174 44 152 56 136 C 40 130 40 104 60 98 C 50 76 68 50 96 54 C 96 46 98 42 100 40 Z") + op("M 100 70 C 116 74 122 94 108 106 C 94 100 90 82 100 70 Z", 0.4), "#f43f5e");
+  NA("tulip1", "Tulipe", "tulipe fleur printemps", fillp("M 100 30 C 80 50 76 74 76 100 C 76 60 92 44 100 40 C 108 44 124 60 124 100 C 124 74 120 50 100 30 Z") + fillp("M 76 96 C 62 70 60 50 66 34 C 84 44 96 66 100 96 M 124 96 C 138 70 140 50 134 34 C 116 44 104 66 100 96", `opacity="0.85"`) + stroke("M 100 100 V 180", 8) + fillp("M 100 140 C 70 130 58 108 62 90 C 92 96 104 120 100 140 Z", `opacity="0.6"`), "#ec4899");
+  NA("sunflower1", "Tournesol", "tournesol fleur soleil", Array.from({ length: 16 }, (_, k) => `<ellipse cx="100" cy="46" rx="12" ry="30" fill="${C}" transform="rotate(${k * 22.5} 100 100)"/>`).join("") + `<circle cx="100" cy="100" r="34" fill="${C}" opacity="0.5"/>` + `<circle cx="100" cy="100" r="34" fill="none" stroke="${C}" stroke-width="4"/>`, "#fbbf24");
+  NA("lotus1", "Lotus", "lotus fleur nénuphar", fillp("M 100 40 C 88 70 88 100 100 130 C 112 100 112 70 100 40 Z") + fillp("M 100 130 C 70 120 54 96 56 72 C 84 82 98 106 100 130 Z M 100 130 C 130 120 146 96 144 72 C 116 82 102 106 100 130 Z", `opacity="0.8"`) + fillp("M 100 130 C 60 128 34 110 30 88 C 66 92 92 108 100 130 Z M 100 130 C 140 128 166 110 170 88 C 134 92 108 108 100 130 Z", `opacity="0.6"`), "#f9a8d4");
+  NA("blossom1", "Fleur de cerisier", "cerisier sakura fleur", Array.from({ length: 5 }, (_, k) => fillp(`M 100 56 C 88 56 82 72 88 84 C 78 80 66 90 72 102 L 100 96 Z`, `transform="rotate(${k * 72} 100 100)"`)).join("") + `<circle cx="100" cy="100" r="12" fill="${C}" opacity="0.5"/>`, "#f9a8d4");
+  NA("palm1", "Palmier", "palmier arbre tropical", stroke("M 100 180 C 96 130 100 96 104 76", 12) + Array.from({ length: 6 }, (_, k) => { const a = -150 + k * 24; const [ex, ey] = polar(104, 72, 76, a); return fillp(`M 104 72 Q ${N((104 + ex) / 2 + Math.cos((a + 90) * Math.PI / 180) * 20)} ${N((72 + ey) / 2 + Math.sin((a + 90) * Math.PI / 180) * 20)} ${N(ex)} ${N(ey)} Q ${N((104 + ex) / 2)} ${N((72 + ey) / 2)} 104 72 Z`); }).join(""), "#22c55e");
+  NA("cactus1", "Cactus", "cactus plante désert", `<rect x="80" y="70" width="40" height="120" rx="20" fill="${C}"/>` + stroke("M 80 130 C 60 130 50 116 50 96 A 12 12 0 0 1 74 96 V 116", 20) + stroke("M 120 116 C 140 116 150 102 150 82 A 12 12 0 0 1 126 82 V 102", 20), "#22c55e", 200, 200);
+  NA("bamboo1", "Bambou", "bambou plante zen", stroke("M 80 190 V 20 M 120 190 V 40", 12) + stroke("M 66 70 H 94 M 66 120 H 94 M 66 160 H 94 M 106 90 H 134 M 106 140 H 134", 5, `opacity="0.5"`) + fillp("M 80 40 C 60 30 48 40 50 56 C 70 58 82 50 80 40 Z", `opacity="0.7"`), "#22c55e");
+  NA("clover1", "Trèfle", "trèfle chance porte-bonheur", Array.from({ length: 4 }, (_, k) => `<circle cx="100" cy="66" r="26" fill="${C}" transform="rotate(${k * 90} 100 100)"/>`).join("") + stroke("M 100 100 C 104 140 100 160 96 184", 7), "#22c55e");
+  NA("acorn1", "Gland", "gland chêne automne", fillp("M 62 84 C 62 130 138 130 138 84 Z") + fillp("M 56 60 C 56 44 144 44 144 60 C 144 84 56 84 56 60 Z") + stroke("M 74 62 H 126 M 68 72 H 132", 4, `opacity="0.4"`) + stroke("M 100 130 V 150", 6), "#a16207");
+  NA("mushroom1b", "Champignon", "champignon nature", fillp("M 20 100 C 20 46 170 46 170 100 C 170 108 20 108 20 100 Z") + opc(58, 78, 8, 0.4) + opc(120, 72, 10, 0.4) + fillp("M 74 104 H 116 L 108 186 H 82 Z"), "#ef4444", 190, 200);
+  NA("succulent1", "Plante grasse", "succulente plante pot", fillp("M 60 130 H 140 L 128 190 H 72 Z") + Array.from({ length: 8 }, (_, k) => `<ellipse cx="100" cy="98" rx="12" ry="30" fill="${C}" transform="rotate(${k * 45} 100 118)"/>`).join("") + `<circle cx="100" cy="118" r="14" fill="${C}" opacity="0.5"/>`, "#22c55e");
+  NA("leafmaple1", "Feuille d'érable", "feuille érable automne maple", fillp("M 100 186 V 140 M 100 150 L 60 160 L 70 138 L 30 120 L 54 110 L 40 82 L 74 90 L 78 60 L 100 84 L 122 60 L 126 90 L 160 82 L 146 110 L 170 120 L 130 138 L 140 160 L 100 150 Z"), "#f97316");
+  NA("wheat1", "Blé", "blé épi céréale nature", stroke("M 100 190 V 60", 8) + Array.from({ length: 6 }, (_, k) => { const y = 60 + k * 20; return `<ellipse cx="82" cy="${y}" rx="12" ry="7" fill="${C}" transform="rotate(-35 82 ${y})"/><ellipse cx="118" cy="${y}" rx="12" ry="7" fill="${C}" transform="rotate(35 118 ${y})"/>`; }).join("") + `<ellipse cx="100" cy="46" rx="10" ry="20" fill="${C}"/>`, "#fbbf24");
+  NA("waterdrop1", "Goutte", "goutte eau water nature", fillp("M 100 20 C 140 76 166 112 166 142 A 66 66 0 0 1 34 142 C 34 112 60 76 100 20 Z") + stroke("M 122 142 A 24 24 0 0 1 98 166", 5, `opacity="0.4"`), "#38bdf8");
+})();
+
+/* ── 35. Fête (2ᵉ vague) ── */
+(() => {
+  const K = "fête party célébration anniversaire";
+  const P = (id: string, l: string, kw: string, body: string, color?: string, w = 200, h = 200) => add("party", id, l, `${K} ${kw}`, w, h, body, color);
+  P("partyhat1", "Chapeau fête", "chapeau cône fête anniversaire", fillp("M 100 20 L 150 160 H 50 Z") + stroke("M 78 90 L 122 90 M 68 130 L 132 130", 6, `opacity="0.5"`) + `<circle cx="100" cy="20" r="12" fill="${C}"/>`, "#f472b6");
+  P("popper1", "Cotillon", "cotillon party popper confettis", fillp("M 30 170 L 90 110 L 130 150 Z") + Array.from({ length: 8 }, (_, k) => { const [x, y] = polar(110, 130, 50 + (k % 3) * 14, -80 + k * 12); return k % 2 ? `<circle cx="${N(x)}" cy="${N(y)}" r="6" fill="${C}"/>` : `<rect x="${N(x)}" y="${N(y)}" width="10" height="7" fill="${C}" transform="rotate(${k * 20} ${N(x)} ${N(y)})"/>`; }).join(""), "#fb923c");
+  P("fireworkx", "Feu d'artifice", "feu artifice firework célébration", Array.from({ length: 12 }, (_, k) => { const a = k * 30; const [x1, y1] = polar(100, 100, 24, a), [x2, y2] = polar(100, 100, 84, a); return stroke(`M ${N(x1)} ${N(y1)} L ${N(x2)} ${N(y2)}`, 5) + `<circle cx="${N(x2)}" cy="${N(y2)}" r="6" fill="${C}"/>`; }).join(""), "#f472b6");
+  P("sparkler1", "Cierge magique", "cierge magique étincelle fête", stroke("M 60 176 L 120 90", 8) + Array.from({ length: 14 }, (_, k) => { const r = rng(k * 13 + 3); const [x, y] = polar(124, 84, 20 + r() * 40, r() * 360); return stroke(`M 124 84 L ${N(x)} ${N(y)}`, N(2 + r() * 2), `opacity="${N(0.5 + r() * 0.5)}"`); }).join(""), "#fde047");
+  P("buntingx", "Fanions", "guirlande fanions banderole fête", stroke("M 10 30 Q 100 60 190 30", 5) + Array.from({ length: 7 }, (_, k) => { const x = 20 + k * 27; const y = 34 + Math.sin((k / 6) * Math.PI) * 22; return fillp(`M ${x} ${N(y)} L ${x + 20} ${N(y)} L ${x + 10} ${N(y + 30)} Z`); }).join(""), "#f472b6", 200, 120);
+  P("discoball1", "Boule disco", "boule disco fête soirée", `<circle cx="100" cy="112" r="66" fill="${C}"/>` + stroke("M 34 112 H 166 M 100 46 V 178 M 52 66 L 148 158 M 148 66 L 52 158 M 44 90 H 156 M 44 134 H 156", 3, `opacity="0.4"`) + stroke("M 100 46 V 24 M 80 24 H 120", 6), "#a78bfa");
+  P("champagne1", "Champagne", "champagne trinquer cheers fête", stroke("M 74 30 L 80 90 C 80 110 70 116 70 116 V 170 M 54 176 H 86", 8) + stroke("M 126 30 L 120 90 C 120 110 130 116 130 116 V 170 M 114 176 H 146", 8) + op(starPts(100, 50, 4, 12, 4), 0.6), "#fbbf24");
+  P("giftbow1", "Nœud cadeau", "noeud ruban cadeau fête", fillp("M 100 100 C 60 60 24 70 40 104 C 52 128 88 118 100 100 Z") + fillp("M 100 100 C 140 60 176 70 160 104 C 148 128 112 118 100 100 Z") + `<circle cx="100" cy="100" r="16" fill="${C}"/>` + fillp("M 90 112 L 70 170 H 90 L 100 116 Z M 110 112 L 130 170 H 110 L 100 116 Z", `opacity="0.7"`), "#f43f5e");
+})();
+
+/* ── 36. Déco / motifs (3ᵉ vague paramétrique) ── */
+(() => {
+  // Champs de formes (triangles, croix, plus, cœurs, étoiles, hexagones).
+  const glyphs: [string, (x: number, y: number, s: number) => string][] = [
+    ["triangles", (x, y, s) => fillp(`M ${x} ${y - s} L ${x + s} ${y + s} L ${x - s} ${y + s} Z`)],
+    ["plus", (x, y, s) => fillp(`M ${x - s / 3} ${y - s} H ${x + s / 3} V ${y - s / 3} H ${x + s} V ${y + s / 3} H ${x + s / 3} V ${y + s} H ${x - s / 3} V ${y + s / 3} H ${x - s} V ${y - s / 3} H ${x - s / 3} Z`)],
+    ["crosses", (x, y, s) => stroke(`M ${x - s} ${y - s} L ${x + s} ${y + s} M ${x + s} ${y - s} L ${x - s} ${y + s}`, 4)],
+    ["stars4", (x, y, s) => fillp(starPts(x, y, 4, s, s * 0.36))],
+    ["hearts", (x, y, s) => fillp(`M ${x} ${y + s * 0.7} C ${x - s} ${y} ${x - s * 0.6} ${y - s * 0.8} ${x} ${y - s * 0.3} C ${x + s * 0.6} ${y - s * 0.8} ${x + s} ${y} ${x} ${y + s * 0.7} Z`)],
+    ["hex", (x, y, s) => fillp(polyPts(x, y, 6, s, -90))],
+    ["rings", (x, y, s) => `<circle cx="${x}" cy="${y}" r="${N(s * 0.8)}" fill="none" stroke="${C}" stroke-width="3"/>`],
+    ["squares", (x, y, s) => `<rect x="${N(x - s * 0.7)}" y="${N(y - s * 0.7)}" width="${N(s * 1.4)}" height="${N(s * 1.4)}" fill="${C}"/>`],
+  ];
+  glyphs.forEach(([name, fn]) => {
+    for (let s = 0; s < 8; s++) {
+      const r = rng(s * 31 + name.length * 7);
+      const cols = 5 + Math.floor(r() * 3), rows = 4 + Math.floor(r() * 2), gap = 34, sz = 8 + r() * 6;
+      let g = "";
+      for (let i = 0; i < cols; i++) for (let j = 0; j < rows; j++) g += fn(24 + i * gap + (j % 2) * (gap / 2), 24 + j * gap, sz);
+      add("deco", `field_${name}${s}`, "Motif", `motif champ semis pattern ${name}`, 24 + cols * gap + gap / 2, 24 + rows * gap, g);
+    }
+  });
+  // Chevrons / herringbone.
+  for (let s = 0; s < 14; s++) { const r = rng(s * 41 + 5); const rows = 3 + Math.floor(r() * 3), amp = 16 + r() * 10; let g = ""; for (let row = 0; row < rows; row++) { let d = `M 10 ${N(40 + row * (amp + 20))} `; for (let k = 0; k < 5; k++) d += `L ${N(34 + k * 48)} ${N(40 + row * (amp + 20) + (k % 2 ? amp : 0))} `; g += stroke(d, N(5 + r() * 3)); } add("deco", `xchevron${s}`, "Chevrons", "motif chevrons zigzag pattern", 260, 40 + rows * (amp + 20), g); }
+  // Grilles / quadrillage.
+  for (let s = 0; s < 14; s++) { const r = rng(s * 53 + 9); const gap = 24 + Math.floor(r() * 16); let g = ""; for (let x = 10; x <= 250; x += gap) g += stroke(`M ${x} 8 V 152`, N(2 + r() * 3), `opacity="0.6"`); for (let y = 8; y <= 152; y += gap) g += stroke(`M 10 ${y} H 250`, N(2 + r() * 3), `opacity="0.6"`); add("deco", `xgrid${s}`, "Quadrillage", "motif grille quadrillage pattern", 260, 160, g); }
+})();
+
+/* ── 37. Cadres (2ᵉ vague) ── */
+(() => {
+  const K = "cadre bordure frame";
+  const F = (id: string, l: string, kw: string, body: string, w = 220, h = 180, color?: string) => add("frames", id, l, `${K} ${kw}`, w, h, body, color);
+  // Pellicule ciné.
+  F("film0", "Pellicule", "film pellicule ciné vidéo cadre", `<rect x="14" y="20" width="192" height="140" rx="6" fill="none" stroke="${C}" stroke-width="8"/>` + Array.from({ length: 6 }, (_, k) => `<rect x="${28 + k * 30}" y="26" width="16" height="14" rx="2" fill="${C}"/><rect x="${28 + k * 30}" y="140" width="16" height="14" rx="2" fill="${C}"/>`).join(""));
+  // Cadre certificat (double + coins).
+  F("cert0", "Cadre certificat", "certificat diplôme cadre orné", `<rect x="16" y="16" width="188" height="148" fill="none" stroke="${C}" stroke-width="6"/><rect x="30" y="30" width="160" height="120" fill="none" stroke="${C}" stroke-width="3" opacity="0.6"/>` + [[30, 30], [190, 30], [30, 150], [190, 150]].map(([x, y]) => `<circle cx="${x}" cy="${y}" r="7" fill="${C}"/>`).join(""));
+  // Arche.
+  F("arch0", "Cadre arche", "arche cadre porte", stroke("M 30 164 V 80 A 70 70 0 0 1 190 80 V 164", 9), 220, 190);
+  // Hexagone.
+  F("hex0", "Cadre hexagone", "hexagone cadre", stroke(polyPts(110, 90, 6, 78, -90), 9), 220, 180);
+  // Tag / étiquette.
+  F("tag0", "Cadre étiquette", "étiquette tag cadre label", eo(`M 40 30 H 200 V 150 H 40 L 14 90 Z` + holeC(60, 90, 8)), 220, 180);
+  // Ruban plié.
+  F("ribbon0", "Ruban", "ruban bannière cadre", fillp("M 30 40 H 190 V 100 H 30 Z") + fillp("M 30 40 L 10 70 L 30 100 Z M 190 40 L 210 70 L 190 100 Z", `opacity="0.6"`) + stroke("M 30 70 H 190", 4, `opacity="0.4"`), 220, 140);
+  // Bulle-cadre.
+  F("speechframe0", "Cadre bulle", "bulle cadre message parole", stroke("M 20 24 H 200 V 128 H 90 L 54 164 L 62 128 H 20 Z", 8), 220, 180);
+  // Coins ruban adhésif.
+  F("tape0", "Cadre scotch", "scotch adhésif cadre photo", `<rect x="30" y="30" width="160" height="120" fill="none" stroke="${C}" stroke-width="4" opacity="0.5"/>` + fillp("M 14 40 L 60 14 L 74 34 L 30 60 Z", `opacity="0.5"`) + fillp("M 206 40 L 160 14 L 146 34 L 190 60 Z", `opacity="0.5"`), 220, 180);
+  // Festonné rond.
+  { const bumps = 16, R = 82, r = 9; let d = ""; for (let k = 0; k < bumps * 4; k++) { const a = (k * 360) / (bumps * 4); const rr = k % 2 === 0 ? R : R - r; const [x, y] = polar(100, 100, rr, a); d += (k === 0 ? "M" : "L") + ` ${N(x)} ${N(y)} `; } F("scalloprd0", "Cadre festonné rond", "festonné rond cadre", stroke(d + "Z", 6), 200, 200); }
+})();
+
 /* ── Distribution des couleurs : chaque élément SANS teinte explicite reçoit
    une couleur de la palette de sa catégorie (index → couleur), pour un
    catalogue varié et coloré. Déterministe (ordre stable) → aucun décalage
