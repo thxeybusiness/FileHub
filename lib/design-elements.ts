@@ -40,27 +40,29 @@ export const ELEMENT_CATEGORIES: { id: string; label: string }[] = [
   { id: "sport", label: "Sport & loisirs" },
 ];
 
-/* Couleur par défaut cohérente d'une catégorie (chaque élément reste
-   recolorable à volonté ; ceci ne fait que proposer une teinte de départ
-   et sert de vignette au catalogue). */
-const CAT_COLOR: Record<string, string> = {
-  circles: "#e2e8f0",
-  strokes: "#fbbf24",
-  arrows: "#38bdf8",
-  blobs: "#c084fc",
-  stars: "#fbbf24",
-  badges: "#fb7185",
-  bubbles: "#5eead4",
-  nature: "#4ade80",
-  party: "#f472b6",
-  deco: "#a78bfa",
-  icons: "#60a5fa",
-  tech: "#22d3ee",
-  food: "#fb923c",
-  animals: "#fbbf24",
-  objects: "#818cf8",
-  weather: "#38bdf8",
-  sport: "#f87171",
+/* Palette par catégorie : chaque élément reçoit une teinte de départ
+   distribuée dans cette palette (index → couleur), pour un catalogue coloré
+   et varié plutôt que monochrome. Chaque élément reste recolorable à volonté ;
+   les motifs à couleur évidente sont ensuite surchargés (tint). */
+const VIBRANT = ["#f472b6", "#fb7185", "#fb923c", "#fbbf24", "#facc15", "#a3e635", "#4ade80", "#2dd4bf", "#38bdf8", "#60a5fa", "#818cf8", "#c084fc", "#e879f9"];
+const CAT_PALETTE: Record<string, string[]> = {
+  circles: VIBRANT,
+  strokes: VIBRANT,
+  arrows: ["#38bdf8", "#60a5fa", "#818cf8", "#f472b6", "#fb923c", "#4ade80", "#facc15", "#c084fc", "#2dd4bf", "#fb7185"],
+  blobs: ["#c084fc", "#f472b6", "#fb7185", "#38bdf8", "#2dd4bf", "#a3e635", "#fbbf24", "#fb923c", "#818cf8", "#e879f9", "#34d399"],
+  stars: ["#fbbf24", "#facc15", "#fde047", "#fb923c", "#f472b6", "#38bdf8", "#c084fc", "#4ade80", "#fb7185", "#60a5fa"],
+  badges: ["#fb7185", "#fb923c", "#f472b6", "#facc15", "#4ade80", "#38bdf8", "#c084fc", "#f87171", "#2dd4bf", "#a3e635"],
+  bubbles: ["#5eead4", "#38bdf8", "#818cf8", "#c084fc", "#f472b6", "#fbbf24", "#4ade80", "#fb923c"],
+  nature: ["#22c55e", "#16a34a", "#4ade80", "#84cc16", "#65a30d", "#10b981", "#34d399", "#a3e635"],
+  party: ["#f472b6", "#fb7185", "#fbbf24", "#a78bfa", "#38bdf8", "#4ade80", "#fb923c", "#e879f9", "#facc15", "#2dd4bf"],
+  deco: VIBRANT,
+  icons: VIBRANT,
+  tech: ["#22d3ee", "#38bdf8", "#60a5fa", "#818cf8", "#2dd4bf", "#4ade80", "#a3e635", "#c084fc"],
+  food: ["#ef4444", "#f97316", "#fb923c", "#f59e0b", "#facc15", "#84cc16", "#a3e635", "#fbbf24", "#f43f5e", "#65a30d"],
+  animals: ["#fbbf24", "#f59e0b", "#fb923c", "#d97706", "#a16207", "#a78bfa", "#94a3b8", "#38bdf8", "#f472b6", "#22c55e"],
+  objects: VIBRANT,
+  weather: ["#38bdf8", "#60a5fa", "#0ea5e9", "#e2e8f0", "#cbd5e1", "#fbbf24", "#a78bfa", "#22d3ee"],
+  sport: ["#f87171", "#fb923c", "#fbbf24", "#22c55e", "#38bdf8", "#6366f1", "#ec4899", "#14b8a6", "#84cc16", "#f472b6"],
 };
 
 /* ═══════════ Outils ═══════════ */
@@ -143,7 +145,7 @@ function add(cat: string, id: string, label: string, keywords: string, w: number
   const full = `${cat}.${id}`;
   if (seen.has(full)) throw new Error(`id d'élément dupliqué : ${full}`);
   seen.add(full);
-  items.push({ id: full, label, cat, w, h, body, keywords: normalizeSearch(`${label} ${keywords}`), defaultColor: defaultColor ?? CAT_COLOR[cat] ?? "#8b5cf6" });
+  items.push({ id: full, label, cat, w, h, body, keywords: normalizeSearch(`${label} ${keywords}`), defaultColor });
 }
 // Surcharge ponctuelle de la couleur de départ d'un élément déjà créé.
 function tint(id: string, color: string) {
@@ -1279,6 +1281,305 @@ function tint(id: string, color: string) {
     `<ellipse cx="90" cy="196" rx="52" ry="12" fill="${C}" opacity="0.35"/>`);
   add("sport", "dart0", "Cible fléchette", `${K} fléchette dart cible`, 200, 200,
     [86, 66, 46, 26].map((r, k) => `<circle cx="100" cy="100" r="${r}" fill="none" stroke="${C}" stroke-width="8" opacity="${1 - k * 0.15}"/>`).join("") + `<circle cx="100" cy="100" r="10" fill="${C}"/>`);
+})();
+
+/* ── 18. Nourriture (variantes & compléments) ── */
+(() => {
+  const K = "nourriture food cuisine repas fruit legume";
+  add("food", "apple1", "Pomme ronde", `${K} pomme apple`, 200, 200,
+    fillp("M 100 58 C 74 34 40 46 36 84 C 32 124 56 176 100 184 C 144 176 168 124 164 84 C 160 46 126 34 100 58 Z") + stroke("M 100 54 C 104 34 112 26 126 24", 7), "#f43f5e");
+  add("food", "apple2", "Pomme croquée", `${K} pomme apple mordue trou bite`, 200, 200,
+    eo("M 100 60 C 78 42 46 48 40 84 C 34 124 58 176 100 184 C 142 176 166 124 160 84 C 156 48 126 40 100 60 Z" + holeC(166, 92, 30)) + stroke("M 100 56 C 104 38 112 30 126 28", 7), "#ef4444");
+  add("food", "appleo0", "Pomme contour", `${K} pomme apple contour`, 200, 200,
+    stroke("M 100 62 C 80 44 50 50 44 84 C 38 122 60 172 100 178 C 140 172 162 122 156 84 C 150 50 120 44 100 62 Z", 8) + stroke("M 100 58 C 104 40 112 32 126 30", 6), "#ef4444");
+  add("food", "lemon0", "Citron", `${K} citron lemon agrume`, 210, 160,
+    fillp("M 24 80 C 24 40 90 34 130 46 C 170 58 190 78 190 80 C 190 82 170 102 130 114 C 90 126 24 120 24 80 Z") + opc(150, 80, 8, 0.4), "#facc15");
+  add("food", "lime0", "Citron vert", `${K} citron vert lime agrume`, 210, 160,
+    fillp("M 24 80 C 24 40 90 34 130 46 C 170 58 190 78 190 80 C 190 82 170 102 130 114 C 90 126 24 120 24 80 Z"), "#84cc16");
+  add("food", "orange1", "Orange", `${K} orange agrume fruit`, 200, 200,
+    `<circle cx="100" cy="108" r="76" fill="${C}"/>` + opc(70, 78, 10, 0.35) + fillp("M 100 34 L 82 12 L 118 12 Z", `opacity="0.6"`), "#fb923c");
+  add("food", "peach0", "Pêche", `${K} pêche peach fruit`, 200, 200,
+    fillp("M 100 44 C 60 44 34 78 40 120 C 46 162 74 184 100 184 C 126 184 154 162 160 120 C 166 78 140 44 100 44 Z") + stroke("M 100 60 V 170", 4, `opacity="0.4"`) + op("M 108 40 C 128 26 150 32 150 52 C 130 58 112 50 108 40 Z", 0.55), "#fb7185");
+  add("food", "plum0", "Prune", `${K} prune plum fruit`, 190, 200,
+    fillp("M 95 40 C 52 40 30 80 36 120 C 42 164 72 184 95 184 C 118 184 148 164 154 120 C 160 80 138 40 95 40 Z") + stroke("M 95 54 V 172", 4, `opacity="0.35"`), "#a78bfa");
+  add("food", "blueberry0", "Myrtille", `${K} myrtille blueberry baie`, 190, 190,
+    `<circle cx="95" cy="104" r="70" fill="${C}"/>` + op(starPts(95, 74, 5, 16, 7), 0.4) + opc(70, 88, 9, 0.3), "#6366f1");
+  add("food", "pineapple0", "Ananas", `${K} ananas pineapple fruit`, 170, 220,
+    fillp("M 85 66 C 46 66 34 110 40 154 C 46 194 70 210 85 210 C 100 210 124 194 130 154 C 136 110 124 66 85 66 Z") +
+    Array.from({ length: 5 }, (_, r) => Array.from({ length: 3 }, (_, c) => stroke(`M ${52 + c * 22} ${96 + r * 20} l 14 12 M ${66 + c * 22} ${84 + r * 20} l -14 12`, 3, `opacity="0.4"`)).join("")).join("") +
+    fillp("M 85 66 C 70 40 60 22 40 12 C 58 14 74 26 85 40 C 96 26 112 14 130 12 C 110 22 100 40 85 66 Z", `opacity="0.8"`), "#facc15");
+  add("food", "kiwi0", "Kiwi", `${K} kiwi fruit tranche`, 200, 200,
+    `<circle cx="100" cy="100" r="84" fill="${C}"/>` + opc(100, 100, 68, 0.3) + `<circle cx="100" cy="100" r="16" fill="${C}" opacity="0.6"/>` +
+    Array.from({ length: 12 }, (_, k) => opc(polar(100, 100, 46, k * 30)[0], polar(100, 100, 46, k * 30)[1], 4, 0.85)).join(""), "#84cc16");
+  add("food", "coconut0", "Noix de coco", `${K} coco coconut fruit`, 200, 200,
+    eo(`M 100 20 a 80 80 0 1 0 0.1 0 Z` + holeC(78, 78, 9) + holeC(122, 78, 9) + holeC(100, 108, 9)), "#a16207");
+  add("food", "tomato0", "Tomate", `${K} tomate tomato legume`, 200, 200,
+    `<circle cx="100" cy="114" r="72" fill="${C}"/>` + op(starPts(100, 52, 5, 30, 12), 0.7), "#ef4444");
+  add("food", "chili0", "Piment", `${K} piment chili pepper epice`, 190, 210,
+    fillp("M 60 40 C 50 70 70 96 96 110 C 140 134 150 180 120 200 C 150 172 148 128 108 100 C 84 84 70 66 76 44 Z") + stroke("M 60 40 C 54 26 66 20 80 26", 8, `opacity="0.7"`), "#ef4444");
+  add("food", "corn0", "Maïs", `${K} maïs corn epi legume`, 160, 220,
+    fillp("M 80 40 C 44 40 40 100 52 160 C 60 196 100 196 108 160 C 120 100 116 40 80 40 Z") +
+    Array.from({ length: 6 }, (_, r) => Array.from({ length: 4 }, (_, c) => opc(56 + c * 16, 70 + r * 22, 6, 0.35)).join("")).join("") +
+    op("M 80 44 C 60 24 44 20 30 22 C 44 40 56 52 80 60 M 80 44 C 100 24 116 20 130 22 C 116 40 104 52 80 60 Z", 0.6), "#fbbf24");
+  add("food", "broccoli0", "Brocoli", `${K} brocoli broccoli legume`, 200, 210,
+    fillp("M 100 200 L 78 130 H 122 Z", `opacity="0.7"`) +
+    `<circle cx="70" cy="86" r="32" fill="${C}"/><circle cx="130" cy="86" r="32" fill="${C}"/><circle cx="100" cy="62" r="34" fill="${C}"/><circle cx="100" cy="108" r="30" fill="${C}"/>`, "#22c55e");
+  add("food", "eggplant0", "Aubergine", `${K} aubergine eggplant legume`, 180, 220,
+    fillp("M 130 60 C 160 90 156 150 118 186 C 84 218 40 206 34 168 C 28 130 58 96 96 78 C 112 70 122 66 130 60 Z") + op("M 118 58 C 110 40 96 34 82 36 C 90 54 104 62 122 66 Z M 130 58 C 138 44 152 42 162 46 C 152 60 140 62 128 62 Z", 0.6), "#a855f7");
+  add("food", "pepper0", "Poivron", `${K} poivron pepper legume`, 200, 200,
+    fillp("M 60 70 C 40 92 44 150 74 176 C 88 188 96 176 100 176 C 104 176 112 188 126 176 C 156 150 160 92 140 70 C 122 84 112 84 100 84 C 88 84 78 84 60 70 Z") + stroke("M 100 84 V 60 M 100 60 C 92 50 92 42 100 38", 8, `opacity="0.7"`), "#22c55e");
+  add("food", "pumpkin0", "Citrouille", `${K} citrouille pumpkin courge`, 220, 190,
+    `<ellipse cx="110" cy="110" rx="90" ry="70" fill="${C}"/>` + stroke("M 80 46 C 62 70 62 150 80 174 M 140 46 C 158 70 158 150 140 174 M 110 42 V 178", 6, `opacity="0.35"`) + stroke("M 110 42 C 108 28 116 20 128 20", 8, `opacity="0.7"`), "#f97316");
+  add("food", "bread0", "Pain", `${K} pain bread miche boulangerie`, 220, 160,
+    fillp("M 24 120 C 24 70 70 44 110 44 C 150 44 196 70 196 120 C 196 138 180 146 160 146 H 60 C 40 146 24 138 24 120 Z") + stroke("M 60 74 L 48 100 M 90 66 L 76 96 M 122 66 L 108 96 M 152 74 L 140 100", 6, `opacity="0.5"`), "#d97706");
+  add("food", "cheese0", "Fromage", `${K} fromage cheese trou`, 220, 170,
+    eo("M 20 150 L 30 70 L 200 60 L 190 150 Z" + holeC(70, 110, 12) + holeC(130, 96, 15) + holeC(160, 128, 10) + holeC(105, 132, 8)), "#facc15");
+  add("food", "hotdog0", "Hot-dog", `${K} hotdog saucisse fast food`, 230, 130,
+    fillp("M 18 66 C 18 44 42 40 60 40 H 170 C 188 40 212 44 212 66 C 212 88 188 92 170 92 H 60 C 42 92 18 88 18 66 Z") +
+    fillp("M 40 58 H 190 C 200 58 200 74 190 74 H 40 C 30 74 30 58 40 58 Z", `opacity="0.6"`) + stroke("M 56 50 L 76 82 M 96 50 L 116 82 M 136 50 L 156 82", 5, `opacity="0.5"`), "#f59e0b");
+  add("food", "fries0", "Frites", `${K} frites fries pomme de terre fast food`, 190, 210,
+    fillp("M 40 100 H 150 L 138 196 H 52 Z") + stroke("M 60 96 V 40 M 82 96 V 26 M 104 96 V 32 M 126 96 V 44", 14, `opacity="0.7"`) + stroke("M 40 118 H 150", 5, `opacity="0.4"`), "#fbbf24");
+  add("food", "popcorn0", "Popcorn", `${K} popcorn maïs cinema`, 190, 220,
+    fillp("M 50 96 L 66 200 H 124 L 140 96 Z") + stroke("M 50 96 H 140", 5, `opacity="0.4"`) +
+    [[70, 70], [100, 56], [130, 72], [84, 90], [116, 88]].map(([x, y]) => `<circle cx="${x}" cy="${y}" r="18" fill="${C}"/>`).join(""), "#fbbf24");
+  add("food", "pretzel0", "Bretzel", `${K} bretzel pretzel boulangerie`, 210, 200,
+    stroke("M 60 50 C 20 90 40 160 105 160 C 170 160 190 90 150 50 C 120 20 96 70 105 110 C 114 150 150 150 150 150 M 105 110 C 96 150 60 150 60 150", 14), "#d97706");
+  add("food", "lollipop0", "Sucette", `${K} sucette lollipop bonbon candy`, 170, 220,
+    `<circle cx="85" cy="70" r="58" fill="${C}"/>` + stroke("M 85 70 m 0 -44 a 44 44 0 0 1 0 88 a 32 32 0 0 1 0 -64 a 22 22 0 0 1 0 44 a 12 12 0 0 1 0 -24", 6, `opacity="0.4"`) + stroke("M 85 128 V 210", 9), "#f472b6");
+  add("food", "candy0", "Bonbon", `${K} bonbon candy sucrerie`, 220, 130,
+    `<ellipse cx="110" cy="65" rx="46" ry="40" fill="${C}"/>` + fillp("M 64 65 L 22 34 L 34 65 L 22 96 Z") + fillp("M 156 65 L 198 34 L 186 65 L 198 96 Z") + stroke("M 92 46 L 128 84 M 128 46 L 92 84", 5, `opacity="0.4"`), "#ec4899");
+  add("food", "choco0", "Chocolat", `${K} chocolat chocolate tablette`, 200, 200,
+    fillp("M 30 30 H 170 V 170 H 30 Z") + stroke("M 100 30 V 170 M 30 100 H 170 M 65 30 V 170 M 135 30 V 170 M 30 65 H 170 M 30 135 H 170", 5, `opacity="0.35"`), "#a16207");
+  add("food", "macaron0", "Macaron", `${K} macaron patisserie`, 210, 160,
+    fillp("M 24 66 C 24 40 78 30 105 30 C 132 30 186 40 186 66 C 186 78 160 84 105 84 C 50 84 24 78 24 66 Z") +
+    fillp("M 24 94 C 24 120 78 130 105 130 C 132 130 186 120 186 94 C 186 82 160 76 105 76 C 50 76 24 82 24 94 Z") +
+    fillp("M 30 78 H 180 V 88 H 30 Z", `opacity="0.55"`), "#f9a8d4");
+  add("food", "cocktail0", "Cocktail", `${K} cocktail boisson verre`, 190, 220,
+    stroke("M 30 40 H 160 L 95 108 Z", 8) + stroke("M 95 108 V 190 M 60 196 H 130", 8) + `<circle cx="132" cy="58" r="12" fill="${C}"/>` + stroke("M 132 58 L 150 32", 5), "#f472b6");
+})();
+
+/* ── 19. Animaux (variantes & compléments) ── */
+(() => {
+  const K = "animal animaux nature";
+  add("animals", "cato0", "Chat contour", `${K} chat cat contour`, 200, 200,
+    stroke("M 46 62 L 62 22 L 92 58 M 154 62 L 138 22 L 108 58", 8) + `<circle cx="100" cy="118" r="62" fill="none" stroke="${C}" stroke-width="8"/>` + `<circle cx="78" cy="108" r="7" fill="${C}"/><circle cx="122" cy="108" r="7" fill="${C}"/>` + stroke("M 100 122 V 132 M 100 132 Q 88 142 80 136 M 100 132 Q 112 142 120 136", 5), "#fbbf24");
+  add("animals", "duck0", "Canard", `${K} canard duck oiseau`, 210, 190,
+    `<circle cx="140" cy="70" r="40" fill="${C}"/>` + fillp("M 178 74 L 208 70 L 178 88 Z") + `<circle cx="150" cy="60" r="6" fill="none" stroke="${C}" stroke-width="4"/>` +
+    fillp("M 30 130 C 30 100 70 92 120 96 C 150 98 168 118 156 146 C 140 176 60 178 40 152 C 34 144 30 138 30 130 Z"), "#facc15");
+  add("animals", "frog0", "Grenouille", `${K} grenouille frog`, 210, 190,
+    `<circle cx="60" cy="52" r="26" fill="${C}"/><circle cx="150" cy="52" r="26" fill="${C}"/>` + `<circle cx="60" cy="52" r="10" fill="none" stroke="${C}" stroke-width="5"/><circle cx="150" cy="52" r="10" fill="none" stroke="${C}" stroke-width="5"/>` +
+    fillp("M 105 60 C 55 60 28 96 34 134 C 40 168 170 168 176 134 C 182 96 155 60 105 60 Z") + stroke("M 70 140 Q 105 160 140 140", 7), "#22c55e");
+  add("animals", "pig0", "Cochon", `${K} cochon pig porc`, 200, 190,
+    `<circle cx="100" cy="106" r="72" fill="${C}"/>` + fillp("M 44 54 L 40 84 L 66 74 Z M 156 54 L 160 84 L 134 74 Z") + `<ellipse cx="100" cy="120" rx="30" ry="22" fill="${C}" opacity="0.5"/>` + `<circle cx="92" cy="120" r="5" fill="${C}"/><circle cx="108" cy="120" r="5" fill="${C}"/>` + `<circle cx="80" cy="88" r="7" fill="${C}"/><circle cx="120" cy="88" r="7" fill="${C}"/>`, "#f9a8d4");
+  add("animals", "cow0", "Vache", `${K} vache cow`, 210, 190,
+    `<circle cx="105" cy="104" r="72" fill="${C}"/>` + fillp("M 40 70 C 22 56 20 92 44 100 Z M 170 70 C 188 56 190 92 166 100 Z") + `<ellipse cx="105" cy="128" rx="34" ry="26" fill="${C}" opacity="0.45"/>` + `<circle cx="86" cy="96" r="7" fill="${C}"/><circle cx="124" cy="96" r="7" fill="${C}"/>` + opc(70, 74, 12, 0.4) + opc(140, 82, 10, 0.4), "#94a3b8");
+  add("animals", "sheep0", "Mouton", `${K} mouton sheep brebis`, 220, 190,
+    fillp("M 60 110 A 30 30 0 0 1 66 62 A 34 34 0 0 1 130 52 A 32 32 0 0 1 186 74 A 30 30 0 0 1 178 130 A 34 34 0 0 1 120 156 A 34 34 0 0 1 60 110 Z") +
+    `<ellipse cx="60" cy="120" rx="26" ry="30" fill="${C}"/>` + `<circle cx="52" cy="112" r="5" fill="none" stroke="${C}" stroke-width="3"/><circle cx="68" cy="112" r="5" fill="none" stroke="${C}" stroke-width="3"/>`, "#e2e8f0");
+  add("animals", "elephant0", "Éléphant", `${K} éléphant elephant`, 220, 200,
+    `<circle cx="110" cy="96" r="66" fill="${C}"/>` + fillp("M 44 70 C 10 70 10 140 50 140 C 60 140 62 96 60 84 Z M 176 70 C 210 70 210 140 170 140 C 160 140 158 96 160 84 Z", `opacity="0.7"`) +
+    fillp("M 100 150 C 96 180 78 194 66 200 C 84 196 100 186 108 168 Z") + `<circle cx="88" cy="88" r="7" fill="${C}"/><circle cx="132" cy="88" r="7" fill="${C}"/>`, "#94a3b8");
+  add("animals", "lion0", "Lion", `${K} lion félin`, 210, 210,
+    Array.from({ length: 12 }, (_, k) => { const [x, y] = polar(105, 105, 92, k * 30); return `<circle cx="${N(x)}" cy="${N(y)}" r="20" fill="${C}" opacity="0.5"/>`; }).join("") +
+    `<circle cx="105" cy="105" r="62" fill="${C}"/>` + `<circle cx="86" cy="96" r="7" fill="${C}"/><circle cx="124" cy="96" r="7" fill="${C}"/>` + fillp("M 105 112 L 94 126 H 116 Z") + stroke("M 105 126 V 138", 5), "#f59e0b");
+  add("animals", "monkey0", "Singe", `${K} singe monkey`, 200, 200,
+    `<circle cx="48" cy="90" r="24" fill="${C}"/><circle cx="152" cy="90" r="24" fill="${C}"/>` + opc(48, 90, 12, 0.4) + opc(152, 90, 12, 0.4) +
+    `<circle cx="100" cy="104" r="66" fill="${C}"/>` + `<ellipse cx="100" cy="122" rx="42" ry="34" fill="${C}" opacity="0.35"/>` + `<circle cx="82" cy="96" r="7" fill="${C}"/><circle cx="118" cy="96" r="7" fill="${C}"/>` + `<circle cx="90" cy="128" r="4" fill="${C}"/><circle cx="110" cy="128" r="4" fill="${C}"/>`, "#a16207");
+  add("animals", "mouse0", "Souris", `${K} souris mouse rongeur`, 200, 190,
+    `<circle cx="60" cy="58" r="30" fill="${C}"/><circle cx="140" cy="58" r="30" fill="${C}"/>` + opc(60, 58, 15, 0.4) + opc(140, 58, 15, 0.4) +
+    `<circle cx="100" cy="112" r="58" fill="${C}"/>` + `<circle cx="84" cy="104" r="6" fill="${C}"/><circle cx="116" cy="104" r="6" fill="${C}"/>` + `<circle cx="100" cy="126" r="7" fill="${C}"/>` + stroke("M 158 150 Q 190 150 186 120", 6), "#cbd5e1");
+  add("animals", "hedgehog0", "Hérisson", `${K} hérisson hedgehog`, 220, 180,
+    Array.from({ length: 16 }, (_, k) => stroke(`M ${40 + k * 9} 120 L ${34 + k * 9} ${70 + (k % 3) * 8}`, 6)).join("") +
+    fillp("M 130 120 C 170 120 196 108 200 130 C 196 152 160 158 130 150 Z") + `<circle cx="192" cy="128" r="6" fill="${C}"/>` + `<circle cx="176" cy="122" r="4" fill="${C}"/>`, "#a16207");
+  add("animals", "snake0", "Serpent", `${K} serpent snake reptile`, 210, 210,
+    stroke("M 40 40 C 120 40 120 100 60 100 C 20 100 20 160 100 160 C 170 160 180 100 180 100", 14) + `<circle cx="184" cy="98" r="4" fill="${C}"/>` + stroke("M 188 96 L 200 90 M 188 100 L 200 106", 3), "#4ade80");
+  add("animals", "spider0", "Araignée", `${K} araignée spider insecte`, 220, 200,
+    `<circle cx="110" cy="110" r="40" fill="${C}"/>` + `<circle cx="110" cy="72" r="22" fill="${C}"/>` +
+    stroke("M 72 96 L 24 70 M 72 110 L 20 110 M 72 124 L 24 150 M 148 96 L 196 70 M 148 110 L 200 110 M 148 124 L 196 150", 6) + `<circle cx="102" cy="70" r="4" fill="${C}"/><circle cx="118" cy="70" r="4" fill="${C}"/>`, "#818cf8");
+  add("animals", "crab0", "Crabe", `${K} crabe crab mer`, 220, 180,
+    `<ellipse cx="110" cy="106" rx="66" ry="44" fill="${C}"/>` + `<circle cx="88" cy="96" r="7" fill="${C}"/><circle cx="132" cy="96" r="7" fill="${C}"/>` +
+    stroke("M 44 96 C 20 90 12 70 24 56 M 176 96 C 200 90 208 70 196 56", 8) + fillp("M 24 56 L 8 48 L 20 40 Z M 196 56 L 212 48 L 200 40 Z") +
+    stroke("M 50 132 L 26 152 M 74 144 L 58 168 M 146 144 L 162 168 M 170 132 L 194 152", 6), "#f87171");
+  add("animals", "octopus0", "Poulpe", `${K} poulpe octopus pieuvre mer`, 210, 210,
+    fillp("M 105 30 C 65 30 40 62 40 102 V 120 H 170 V 102 C 170 62 145 30 105 30 Z") +
+    stroke("M 50 120 C 40 160 28 176 20 184 M 74 122 C 70 166 60 184 52 194 M 105 124 V 196 M 136 122 C 140 166 150 184 158 194 M 160 120 C 170 160 182 176 190 184", 10) +
+    `<circle cx="84" cy="86" r="8" fill="${C}"/><circle cx="126" cy="86" r="8" fill="${C}"/>`, "#f472b6");
+  add("animals", "dolphin0", "Dauphin", `${K} dauphin dolphin mer`, 220, 190,
+    fillp("M 20 150 C 40 90 110 60 180 66 C 160 46 150 34 150 34 C 200 40 206 96 200 120 C 196 140 170 148 152 138 C 120 120 70 130 46 168 C 40 176 26 168 20 150 Z") +
+    fillp("M 60 150 L 40 186 L 76 172 Z", `opacity="0.7"`) + `<circle cx="176" cy="92" r="6" fill="${C}"/>`, "#38bdf8");
+  add("animals", "shark0", "Requin", `${K} requin shark mer`, 230, 170,
+    fillp("M 14 96 C 40 62 110 54 176 70 C 158 46 150 34 150 34 C 190 44 206 78 210 96 C 206 114 190 148 150 158 C 150 158 158 146 176 122 C 110 138 40 130 14 96 Z") +
+    fillp("M 96 40 L 100 12 L 120 44 Z", `opacity="0.75"`) + `<circle cx="52" cy="90" r="6" fill="${C}"/>` + stroke("M 30 100 Q 60 108 90 100", 4, `opacity="0.5"`), "#94a3b8");
+  add("animals", "starfish0", "Étoile de mer", `${K} étoile de mer starfish`, 200, 200,
+    fillp(starPts(100, 104, 5, 90, 40)) + Array.from({ length: 5 }, (_, k) => { const [x, y] = polar(100, 104, 50, -90 + k * 72); return opc(x, y, 6, 0.4); }).join("") + opc(100, 104, 10, 0.4), "#fb923c");
+  add("animals", "shell0", "Coquillage", `${K} coquillage shell mer`, 200, 190,
+    fillp("M 100 20 C 40 20 16 90 100 176 C 184 90 160 20 100 20 Z") + stroke("M 100 24 V 172 M 60 46 C 68 100 82 140 100 172 M 140 46 C 132 100 118 140 100 172 M 34 92 C 60 120 80 150 100 172 M 166 92 C 140 120 120 150 100 172", 5, `opacity="0.4"`), "#f9a8d4");
+  add("animals", "jellyfish0", "Méduse", `${K} méduse jellyfish mer`, 190, 220,
+    fillp("M 30 110 C 30 56 74 26 95 26 C 116 26 160 56 160 110 C 160 120 30 120 30 110 Z") + opc(70, 84, 10, 0.35) + opc(120, 78, 12, 0.35) +
+    stroke("M 46 116 C 40 160 52 190 46 210 M 74 118 C 72 164 82 190 76 212 M 95 120 V 214 M 116 118 C 118 164 108 190 114 212 M 144 116 C 150 160 138 190 144 210", 7), "#c084fc");
+  add("animals", "butterflyo0", "Papillon contour", `${K} papillon butterfly contour`, 220, 200,
+    stroke("M 104 100 C 60 40 20 44 24 88 C 26 120 66 128 104 108 Z", 7) + stroke("M 104 100 C 148 40 188 44 184 88 C 182 120 142 128 104 108 Z", 7) +
+    stroke("M 104 100 C 66 120 34 140 46 172 C 58 196 96 168 104 120 Z", 7) + stroke("M 104 100 C 142 120 174 140 162 172 C 150 196 112 168 104 120 Z", 7) +
+    stroke("M 104 74 V 150", 8) + stroke("M 104 74 C 92 56 82 50 74 48 M 104 74 C 116 56 126 50 134 48", 5), "#e879f9");
+  add("animals", "dino0", "Dinosaure", `${K} dinosaure dino brontosaure`, 230, 200,
+    fillp("M 20 150 C 20 120 44 110 60 112 C 56 70 84 40 120 40 C 168 40 196 78 196 120 C 196 130 178 132 172 122 C 160 100 138 90 120 90 C 96 90 84 108 88 130 C 92 150 96 160 96 176 H 74 C 74 160 70 148 60 140 C 50 148 46 162 46 176 H 24 C 24 166 22 158 20 150 Z") +
+    `<circle cx="150" cy="72" r="6" fill="${C}"/>`, "#4ade80");
+  add("animals", "penguin1", "Manchot", `${K} manchot penguin oiseau`, 180, 220,
+    fillp("M 90 16 C 44 16 32 84 34 134 C 36 184 58 208 90 208 C 122 208 144 184 146 134 C 148 84 136 16 90 16 Z") +
+    `<circle cx="72" cy="80" r="7" fill="${C}"/><circle cx="108" cy="80" r="7" fill="${C}"/>` + fillp("M 90 92 L 76 104 L 90 112 L 104 104 Z") +
+    fillp("M 32 130 C 12 120 8 150 30 156 Z M 148 130 C 168 120 172 150 150 156 Z", `opacity="0.7"`), "#334155");
+})();
+
+/* ── 20. Objets (variantes & compléments) ── */
+(() => {
+  const K = "objet objets";
+  add("objects", "tv0", "Télé", `${K} télé tv écran television`, 220, 190,
+    stroke("M 20 40 H 200 V 150 H 20 Z", 8) + op("M 36 56 H 184 V 134 H 36 Z", 0.3) + stroke("M 80 170 L 100 150 M 140 170 L 120 150", 8), "#818cf8");
+  add("objects", "laptop0", "Ordinateur", `${K} ordinateur laptop pc`, 230, 170,
+    stroke("M 44 30 H 186 V 118 H 44 Z", 8) + op("M 58 44 H 172 V 104 H 58 Z", 0.3) + fillp("M 18 118 H 212 L 200 148 H 30 Z"), "#60a5fa");
+  add("objects", "headphones0", "Casque", `${K} casque audio headphones musique`, 200, 200,
+    stroke("M 34 116 V 96 A 66 66 0 0 1 166 96 V 116", 10) + fillp("M 22 112 H 52 V 172 H 22 Z") + fillp("M 148 112 H 178 V 172 H 148 Z"), "#c084fc");
+  add("objects", "guitar0", "Guitare", `${K} guitare guitar musique`, 180, 220,
+    stroke("M 110 20 V 120", 8) + fillp("M 90 20 H 130 V 40 H 90 Z", `opacity="0.7"`) + `<circle cx="88" cy="150" r="46" fill="none" stroke="${C}" stroke-width="10"/><circle cx="122" cy="176" r="30" fill="none" stroke="${C}" stroke-width="10"/>` + `<circle cx="100" cy="158" r="12" fill="${C}"/>`, "#f59e0b");
+  add("objects", "mic0", "Micro", `${K} micro microphone chant`, 160, 220,
+    stroke("M 80 20 A 30 30 0 0 1 110 50 V 96 A 30 30 0 0 1 50 96 V 50 A 30 30 0 0 1 80 20 Z", 0) + fillp("M 80 18 A 32 32 0 0 1 112 50 V 96 A 32 32 0 0 1 48 96 V 50 A 32 32 0 0 1 80 18 Z") + stroke("M 56 56 H 104 M 56 72 H 104 M 56 88 H 104", 4, `opacity="0.4"`) + stroke("M 34 92 A 46 46 0 0 0 126 92 M 80 138 V 176 M 52 196 H 108", 8), "#f472b6");
+  add("objects", "glasses0", "Lunettes", `${K} lunettes glasses vue`, 230, 120,
+    `<circle cx="62" cy="66" r="40" fill="none" stroke="${C}" stroke-width="9"/><circle cx="168" cy="66" r="40" fill="none" stroke="${C}" stroke-width="9"/>` + stroke("M 102 60 Q 115 48 128 60 M 22 52 L 6 34 M 208 52 L 224 34", 9), "#38bdf8");
+  add("objects", "sunglasses0", "Solaires", `${K} lunettes soleil solaires sunglasses`, 230, 120,
+    fillp("M 16 44 H 108 V 60 A 34 34 0 0 1 40 66 V 52 Z") + fillp("M 214 44 H 122 V 60 A 34 34 0 0 0 190 66 V 52 Z") + stroke("M 108 50 Q 115 42 122 50", 8), "#fbbf24");
+  add("objects", "hat0", "Chapeau", `${K} chapeau hat haut de forme`, 200, 200,
+    fillp("M 60 40 H 140 V 140 H 60 Z") + fillp("M 24 140 H 176 V 162 H 24 Z") + stroke("M 60 116 H 140", 14, `opacity="0.5"`), "#6366f1");
+  add("objects", "cap0", "Casquette", `${K} casquette cap chapeau`, 220, 150,
+    fillp("M 40 100 A 70 70 0 0 1 180 100 Z") + fillp("M 180 100 H 210 A 30 16 0 0 1 180 116 Z") + `<circle cx="110" cy="34" r="8" fill="${C}"/>`, "#ef4444");
+  add("objects", "tshirt0", "T-shirt", `${K} tshirt vêtement habit`, 220, 200,
+    fillp("M 78 24 L 40 44 L 20 84 L 52 104 L 62 88 V 184 H 158 V 88 L 168 104 L 200 84 L 180 44 L 142 24 C 132 44 88 44 78 24 Z"), "#2dd4bf");
+  add("objects", "dress0", "Robe", `${K} robe dress vêtement`, 190, 220,
+    fillp("M 74 20 L 50 44 L 74 70 L 62 96 L 30 196 H 160 L 128 96 L 116 70 L 140 44 L 116 20 C 108 34 82 34 74 20 Z"), "#ec4899");
+  add("objects", "shoe0", "Chaussure", `${K} chaussure shoe basket sneaker`, 230, 150,
+    fillp("M 20 120 V 84 C 20 78 26 76 32 78 L 70 92 L 96 56 C 100 50 108 52 110 58 L 118 88 C 160 92 206 104 210 128 V 132 H 20 Z") + stroke("M 96 60 L 110 84 M 118 88 L 100 118", 4, `opacity="0.4"`), "#f87171");
+  add("objects", "clock1", "Réveil", `${K} réveil alarme horloge clock`, 200, 210,
+    `<circle cx="100" cy="120" r="76" fill="none" stroke="${C}" stroke-width="10"/>` + stroke("M 100 76 V 122 L 132 138", 9) + stroke("M 44 44 L 66 66 M 156 44 L 134 66", 10) + `<circle cx="44" cy="40" r="18" fill="none" stroke="${C}" stroke-width="9"/><circle cx="156" cy="40" r="18" fill="none" stroke="${C}" stroke-width="9"/>` + stroke("M 70 194 L 54 206 M 130 194 L 146 206", 9), "#fb923c");
+  add("objects", "hourglass0", "Sablier", `${K} sablier hourglass temps`, 160, 220,
+    stroke("M 30 20 H 130 M 30 200 H 130", 10) + fillp("M 40 24 H 120 C 120 70 84 96 80 110 C 76 96 40 70 40 24 Z") + fillp("M 80 110 C 84 124 120 150 120 196 H 40 C 40 150 76 124 80 110 Z", `opacity="0.6"`), "#fbbf24");
+  add("objects", "calendar0", "Calendrier", `${K} calendrier calendar date`, 200, 200,
+    stroke("M 26 40 H 174 V 176 H 26 Z", 8) + stroke("M 26 74 H 174", 8) + stroke("M 60 24 V 54 M 140 24 V 54", 10) +
+    Array.from({ length: 3 }, (_, r) => Array.from({ length: 4 }, (_, c) => `<rect x="${44 + c * 30}" y="${96 + r * 24}" width="14" height="14" fill="${C}" opacity="0.4"/>`).join("")).join(""), "#38bdf8");
+  add("objects", "folder0", "Dossier", `${K} dossier folder fichier`, 220, 170,
+    fillp("M 22 44 H 90 L 108 66 H 198 V 150 H 22 Z") + stroke("M 22 78 H 198", 4, `opacity="0.35"`), "#facc15");
+  add("objects", "envelope0", "Enveloppe", `${K} enveloppe courrier mail lettre`, 220, 160,
+    stroke("M 18 26 H 202 V 140 H 18 Z", 8) + stroke("M 20 32 L 110 100 L 200 32", 8), "#60a5fa");
+  add("objects", "clipboard0", "Presse-papier", `${K} presse-papier clipboard note`, 180, 220,
+    stroke("M 34 40 H 146 V 200 H 34 Z", 8) + fillp("M 66 24 H 114 V 52 H 66 Z") + stroke("M 56 92 H 124 M 56 122 H 124 M 56 152 H 100", 6, `opacity="0.4"`), "#a3e635");
+  add("objects", "ruler0", "Règle", `${K} règle ruler mesure`, 220, 100,
+    stroke("M 20 30 H 200 V 70 H 20 Z", 8) + stroke("M 44 30 V 52 M 68 30 V 44 M 92 30 V 52 M 116 30 V 44 M 140 30 V 52 M 164 30 V 44 M 188 30 V 52", 4, `opacity="0.4"`), "#c084fc");
+  add("objects", "magnet0", "Aimant", `${K} aimant magnet`, 190, 200,
+    stroke("M 50 176 V 90 A 45 45 0 0 1 140 90 V 176", 26) + fillp("M 37 150 H 63 V 178 H 37 Z") + fillp("M 127 150 H 153 V 178 H 127 Z", `opacity="0.6"`), "#f87171");
+  add("objects", "anchor0", "Ancre", `${K} ancre anchor marine`, 190, 220,
+    `<circle cx="95" cy="40" r="20" fill="none" stroke="${C}" stroke-width="9"/>` + stroke("M 95 60 V 190 M 55 96 H 135 M 95 190 C 50 190 26 156 24 128 M 95 190 C 140 190 164 156 166 128", 9) + stroke("M 24 128 L 12 142 M 24 128 L 40 138 M 166 128 L 178 142 M 166 128 L 150 138", 8), "#38bdf8");
+  add("objects", "compass0", "Boussole", `${K} boussole compass direction`, 200, 200,
+    `<circle cx="100" cy="100" r="86" fill="none" stroke="${C}" stroke-width="9"/>` + fillp("M 100 40 L 118 100 L 100 92 Z") + fillp("M 100 160 L 82 100 L 100 108 Z", `opacity="0.5"`) + `<circle cx="100" cy="100" r="8" fill="${C}"/>`, "#22d3ee");
+  add("objects", "candle0", "Bougie", `${K} bougie candle flamme`, 140, 220,
+    fillp("M 44 80 H 96 V 200 H 44 Z") + stroke("M 44 96 H 96", 4, `opacity="0.4"`) + stroke("M 70 80 V 60", 5) + fillp("M 70 16 C 84 34 84 54 70 58 C 56 54 56 34 70 16 Z"), "#fbbf24");
+  add("objects", "rocket1", "Fusée déco", `${K} fusée rocket espace`, 170, 220,
+    fillp("M 85 12 C 120 44 130 96 120 148 H 50 C 40 96 50 44 85 12 Z") + `<circle cx="85" cy="66" r="16" fill="none" stroke="${C}" stroke-width="8"/>` + fillp("M 50 122 L 20 164 L 54 156 Z M 120 122 L 150 164 L 116 156 Z") + fillp("M 68 148 H 102 L 85 200 Z", `opacity="0.7"`), "#fb7185");
+  add("objects", "ufo0", "OVNI", `${K} ovni ufo soucoupe espace`, 220, 180,
+    fillp("M 70 96 A 40 30 0 0 1 150 96 Z") + `<ellipse cx="110" cy="104" rx="94" ry="34" fill="${C}"/>` + opc(72, 100, 8, 0.35) + opc(110, 108, 8, 0.35) + opc(148, 100, 8, 0.35) + stroke("M 70 140 L 54 172 M 110 146 V 176 M 150 140 L 166 172", 6, `opacity="0.4"`), "#4ade80");
+  add("objects", "tent0", "Tente", `${K} tente tent camping`, 220, 180,
+    fillp("M 110 30 L 200 160 H 20 Z") + fillp("M 110 30 L 130 160 H 90 Z", `opacity="0.5"`) + stroke("M 110 30 L 92 14 M 200 160 L 212 168", 6), "#22c55e");
+  add("objects", "feather0", "Plume", `${K} plume feather`, 170, 220,
+    fillp("M 130 20 C 60 40 30 120 40 190 L 60 170 C 50 110 78 56 130 20 Z") + stroke("M 118 34 L 56 150 M 96 44 L 70 116 M 128 60 L 84 128", 4, `opacity="0.4"`) + stroke("M 40 190 L 70 150", 6), "#38bdf8");
+  add("objects", "wand0", "Baguette magique", `${K} baguette magique wand magie`, 200, 200,
+    stroke("M 40 176 L 150 66", 12) + fillp(starPts(160, 52, 4, 34, 12)) + op(starPts(96, 118, 4, 12, 4), 0.5) + op(starPts(60, 150, 4, 9, 3), 0.4), "#a855f7");
+  add("objects", "key1", "Clé ornée", `${K} clé key ornée serrure`, 210, 130,
+    `<circle cx="52" cy="65" r="36" fill="none" stroke="${C}" stroke-width="11"/>` + fillp(starPts(52, 65, 4, 14, 6)) + stroke("M 88 65 H 196 M 158 65 V 96 M 176 65 V 92 M 194 65 V 90", 11), "#fbbf24");
+})();
+
+/* ── 21. Météo (variantes & compléments) ── */
+(() => {
+  const K = "météo ciel weather temps";
+  add("weather", "sunfull0", "Soleil plein", `${K} soleil sun rayons`, 210, 210,
+    `<circle cx="105" cy="105" r="50" fill="${C}"/>` + Array.from({ length: 12 }, (_, k) => { const [x1, y1] = polar(105, 105, 66, k * 30); const [x2, y2] = polar(105, 105, 94, k * 30); return stroke(`M ${N(x1)} ${N(y1)} L ${N(x2)} ${N(y2)}`, 8); }).join(""), "#fbbf24");
+  add("weather", "sunhalf0", "Lever de soleil", `${K} soleil horizon lever sunrise`, 220, 160,
+    fillp("M 40 130 A 70 70 0 0 1 180 130 Z") + Array.from({ length: 7 }, (_, k) => { const a = 180 + k * 30; const [x1, y1] = polar(110, 130, 82, a); const [x2, y2] = polar(110, 130, 104, a); return stroke(`M ${N(x1)} ${N(y1)} L ${N(x2)} ${N(y2)}`, 7); }).join("") + stroke("M 14 130 H 206", 8), "#fb923c");
+  add("weather", "cloudo0", "Nuage contour", `${K} nuage cloud contour`, 220, 150,
+    stroke("M 52 126 A 30 30 0 0 1 46 70 A 40 40 0 0 1 120 50 A 34 34 0 0 1 178 72 A 30 30 0 0 1 172 126 Z", 8), "#e2e8f0");
+  add("weather", "fog0", "Brouillard", `${K} brouillard brume fog`, 220, 160,
+    stroke("M 24 46 H 196 M 14 82 H 186 M 34 118 H 206 M 24 150 H 160", 12, `opacity="0.7"`), "#cbd5e1");
+  add("weather", "comet0", "Comète", `${K} comète comet étoile`, 220, 200,
+    fillp("M 176 40 A 34 34 0 1 1 142 74 Z") + fillp("M 150 66 L 30 180 L 90 96 L 40 150 Z", `opacity="0.55"`), "#38bdf8");
+  add("weather", "shootstar0", "Étoile filante", `${K} étoile filante shooting star`, 220, 180,
+    fillp(starPts(168, 56, 5, 40, 17)) + stroke("M 140 76 L 40 156 M 156 92 L 70 158 M 130 60 L 54 128", 6, `opacity="0.5"`), "#fde047");
+  add("weather", "snowman0", "Bonhomme de neige", `${K} bonhomme neige snowman hiver`, 180, 220,
+    `<circle cx="90" cy="158" r="52" fill="${C}"/><circle cx="90" cy="80" r="38" fill="${C}"/>` + `<circle cx="78" cy="74" r="5" fill="${C}"/><circle cx="102" cy="74" r="5" fill="${C}"/>` + fillp("M 90 84 L 120 90 L 90 96 Z", `opacity="0.7"`) + opc(90, 132, 6, 0.4) + opc(90, 158, 6, 0.4) + stroke("M 52 96 L 20 84 M 128 96 L 160 84", 5), "#e2e8f0");
+  add("weather", "raindrop2", "Averse", `${K} pluie averse gouttes rain`, 200, 200,
+    Array.from({ length: 6 }, (_, k) => { const x = 40 + (k % 3) * 60, y = 30 + Math.floor(k / 3) * 90; return fillp(`M ${x} ${y} C ${x + 18} ${y + 28} ${x + 22} ${y + 44} ${x} ${y + 54} C ${x - 22} ${y + 44} ${x - 18} ${y + 28} ${x} ${y} Z`); }).join(""), "#38bdf8");
+  add("weather", "moonc1", "Croissant fin", `${K} lune croissant moon nuit`, 200, 200,
+    fillp("M 140 20 A 84 84 0 1 0 140 180 A 66 66 0 0 1 140 20 Z"), "#fde68a");
+  add("weather", "tornado1", "Cyclone", `${K} cyclone tornade tourbillon`, 200, 210,
+    stroke("M 30 30 H 172 M 44 60 H 158 M 58 90 H 144 M 74 120 H 128 M 90 150 H 112 M 100 150 C 104 178 92 198 78 206", 11), "#94a3b8");
+})();
+
+/* ── 22. Sport (variantes & compléments) ── */
+(() => {
+  const K = "sport loisir jeu";
+  add("sport", "volley0", "Volley", `${K} volley volleyball ballon`, 200, 200,
+    `<circle cx="100" cy="100" r="86" fill="${C}"/>` + stroke("M 100 14 C 60 60 60 140 100 186 M 14 100 C 70 90 150 120 186 90 M 40 40 C 90 100 90 140 60 180", 6, `opacity="0.4"`), "#fbbf24");
+  add("sport", "bowling0", "Bowling", `${K} bowling boule quille`, 200, 200,
+    `<circle cx="100" cy="100" r="86" fill="${C}"/>` + opc(78, 74, 9, 0.4) + opc(104, 68, 9, 0.4) + opc(92, 96, 9, 0.4), "#6366f1");
+  add("sport", "dice0", "Dé", `${K} dé dice jeu`, 190, 190,
+    stroke("M 30 30 H 160 V 160 H 30 Z", 8) + [[60, 60], [130, 60], [60, 130], [130, 130], [95, 95]].map(([x, y]) => `<circle cx="${x}" cy="${y}" r="11" fill="${C}"/>`).join(""), "#f87171");
+  add("sport", "skate0", "Skateboard", `${K} skate skateboard planche`, 230, 130,
+    fillp("M 20 60 C 20 44 44 44 60 46 H 170 C 186 44 210 44 210 60 C 210 76 186 76 170 74 H 60 C 44 76 20 76 20 60 Z") + `<circle cx="66" cy="104" r="18" fill="none" stroke="${C}" stroke-width="8"/><circle cx="164" cy="104" r="18" fill="none" stroke="${C}" stroke-width="8"/>`, "#fb923c");
+  add("sport", "surf0", "Surf", `${K} surf surfboard planche mer`, 130, 230,
+    fillp("M 65 10 C 30 60 30 170 65 220 C 100 170 100 60 65 10 Z") + stroke("M 65 30 V 200", 5, `opacity="0.5"`) + fillp("M 55 200 H 75 V 224 H 55 Z", `opacity="0.6"`), "#14b8a6");
+  add("sport", "boxing0", "Gant de boxe", `${K} boxe gant boxing`, 200, 200,
+    fillp("M 40 90 C 40 50 80 34 116 38 C 158 42 176 74 174 106 C 172 146 140 172 100 172 C 66 172 40 150 40 118 Z") + fillp("M 40 100 C 24 100 20 128 38 132 C 42 134 40 112 40 100 Z") + stroke("M 116 40 C 118 62 118 84 114 104", 5, `opacity="0.4"`) + fillp("M 60 168 H 150 V 190 H 60 Z", `opacity="0.6"`), "#ef4444");
+  add("sport", "pingpong0", "Ping-pong", `${K} ping pong raquette tennis de table`, 180, 220,
+    `<circle cx="90" cy="80" r="62" fill="${C}"/>` + opc(90, 80, 46, 0.3) + fillp("M 74 138 H 106 V 208 H 74 Z"), "#22c55e");
+  add("sport", "kettlebell0", "Kettlebell", `${K} kettlebell fonte fitness musculation`, 190, 210,
+    stroke("M 68 70 V 54 A 27 27 0 0 1 122 54 V 70", 12) + fillp("M 95 66 C 145 66 172 110 172 150 C 172 186 140 200 95 200 C 50 200 18 186 18 150 C 18 110 45 66 95 66 Z") + opc(95, 140, 24, 0.3), "#818cf8");
+  add("sport", "stopwatch0", "Chrono", `${K} chrono chronomètre stopwatch temps`, 190, 210,
+    `<circle cx="95" cy="120" r="76" fill="none" stroke="${C}" stroke-width="10"/>` + stroke("M 95 76 V 122 L 124 138", 9) + fillp("M 74 14 H 116 V 34 H 74 Z") + stroke("M 95 34 V 44 M 150 62 L 164 48", 9), "#f472b6");
+  add("sport", "medal2", "Ruban médaille", `${K} médaille ruban prix récompense`, 190, 220,
+    fillp("M 50 12 L 95 96 L 140 12 Z", `opacity="0.5"`) + `<circle cx="95" cy="146" r="60" fill="none" stroke="${C}" stroke-width="11"/>` + fillp(starPts(95, 146, 5, 30, 13)), "#fbbf24");
+  add("sport", "jumprope0", "Corde à sauter", `${K} corde sauter jump rope fitness`, 220, 200,
+    stroke("M 44 40 C 10 90 10 200 110 200 C 210 200 210 90 176 40", 9) + fillp("M 30 26 H 58 V 54 H 30 Z") + fillp("M 162 26 H 190 V 54 H 162 Z", `opacity="0.7"`), "#ec4899");
+  add("sport", "golfclub0", "Golf", `${K} golf club crosse balle`, 200, 220,
+    stroke("M 140 20 L 70 180", 9) + fillp("M 70 180 C 50 180 40 196 58 204 L 96 190 Z") + `<circle cx="150" cy="120" r="16" fill="${C}"/>` + opc(146, 116, 4, 0.5), "#84cc16");
+})();
+
+/* ── 23. Nature & icônes (variantes) ── */
+(() => {
+  add("nature", "cloudo1", "Nuage rond", "nature nuage cloud rond", 220, 140,
+    fillp("M 60 120 A 34 34 0 0 1 54 56 A 44 44 0 0 1 120 40 A 38 38 0 0 1 180 60 A 34 34 0 0 1 176 120 Z"), "#e2e8f0");
+  add("nature", "leafheart0", "Feuille cœur", "nature feuille leaf coeur", 200, 200,
+    fillp("M 100 184 C 30 150 20 60 100 24 C 180 60 170 150 100 184 Z") + stroke("M 100 170 V 40", 5, `opacity="0.5"`), "#22c55e");
+  add("nature", "tree0", "Arbre", "nature arbre tree feuillu", 200, 220,
+    fillp("M 100 20 C 50 20 30 76 60 108 C 34 118 44 160 84 156 V 200 H 116 V 156 C 156 160 166 118 140 108 C 170 76 150 20 100 20 Z"), "#22c55e");
+  add("nature", "cactus0", "Cactus", "nature cactus plante désert", 170, 220,
+    stroke("M 70 200 V 70 A 18 18 0 0 1 100 70 V 130 Q 100 150 118 150 V 110 A 14 14 0 0 1 146 110 V 150 Q 146 180 100 180 M 70 120 Q 70 150 40 150 V 120 A 14 14 0 0 1 68 120", 20), "#22c55e");
+  add("icons", "starround0", "Étoile arrondie", "icône étoile star rond", 200, 200,
+    fillp("M 100 20 C 112 20 118 64 134 78 C 150 92 190 84 194 100 C 190 116 150 108 134 122 C 118 136 112 180 100 180 C 88 180 82 136 66 122 C 50 108 10 116 6 100 C 10 84 50 92 66 78 C 82 64 88 20 100 20 Z"), "#fbbf24");
+  add("icons", "heartround0", "Cœur rond", "icône coeur heart rond love", 200, 190,
+    fillp("M 100 178 C 30 130 12 84 40 54 C 62 30 92 40 100 66 C 108 40 138 30 160 54 C 188 84 170 130 100 178 Z"), "#f43f5e");
+  add("icons", "diamond0", "Losange", "icône losange diamond", 180, 200,
+    fillp("M 90 10 L 170 100 L 90 190 L 10 100 Z"), "#22d3ee");
+  add("icons", "shield0", "Bouclier", "icône bouclier shield protection", 180, 210,
+    fillp("M 90 14 L 164 42 V 108 C 164 158 128 188 90 202 C 52 188 16 158 16 108 V 42 Z") + stroke("M 62 104 L 84 128 L 122 78", 10, `opacity="0.6"`), "#38bdf8");
+})();
+
+/* ── Distribution des couleurs : chaque élément SANS teinte explicite reçoit
+   une couleur de la palette de sa catégorie (index → couleur), pour un
+   catalogue varié et coloré. Déterministe (ordre stable) → aucun décalage
+   d'hydratation. Les surcharges sémantiques ci-dessous priment ensuite. ── */
+(() => {
+  const idx: Record<string, number> = {};
+  for (const e of items) {
+    if (e.defaultColor) continue;
+    const pal = CAT_PALETTE[e.cat] ?? VIBRANT;
+    const i = (idx[e.cat] = (idx[e.cat] ?? 0) + 1) - 1;
+    e.defaultColor = pal[i % pal.length];
+  }
 })();
 
 /* ── Couleurs cohérentes : surcharges ponctuelles (les éléments restent
