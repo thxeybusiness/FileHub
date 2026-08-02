@@ -9,12 +9,39 @@ import {
   Menu, Shapes, Plus, Loader2, Clock, Sparkles, MoreHorizontal, Pencil, Copy, Trash2,
 } from "lucide-react";
 import { api, notifyRefresh } from "@/lib/api";
-import { SIZE_PRESETS, parseDesign, type DesignDoc } from "@/lib/design";
+import { parseDesign, type DesignDoc } from "@/lib/design";
 import { TEMPLATES, templateDoc } from "@/lib/design-presets";
 import { DocPreview } from "./design-render";
+import { BrandGlyph, BRANDS, type BrandId } from "./design-brands";
 import { NameDialog } from "./name-dialog";
 
 type Item = { id: string; name: string; updatedAt: string; content: string };
+
+// Vignettes de démarrage : chaque format porte l'identité de sa plateforme.
+type FormatCard = { label: string; w: number; h: number; brand: BrandId; icon: number };
+const FORMAT_CARDS: FormatCard[] = [
+  { label: "Post Instagram", w: 1080, h: 1080, brand: "instagram", icon: 24 },
+  { label: "Story · Reel · TikTok", w: 1080, h: 1920, brand: "tiktok", icon: 24 },
+  { label: "Miniature YouTube", w: 1280, h: 720, brand: "youtube", icon: 24 },
+  { label: "Post Facebook", w: 1200, h: 630, brand: "facebook", icon: 22 },
+  { label: "Post X", w: 1600, h: 900, brand: "x", icon: 20 },
+  { label: "Bannière LinkedIn", w: 1584, h: 396, brand: "linkedin", icon: 15 },
+  { label: "Logo", w: 800, h: 800, brand: "logo", icon: 24 },
+  { label: "Affiche A4", w: 1240, h: 1754, brand: "print", icon: 24 },
+];
+
+// Les vignettes vivent dans une boîte au ratio 4/3 : on contraint la largeur
+// pour les formats plus larges que la boîte, la hauteur sinon. Rien ne déborde,
+// rien n'est rogné, le ratio réel est toujours respecté.
+const BOX_RATIO = 4 / 3;
+function fitInBox(w: number, h: number, fill = "86%") {
+  const wide = w / h >= BOX_RATIO;
+  return {
+    aspectRatio: `${w} / ${h}`,
+    width: wide ? fill : "auto",
+    height: wide ? "auto" : fill,
+  } satisfies React.CSSProperties;
+}
 
 export function DesignHome() {
   const router = useRouter();
@@ -95,18 +122,35 @@ export function DesignHome() {
           <div className="mx-auto max-w-6xl space-y-9">
             {/* Formats vierges */}
             <section>
-              <h2 className="mb-3 text-sm font-semibold text-white/80">Créer à partir d'un format</h2>
-              <div className="grid grid-cols-3 gap-3 sm:grid-cols-6">
-                {SIZE_PRESETS.filter((p) => ["ig-post", "ig-story", "yt-thumb", "fb-post", "logo", "a4-p"].includes(p.id)).map((p) => {
-                  const r = p.w / p.h;
+              <div className="mb-3 flex items-baseline justify-between gap-3">
+                <h2 className="text-sm font-semibold text-white/80">Créer à partir d'un format</h2>
+                <button onClick={() => createBlank()} disabled={creating}
+                  className="shrink-0 text-[11px] font-medium text-purple-300 transition hover:text-purple-200 disabled:opacity-50">
+                  Format personnalisé →
+                </button>
+              </div>
+              <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+                {FORMAT_CARDS.map((f) => {
+                  const b = BRANDS[f.brand];
                   return (
-                    <button key={p.id} onClick={() => createBlank(p.w, p.h)} disabled={creating}
-                      className="group flex flex-col items-center gap-2 rounded-xl border border-white/10 bg-white/[0.02] p-3 transition hover:border-purple-400/40 hover:bg-white/5 disabled:opacity-60">
-                      <div className="grid h-16 w-full place-items-center">
-                        <div className="rounded ring-1 ring-white/15 transition group-hover:ring-purple-400/50"
-                          style={{ aspectRatio: String(r), width: r >= 1 ? "70%" : "auto", height: r >= 1 ? "auto" : "100%", background: "linear-gradient(135deg,#a855f7,#6366f1)" }} />
+                    <button key={f.label} onClick={() => createBlank(f.w, f.h)} disabled={creating}
+                      className="group rounded-2xl border border-white/10 bg-white/[0.02] p-2.5 text-left transition hover:border-purple-400/40 hover:bg-white/5 disabled:opacity-60">
+                      <div className="grid aspect-[4/3] place-items-center rounded-xl bg-black/25 ring-1 ring-inset ring-white/5">
+                        <div
+                          className="relative grid place-items-center overflow-hidden rounded-lg shadow-lg shadow-black/40 transition group-hover:scale-[1.04]"
+                          style={{
+                            ...fitInBox(f.w, f.h),
+                            background: b.bg,
+                            color: b.fg,
+                            boxShadow: b.ring ? `inset 0 0 0 1px ${b.ring}` : undefined,
+                          }}
+                        >
+                          <span className="pointer-events-none absolute inset-0 bg-gradient-to-br from-white/15 to-transparent" />
+                          <span className="relative"><BrandGlyph id={f.brand} size={f.icon} /></span>
+                        </div>
                       </div>
-                      <span className="text-center text-[11px] leading-tight text-muted">{p.label}</span>
+                      <p className="mt-2 truncate text-[12px] font-medium text-white/90">{f.label}</p>
+                      <p className="text-[10.5px] tabular-nums text-muted">{f.w} × {f.h}</p>
                     </button>
                   );
                 })}
@@ -118,10 +162,15 @@ export function DesignHome() {
               <h2 className="mb-3 text-sm font-semibold text-white/80">Commencer avec un modèle</h2>
               <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
                 {TEMPLATES.map((t) => (
-                  <button key={t.id} onClick={() => createFromTemplate(t.id)} disabled={creating} className="group flex flex-col self-start text-left disabled:opacity-60">
-                    <DocPreview doc={t.doc} className="ring-1 ring-white/10 transition group-hover:ring-purple-400/50" rounded={12} />
-                    <p className="mt-1.5 truncate text-xs font-medium text-white/85">{t.label}</p>
-                    <p className="text-[10.5px] text-muted">{t.group}</p>
+                  <button key={t.id} onClick={() => createFromTemplate(t.id)} disabled={creating}
+                    className="group rounded-2xl border border-white/10 bg-white/[0.02] p-2.5 text-left transition hover:border-purple-400/40 hover:bg-white/5 disabled:opacity-60">
+                    <div className="grid aspect-[4/3] place-items-center overflow-hidden rounded-xl bg-black/25 ring-1 ring-inset ring-white/5">
+                      <div style={fitInBox(t.doc.width, t.doc.height, "88%")}>
+                        <DocPreview doc={t.doc} className="shadow-lg shadow-black/40 ring-1 ring-black/30 transition group-hover:ring-purple-400/50" rounded={8} />
+                      </div>
+                    </div>
+                    <p className="mt-2 truncate text-[12px] font-medium text-white/90">{t.label}</p>
+                    <p className="text-[10.5px] text-muted">{t.group} · {t.doc.width}×{t.doc.height}</p>
                   </button>
                 ))}
               </div>
@@ -189,9 +238,9 @@ function DesignCard({ item, onOpen, onRename, onDuplicate, onTrash }: {
   return (
     <div className="group relative">
       <button onClick={onOpen} className="block w-full text-left">
-        <div className="grid aspect-[4/3] place-items-center overflow-hidden rounded-xl border border-white/10 bg-white/[0.02] p-3 transition group-hover:border-purple-400/40">
-          <div style={{ width: doc.width >= doc.height ? "100%" : "auto", height: doc.width >= doc.height ? "auto" : "100%", maxWidth: "100%", maxHeight: "100%", aspectRatio: `${doc.width}/${doc.height}` }}>
-            <DocPreview doc={doc} className="shadow-lg ring-1 ring-black/30" rounded={6} />
+        <div className="grid aspect-[4/3] place-items-center overflow-hidden rounded-xl border border-white/10 bg-black/25 transition group-hover:border-purple-400/40">
+          <div style={fitInBox(doc.width, doc.height, "88%")}>
+            <DocPreview doc={doc} className="shadow-lg shadow-black/40 ring-1 ring-black/30" rounded={6} />
           </div>
         </div>
         <p className="mt-2 truncate pr-8 text-sm font-medium text-white/90">{item.name || "Sans titre"}</p>
