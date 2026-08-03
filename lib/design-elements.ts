@@ -2135,6 +2135,159 @@ function tint(id: string, color: string) {
   { const bumps = 16, R = 82, r = 9; let d = ""; for (let k = 0; k < bumps * 4; k++) { const a = (k * 360) / (bumps * 4); const rr = k % 2 === 0 ? R : R - r; const [x, y] = polar(100, 100, rr, a); d += (k === 0 ? "M" : "L") + ` ${N(x)} ${N(y)} `; } F("scalloprd0", "Cadre festonné rond", "festonné rond cadre", stroke(d + "Z", 6), 200, 200); }
 })();
 
+/* ═══════════ Éléments « travaillés » : relief, volume, jeux de couleur ═══════════
+   Une seule couleur éditable → variantes claires/sombres/accent dérivées
+   automatiquement (jetons __CM__/__CL__/__CLL__/__CD__/__CDD__/__CA__/__CW__),
+   plus des dégradés internes pour le volume. Pas du 2D plat. */
+(() => {
+  const HD = (cat: string, id: string, label: string, kw: string, color: string, body: string, w = 200, h = 200) =>
+    add(cat, `hd${id}`, label, `${kw} relief volume 3d détaillé travaillé dégradé`, w, h, body, color);
+  const orb = (cx: number, cy: number, r: number, gid: string) =>
+    `<defs><radialGradient id="${gid}" cx="35%" cy="28%" r="74%"><stop offset="0" stop-color="__CLL__"/><stop offset="0.55" stop-color="__CM__"/><stop offset="1" stop-color="__CDD__"/></radialGradient></defs><circle cx="${cx}" cy="${cy}" r="${r}" fill="url(#${gid})"/>`;
+  const glint = (cx: number, cy: number, rx: number, ry: number, rot = -30) =>
+    `<ellipse cx="${cx}" cy="${cy}" rx="${rx}" ry="${ry}" fill="__CW__" opacity="0.6" transform="rotate(${rot} ${cx} ${cy})"/>`;
+  const lin = (gid: string, a: string, b: string, x2 = "1", y2 = "1") =>
+    `<defs><linearGradient id="${gid}" x1="0" y1="0" x2="${x2}" y2="${y2}"><stop offset="0" stop-color="${a}"/><stop offset="1" stop-color="${b}"/></linearGradient></defs>`;
+
+  /* Nature */
+  HD("nature", "leaf", "Feuille", "nature feuille leaf", "#22c55e",
+    lin("lf", "__CLL__", "__CD__") + `<path d="M 100 190 C 40 158 26 74 100 14 C 174 74 160 158 100 190 Z" fill="url(#lf)"/>` +
+    `<path d="M 100 176 C 92 120 92 70 100 30" fill="none" stroke="__CLL__" stroke-width="5" opacity="0.7"/>` +
+    `<path d="M 100 120 L 66 96 M 100 96 L 132 74 M 100 150 L 72 132 M 100 74 L 126 56" stroke="__CD__" stroke-width="3" opacity="0.5" fill="none"/>`);
+  HD("nature", "flower", "Fleur", "nature fleur flower", "#ec4899",
+    `<defs><radialGradient id="pet" cx="50%" cy="30%" r="70%"><stop offset="0" stop-color="__CLL__"/><stop offset="1" stop-color="__CD__"/></radialGradient></defs>` +
+    Array.from({ length: 7 }, (_, k) => `<ellipse cx="100" cy="52" rx="20" ry="42" fill="url(#pet)" transform="rotate(${N((k * 360) / 7)} 100 100)"/>`).join("") +
+    `<circle cx="100" cy="100" r="24" fill="__CA__"/>` + `<circle cx="100" cy="100" r="24" fill="none" stroke="__CDD__" stroke-width="3" opacity="0.4"/>` + glint(92, 92, 8, 6, 0));
+  HD("nature", "sun", "Soleil", "nature soleil sun", "#fbbf24",
+    `<defs><radialGradient id="sg" cx="50%" cy="50%" r="50%"><stop offset="0" stop-color="__CLL__"/><stop offset="0.6" stop-color="__CM__"/><stop offset="1" stop-color="__CD__"/></radialGradient></defs>` +
+    Array.from({ length: 12 }, (_, k) => { const a = k * 30; const [x1, y1] = polar(100, 100, 58, a), [x2, y2] = polar(100, 100, 92, a); return `<path d="M ${N(polar(100, 100, 58, a - 5)[0])} ${N(polar(100, 100, 58, a - 5)[1])} L ${N(x2)} ${N(y2)} L ${N(polar(100, 100, 58, a + 5)[0])} ${N(polar(100, 100, 58, a + 5)[1])} Z" fill="__CA2__"/>`; }).join("") +
+    `<circle cx="100" cy="100" r="52" fill="url(#sg)"/>` + glint(84, 82, 14, 10));
+  HD("nature", "tree", "Arbre", "nature arbre tree", "#16a34a",
+    `<rect x="90" y="120" width="20" height="70" rx="8" fill="__CDD__"/>` +
+    orb(70, 90, 42, "t1") + orb(130, 90, 42, "t2") + orb(100, 64, 46, "t3"));
+  HD("nature", "mountain", "Montagne", "nature montagne mountain", "#64748b",
+    lin("mg", "__CL__", "__CDD__", "0.4", "1") + `<path d="M 16 176 L 96 40 L 176 176 Z" fill="url(#mg)"/>` +
+    `<path d="M 96 40 L 122 84 L 108 96 L 96 84 L 84 100 L 70 84 Z" fill="__CLL__"/>` +
+    `<path d="M 96 40 L 176 176 L 116 176 L 96 120 Z" fill="__CDD__" opacity="0.45"/>`, 200, 200);
+  HD("nature", "planet", "Planète", "nature planète espace planet", "#8b5cf6",
+    `<ellipse cx="100" cy="106" rx="94" ry="26" fill="__CA2__" opacity="0.9" transform="rotate(-18 100 106)"/>` +
+    orb(100, 100, 54, "pl") + `<ellipse cx="100" cy="100" rx="94" ry="26" fill="none" stroke="__CDD__" stroke-width="3" opacity="0.5" transform="rotate(-18 100 100)"/>`);
+  HD("nature", "droplet", "Goutte", "nature goutte eau water", "#38bdf8",
+    `<defs><radialGradient id="dr" cx="38%" cy="30%" r="70%"><stop offset="0" stop-color="__CLL__"/><stop offset="0.6" stop-color="__CM__"/><stop offset="1" stop-color="__CDD__"/></radialGradient></defs>` +
+    `<path d="M 100 14 C 142 74 168 112 168 142 A 68 68 0 0 1 32 142 C 32 112 58 74 100 14 Z" fill="url(#dr)"/>` + glint(78, 120, 12, 20, -20));
+  HD("nature", "mushroom", "Champignon", "nature champignon mushroom", "#ef4444",
+    `<path d="M 80 100 H 120 L 112 186 H 88 Z" fill="__CL__"/>` +
+    `<defs><radialGradient id="mc" cx="42%" cy="24%" r="80%"><stop offset="0" stop-color="__CLL__"/><stop offset="1" stop-color="__CD__"/></radialGradient></defs>` +
+    `<path d="M 22 104 C 22 46 178 46 178 104 C 178 116 22 116 22 104 Z" fill="url(#mc)"/>` +
+    `<ellipse cx="64" cy="80" rx="10" ry="7" fill="__CLL__"/><ellipse cx="124" cy="74" rx="12" ry="8" fill="__CLL__"/><ellipse cx="98" cy="94" rx="7" ry="5" fill="__CLL__"/>`, 200, 200);
+  HD("nature", "cactus", "Cactus", "nature cactus plante", "#22c55e",
+    lin("ca", "__CL__", "__CD__", "1", "0") + `<rect x="82" y="60" width="36" height="130" rx="18" fill="url(#ca)"/>` +
+    `<path d="M 82 128 C 60 128 50 112 50 92 A 12 12 0 0 1 74 92 V 110" fill="none" stroke="__CM__" stroke-width="22" stroke-linecap="round"/>` +
+    `<path d="M 118 112 C 140 112 150 96 150 76 A 12 12 0 0 1 126 76 V 94" fill="none" stroke="__CM__" stroke-width="22" stroke-linecap="round"/>` +
+    `<path d="M 100 66 V 180" stroke="__CDD__" stroke-width="3" opacity="0.35" fill="none"/>` + `<circle cx="100" cy="58" r="12" fill="__CA__"/>`, 200, 200);
+  HD("nature", "wave", "Vague", "nature vague mer eau wave", "#0ea5e9",
+    lin("wv", "__CL__", "__CDD__", "0", "1") + `<path d="M 10 120 C 40 60 90 60 118 96 C 138 122 168 120 190 96 V 180 H 10 Z" fill="url(#wv)"/>` +
+    `<path d="M 10 120 C 40 60 90 60 118 96 C 138 122 168 120 190 96" fill="none" stroke="__CW__" stroke-width="6" opacity="0.7"/>` +
+    `<circle cx="150" cy="88" r="6" fill="__CW__" opacity="0.7"/><circle cx="168" cy="98" r="4" fill="__CW__" opacity="0.6"/>`, 200, 190);
+
+  /* Sport — ballons en relief */
+  HD("sport", "soccer", "Ballon foot", "sport football ballon soccer", "#f8fafc",
+    orb(100, 100, 84, "sc") + `<path d="${polyPts(100, 100, 5, 30)}" fill="__CDD__"/>` +
+    Array.from({ length: 5 }, (_, k) => { const [x, y] = polar(100, 100, 60, -90 + k * 72); return `<path d="M ${N(polar(100, 100, 34, -90 + k * 72)[0])} ${N(polar(100, 100, 34, -90 + k * 72)[1])} L ${N(x)} ${N(y)}" stroke="__CDD__" stroke-width="6" fill="none"/>` + `<circle cx="${N(x)}" cy="${N(y)}" r="9" fill="__CDD__" opacity="0.55"/>`; }).join("") + glint(74, 72, 16, 11));
+  HD("sport", "basket", "Ballon basket", "sport basketball ballon", "#f97316",
+    orb(100, 100, 84, "bk") + `<path d="M 16 100 H 184 M 100 16 V 184 M 42 40 C 82 80 82 120 42 160 M 158 40 C 118 80 118 120 158 160" fill="none" stroke="__CDD__" stroke-width="4" opacity="0.7"/>` + glint(74, 72, 15, 10));
+  HD("sport", "tennis", "Balle tennis", "sport tennis balle", "#a3e635",
+    orb(100, 100, 84, "tn") + `<path d="M 40 30 C 78 68 78 132 40 170 M 160 30 C 122 68 122 132 160 170" fill="none" stroke="__CW__" stroke-width="6" opacity="0.85"/>` + glint(74, 72, 15, 10));
+  HD("sport", "baseball", "Balle baseball", "sport baseball balle", "#f8fafc",
+    orb(100, 100, 84, "bb") + `<path d="M 46 34 C 74 70 74 130 46 166 M 154 34 C 126 70 126 130 154 166" fill="none" stroke="__CA__" stroke-width="4"/>` +
+    Array.from({ length: 6 }, (_, k) => `<path d="M 54 ${44 + k * 20} l 10 -6 M 146 ${44 + k * 20} l -10 -6" stroke="__CA__" stroke-width="3" fill="none"/>`).join("") + glint(74, 72, 14, 10));
+  HD("sport", "volley", "Volley", "sport volley volleyball ballon", "#38bdf8",
+    orb(100, 100, 84, "vl") + `<path d="M 100 16 C 60 62 60 138 100 184 M 16 100 C 72 90 150 120 184 90 M 40 40 C 90 100 90 140 60 180" fill="none" stroke="__CW__" stroke-width="5" opacity="0.6"/>` + glint(74, 72, 14, 10));
+  HD("sport", "bowling", "Boule bowling", "sport bowling boule", "#6366f1",
+    orb(100, 100, 84, "bw") + `<circle cx="80" cy="74" r="8" fill="__CDD__"/><circle cx="106" cy="68" r="8" fill="__CDD__"/><circle cx="94" cy="94" r="8" fill="__CDD__"/>` + glint(72, 64, 13, 9));
+  HD("sport", "trophy", "Trophée", "sport trophée coupe prix", "#f59e0b",
+    lin("tr", "__CLL__", "__CD__") + `<path d="M 56 26 H 144 V 88 A 44 44 0 0 1 56 88 Z" fill="url(#tr)"/>` +
+    `<path d="M 56 42 H 24 A 32 32 0 0 0 60 88 M 144 42 H 176 A 32 32 0 0 1 140 88" fill="none" stroke="__CD__" stroke-width="8"/>` +
+    `<rect x="92" y="132" width="16" height="26" fill="__CD__"/><rect x="64" y="158" width="72" height="20" rx="4" fill="__CDD__"/>` +
+    `<path d="M 78 40 V 74 A 22 22 0 0 0 100 84" stroke="__CLL__" stroke-width="6" opacity="0.7" fill="none"/>`, 200, 200);
+  HD("sport", "medal", "Médaille", "sport médaille récompense", "#fbbf24",
+    `<path d="M 50 12 L 95 90 L 140 12 Z" fill="__CA__" opacity="0.85"/>` +
+    orb(95, 132, 56, "md") + `<circle cx="95" cy="132" r="40" fill="none" stroke="__CDD__" stroke-width="4" opacity="0.5"/>` +
+    `<path d="${starPts(95, 132, 5, 28, 12)}" fill="__CLL__"/>`, 190, 200);
+  HD("sport", "dumbbell", "Haltère", "sport haltère musculation fitness", "#818cf8",
+    lin("db", "__CLL__", "__CDD__", "0", "1") + `<rect x="14" y="42" width="28" height="96" rx="8" fill="url(#db)"/><rect x="48" y="30" width="26" height="120" rx="8" fill="url(#db)"/>` +
+    `<rect x="186" y="42" width="-28" height="96" rx="8" fill="url(#db)" transform="translate(200 0) scale(-1 1)"/>` +
+    `<rect x="126" y="30" width="26" height="120" rx="8" fill="url(#db)"/><rect x="158" y="42" width="28" height="96" rx="8" fill="url(#db)"/>` +
+    `<rect x="74" y="80" width="52" height="20" fill="__CM__"/>` + `<rect x="74" y="80" width="52" height="6" fill="__CLL__" opacity="0.6"/>`, 200, 180);
+
+  /* Nourriture — volume & brillance */
+  HD("food", "apple", "Pomme", "food pomme apple fruit", "#ef4444",
+    `<path d="M 100 58 C 102 40 110 30 124 28" fill="none" stroke="__CDD__" stroke-width="7"/>` +
+    `<defs><radialGradient id="ap" cx="38%" cy="30%" r="72%"><stop offset="0" stop-color="__CLL__"/><stop offset="0.6" stop-color="__CM__"/><stop offset="1" stop-color="__CDD__"/></radialGradient></defs>` +
+    `<path d="M 100 62 C 78 42 46 48 40 84 C 34 124 58 176 84 176 C 92 178 100 172 100 172 C 100 172 108 178 116 176 C 142 176 166 124 160 84 C 154 48 122 42 100 62 Z" fill="url(#ap)"/>` +
+    `<path d="M 108 42 C 128 28 150 34 152 54 C 130 60 110 52 108 42 Z" fill="__CA__"/>` + glint(74, 92, 12, 22, -18));
+  HD("food", "orange", "Orange", "food orange agrume fruit", "#fb923c",
+    orb(100, 106, 76, "or") + `<circle cx="100" cy="106" r="76" fill="none" stroke="__CDD__" stroke-width="2" opacity="0.3"/>` +
+    `<path d="M 100 30 L 84 12 L 118 12 Z" fill="__CA__"/>` + glint(76, 84, 14, 10));
+  HD("food", "grapes", "Raisin", "food raisin grappe fruit", "#8b5cf6",
+    (() => { const rows = [[100], [80, 120], [66, 100, 134], [82, 118], [100]]; let cy = 66, g = `<path d="M 100 30 C 96 44 100 52 100 60" stroke="__CDD__" stroke-width="6" fill="none"/>` + `<path d="M 100 40 C 120 30 138 34 140 50 C 122 56 106 50 100 40 Z" fill="__CA__"/>`; let i = 0; rows.forEach((row) => { row.forEach((cx) => { g += orb(cx, cy, 19, `gr${i++}`); }); cy += 32; }); return g; })(), 200, 210);
+  HD("food", "icecream", "Glace", "food glace cornet ice cream", "#f9a8d4",
+    lin("cn", "__CA2__", "__CD__") + `<path d="M 74 210 L 42 100 H 158 L 126 210 Z" fill="url(#cn)"/>` +
+    `<path d="M 58 118 L 74 150 M 100 110 V 158 M 142 118 L 126 150" stroke="__CDD__" stroke-width="3" opacity="0.4" fill="none"/>` +
+    orb(70, 76, 40, "sc1") + orb(130, 76, 40, "sc2") + orb(100, 48, 44, "sc3") + glint(84, 34, 10, 7), 200, 220);
+  HD("food", "watermelon", "Pastèque", "food pastèque melon fruit", "#f43f5e",
+    `<path d="M 12 30 A 96 96 0 0 0 188 30 Z" fill="__CA__"/>` +
+    `<path d="M 24 30 A 84 84 0 0 0 176 30 Z" fill="__CLL__" opacity="0.35"/>` +
+    `<path d="M 30 30 A 78 78 0 0 0 170 30 Z" fill="__CM__"/>` +
+    [46, 68, 90, 112, 134].map((x, k) => `<ellipse cx="${x + (k % 2) * 6}" cy="${52 + (k % 2) * 14}" rx="4" ry="7" fill="__CDD__"/>`).join(""), 200, 140);
+  HD("food", "donut", "Donut", "food donut beignet dessert", "#a16207",
+    `<defs><radialGradient id="dn" cx="50%" cy="42%" r="60%"><stop offset="0.4" stop-color="__CM__"/><stop offset="1" stop-color="__CDD__"/></radialGradient></defs>` +
+    `<path fill-rule="evenodd" d="M 12 100 a 88 88 0 1 0 176 0 a 88 88 0 1 0 -176 0 Z${holeC(100, 100, 34)}" fill="url(#dn)"/>` +
+    `<path d="M 40 74 A 78 78 0 0 1 160 74 A 40 40 0 0 0 100 62 A 40 40 0 0 0 40 74 Z" fill="__CA__"/>` +
+    Array.from({ length: 8 }, (_, k) => { const a = k * 45; const [x, y] = polar(100, 76, 50, a); return `<rect x="${N(x - 5)}" y="${N(y - 2)}" width="12" height="5" rx="2" fill="__CLL__" transform="rotate(${a} ${N(x)} ${N(y)})"/>`; }).join(""));
+
+  /* Objets & divers */
+  HD("objects", "balloon", "Ballon", "objet ballon baudruche party", "#fb7185",
+    `<defs><radialGradient id="bl" cx="38%" cy="30%" r="72%"><stop offset="0" stop-color="__CLL__"/><stop offset="0.6" stop-color="__CM__"/><stop offset="1" stop-color="__CDD__"/></radialGradient></defs>` +
+    `<path d="M 85 16 C 40 16 28 74 50 116 C 62 138 78 148 78 156 H 92 C 92 148 108 138 120 116 C 142 74 130 16 85 16 Z" fill="url(#bl)"/>` +
+    `<path d="M 78 156 L 92 156 L 85 168 Z" fill="__CDD__"/>` + `<path d="M 85 168 C 96 184 74 196 85 210" stroke="__CD__" stroke-width="3" fill="none"/>` + glint(64, 56, 12, 20, -22), 170, 220);
+  HD("objects", "bulb", "Ampoule", "objet ampoule idée lumière lightbulb", "#fde047",
+    `<defs><radialGradient id="bb" cx="42%" cy="34%" r="70%"><stop offset="0" stop-color="__CLL__"/><stop offset="0.7" stop-color="__CM__"/><stop offset="1" stop-color="__CD__"/></radialGradient></defs>` +
+    `<path d="M 85 14 A 60 60 0 0 1 115 126 L 110 150 H 60 L 55 126 A 60 60 0 0 1 85 14 Z" fill="url(#bb)"/>` +
+    `<path d="M 62 160 H 108 M 68 178 H 102" stroke="__CDD__" stroke-width="8" fill="none"/>` +
+    `<path d="M 72 120 L 85 96 L 98 120" stroke="__CD__" stroke-width="4" fill="none" opacity="0.6"/>` + glint(68, 46, 10, 16, -20), 170, 210);
+  HD("objects", "gem", "Diamant", "objet diamant gemme gem cristal", "#22d3ee",
+    `<path d="M 42 16 H 158 L 190 66 L 100 184 Z" fill="__CM__"/>` +
+    `<path d="M 42 16 L 68 66 L 10 66 Z" fill="__CL__"/><path d="M 68 66 L 100 16 L 132 66 Z" fill="__CLL__"/><path d="M 132 66 L 158 16 L 190 66 Z" fill="__CD__"/>` +
+    `<path d="M 10 66 L 100 184 L 68 66 Z" fill="__CD__"/><path d="M 68 66 H 132 L 100 184 Z" fill="__CM__"/><path d="M 132 66 H 190 L 100 184 Z" fill="__CDD__"/>` +
+    `<path d="M 100 16 V 66" stroke="__CLL__" stroke-width="2" opacity="0.5"/>`, 200, 200);
+  HD("objects", "star", "Étoile", "objet étoile star favori", "#fbbf24",
+    lin("st", "__CLL__", "__CD__") + `<path d="${starPts(100, 100, 5, 88, 38)}" fill="url(#st)"/>` + glint(80, 72, 14, 9, -20));
+  HD("objects", "heart", "Cœur", "objet coeur heart amour love", "#f43f5e",
+    `<defs><radialGradient id="ht" cx="40%" cy="30%" r="70%"><stop offset="0" stop-color="__CLL__"/><stop offset="0.6" stop-color="__CM__"/><stop offset="1" stop-color="__CDD__"/></radialGradient></defs>` +
+    `<path d="M 100 178 C 34 128 12 88 40 56 C 64 30 94 42 100 66 C 106 42 136 30 160 56 C 188 88 166 128 100 178 Z" fill="url(#ht)"/>` + glint(70, 74, 14, 20, -30), 200, 190);
+  HD("objects", "crown", "Couronne", "objet couronne roi premium crown", "#fbbf24",
+    lin("cr", "__CLL__", "__CD__") + `<path d="M 24 150 L 14 54 L 62 90 L 100 30 L 138 90 L 186 54 L 176 150 Z" fill="url(#cr)"/>` +
+    `<rect x="24" y="150" width="152" height="20" rx="4" fill="__CDD__"/>` +
+    `<circle cx="14" cy="48" r="8" fill="__CA__"/><circle cx="100" cy="24" r="9" fill="__CA__"/><circle cx="186" cy="48" r="8" fill="__CA__"/><circle cx="100" cy="120" r="10" fill="__CA__"/>`, 200, 180);
+  HD("objects", "coin", "Pièce", "objet pièce monnaie coin argent", "#fbbf24",
+    orb(100, 100, 82, "co") + `<circle cx="100" cy="100" r="62" fill="none" stroke="__CDD__" stroke-width="4" opacity="0.4"/>` +
+    `<path d="M 100 58 V 142 M 84 74 H 112 A 14 14 0 0 1 112 102 H 84 H 118" stroke="__CDD__" stroke-width="7" fill="none" opacity="0.55"/>` + glint(76, 76, 14, 10));
+
+  /* Météo */
+  HD("weather", "moon", "Lune", "météo lune moon nuit croissant", "#fde68a",
+    `<defs><radialGradient id="mn" cx="60%" cy="40%" r="70%"><stop offset="0" stop-color="__CLL__"/><stop offset="1" stop-color="__CD__"/></radialGradient></defs>` +
+    `<path d="M 122 20 A 84 84 0 1 0 122 180 A 66 66 0 0 1 122 20 Z" fill="url(#mn)"/>` +
+    `<circle cx="86" cy="70" r="9" fill="__CD__" opacity="0.5"/><circle cx="70" cy="112" r="7" fill="__CD__" opacity="0.5"/><circle cx="96" cy="132" r="5" fill="__CD__" opacity="0.5"/>`);
+  HD("weather", "cloud", "Nuage", "météo nuage cloud ciel", "#e2e8f0",
+    lin("cl", "__CLL__", "__CD__", "0", "1") + `<path d="M 52 130 A 30 30 0 0 1 46 72 A 40 40 0 0 1 120 52 A 34 34 0 0 1 178 74 A 30 30 0 0 1 172 130 Z" fill="url(#cl)"/>` +
+    `<path d="M 46 72 A 40 40 0 0 1 120 52 A 34 34 0 0 1 178 74" fill="none" stroke="__CLL__" stroke-width="5" opacity="0.6"/>`, 220, 150);
+  HD("weather", "rainbow", "Arc-en-ciel", "météo arc-en-ciel rainbow couleur", "#f43f5e",
+    ["__CM__", "__CA2__", "__CLL__", "__CA__", "__CD__"].map((c, k) => `<path d="M ${18 + k * 13} 150 A ${100 - k * 13} ${100 - k * 13} 0 0 1 ${182 - k * 13} 150" fill="none" stroke="${c}" stroke-width="11"/>`).join(""), 200, 160);
+  HD("weather", "snowflake", "Flocon", "météo flocon neige snowflake hiver", "#7dd3fc",
+    lin("sf", "__CLL__", "__CD__") + Array.from({ length: 6 }, (_, k) => { const a = k * 60; const [x2, y2] = polar(100, 100, 86, a); const [bx, by] = polar(100, 100, 54, a); const [t1x, t1y] = polar(bx, by, 22, a - 40), [t2x, t2y] = polar(bx, by, 22, a + 40); return `<path d="M 100 100 L ${N(x2)} ${N(y2)} M ${N(t1x)} ${N(t1y)} L ${N(bx)} ${N(by)} L ${N(t2x)} ${N(t2y)}" stroke="url(#sf)" stroke-width="6" stroke-linecap="round" fill="none"/>`; }).join("") + `<circle cx="100" cy="100" r="10" fill="__CLL__"/>`);
+})();
+
 /* ── Distribution des couleurs : chaque élément SANS teinte explicite reçoit
    une couleur de la palette de sa catégorie (index → couleur), pour un
    catalogue varié et coloré. Déterministe (ordre stable) → aucun décalage
@@ -2190,6 +2343,48 @@ function linPts(angle: number, w: number, h: number) {
   return { x1: w / 2 - (vx * len) / 2, y1: h / 2 - (vy * len) / 2, x2: w / 2 + (vx * len) / 2, y2: h / 2 + (vy * len) / 2 };
 }
 
+/* ── Dérivation de teintes : à partir de LA couleur choisie, on calcule des
+   variantes plus claires / plus sombres / un accent (rotation de teinte). Les
+   éléments « travaillés » (relief, dégradés internes, jeux de couleur) les
+   utilisent via des jetons (__CM__, __CL__, __CLL__, __CD__, __CDD__, __CA__,
+   __CA2__, __CW__) — l'élément garde UNE couleur éditable, mais s'affiche avec
+   du volume et des nuances dérivées. Purement déterministe (aucune aléa). ── */
+function hexRgb(hex: string): [number, number, number] | null {
+  const m = /^#?([0-9a-fA-F]{3}|[0-9a-fA-F]{6})$/.exec(hex.trim());
+  if (!m) return null;
+  let h = m[1];
+  if (h.length === 3) h = h.split("").map((c) => c + c).join("");
+  const n = parseInt(h, 16);
+  return [(n >> 16) & 255, (n >> 8) & 255, n & 255];
+}
+function toHex(r: number, g: number, b: number): string {
+  const c = (x: number) => Math.max(0, Math.min(255, Math.round(x))).toString(16).padStart(2, "0");
+  return `#${c(r)}${c(g)}${c(b)}`;
+}
+function rgb2hsl(r: number, g: number, b: number): [number, number, number] {
+  r /= 255; g /= 255; b /= 255;
+  const mx = Math.max(r, g, b), mn = Math.min(r, g, b);
+  let h = 0, s = 0; const l = (mx + mn) / 2; const d = mx - mn;
+  if (d) { s = l > 0.5 ? d / (2 - mx - mn) : d / (mx + mn); h = mx === r ? (g - b) / d + (g < b ? 6 : 0) : mx === g ? (b - r) / d + 2 : (r - g) / d + 4; h /= 6; }
+  return [h, s, l];
+}
+function hsl2rgb(h: number, s: number, l: number): [number, number, number] {
+  if (!s) { const v = l * 255; return [v, v, v]; }
+  const q = l < 0.5 ? l * (1 + s) : l + s - l * s, p = 2 * l - q;
+  const f = (t: number) => { t = (t + 1) % 1; if (t < 1 / 6) return p + (q - p) * 6 * t; if (t < 1 / 2) return q; if (t < 2 / 3) return p + (q - p) * (2 / 3 - t) * 6; return p; };
+  return [f(h + 1 / 3) * 255, f(h) * 255, f(h - 1 / 3) * 255];
+}
+type Shades = { CM: string; CL: string; CLL: string; CD: string; CDD: string; CA: string; CA2: string; CW: string };
+function deriveShades(base: string): Shades {
+  const rgb = hexRgb(base);
+  if (!rgb) return { CM: base, CL: base, CLL: base, CD: base, CDD: base, CA: base, CA2: base, CW: base };
+  const [h, s, l] = rgb2hsl(...rgb);
+  const cl = (x: number) => Math.max(0, Math.min(1, x));
+  const L = (dl: number, ds = 0) => toHex(...hsl2rgb(h, cl(s + ds), cl(l + dl)));
+  const rot = (deg: number, dl = 0) => toHex(...hsl2rgb((h + deg / 360 + 1) % 1, cl(s * 0.96), cl(l + dl)));
+  return { CM: toHex(...rgb), CL: L(0.12), CLL: L(0.26, -0.05), CD: L(-0.12), CDD: L(-0.25, 0.04), CA: rot(148), CA2: rot(40, 0.03), CW: L(0.42, -0.25) };
+}
+
 export function elementSvg(def: ElementDef, fill: string, gradient: GradientFill | null): string {
   let defs = "";
   let paint = fill;
@@ -2203,7 +2398,16 @@ export function elementSvg(def: ElementDef, fill: string, gradient: GradientFill
       defs = `<defs><linearGradient id="g" gradientUnits="userSpaceOnUse" x1="${N(p.x1)}" y1="${N(p.y1)}" x2="${N(p.x2)}" y2="${N(p.y2)}"><stop offset="0" stop-color="${gradient.from}"/><stop offset="1" stop-color="${gradient.to}"/></linearGradient></defs>`;
     }
   }
-  return `<svg xmlns="http://www.w3.org/2000/svg" width="${def.w}" height="${def.h}" viewBox="0 0 ${def.w} ${def.h}">${defs}${def.body.split(C).join(paint)}</svg>`;
+  const sh = deriveShades(gradient ? gradient.from : fill);
+  let body = def.body;
+  if (body.includes("__C")) {
+    body = body.split("__CLL__").join(sh.CLL).split("__CL__").join(sh.CL)
+      .split("__CDD__").join(sh.CDD).split("__CD__").join(sh.CD)
+      .split("__CA2__").join(sh.CA2).split("__CA__").join(sh.CA)
+      .split("__CW__").join(sh.CW).split("__CM__").join(sh.CM);
+  }
+  body = body.split(C).join(paint);
+  return `<svg xmlns="http://www.w3.org/2000/svg" width="${def.w}" height="${def.h}" viewBox="0 0 ${def.w} ${def.h}">${defs}${body}</svg>`;
 }
 
 export function elementSvgByRef(ref: string, fill: string, gradient: GradientFill | null): string | null {
