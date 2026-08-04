@@ -27,6 +27,7 @@ import {
   TEMPLATES, templateDoc, type TextPreset,
 } from "@/lib/design-presets";
 import { ELEMENTS, ELEMENT_CATEGORIES, ELEMENT_INDEX, elementSlotDefaults, elementThumbSrc, normalizeSearch, type ElementDef } from "@/lib/design-elements";
+import { PHOTOS, PHOTO_CATEGORIES, photoSrc, type StockPhoto } from "@/lib/design-photos";
 import { DocPreview } from "./design-render";
 
 export const ACCENT = "#a855f7";
@@ -51,6 +52,7 @@ export type EditorCtl = {
   addText: (preset?: TextPreset) => void;
   addEmoji: (emoji: string) => void;
   addElement: (el: ElementDef) => void;
+  addPhoto: (p: StockPhoto) => void;
   applyTemplate: (doc: DesignDoc) => void;
   uploadClick: () => void;
   replaceImageClick: () => void;
@@ -703,10 +705,11 @@ function ShadowQuickToggle({ ctl }: { ctl: EditorCtl }) {
 
 /* ═══════════════ Dock gauche ═══════════════ */
 
-export type DockTab = "elements" | "text" | "emoji" | "bg" | "templates" | "upload";
+export type DockTab = "elements" | "photos" | "text" | "emoji" | "bg" | "templates" | "upload";
 
 const DOCK_TABS: { id: DockTab; label: string; icon: typeof Shapes }[] = [
   { id: "elements", label: "Éléments", icon: Shapes },
+  { id: "photos", label: "Photos", icon: ImageIcon },
   { id: "text", label: "Texte", icon: Type },
   { id: "emoji", label: "Emoji", icon: Smile },
   { id: "bg", label: "Fond", icon: PaintBucket },
@@ -746,6 +749,7 @@ export function LeftDock({ tab, setTab, ctl }: { tab: DockTab | null; setTab: (t
           </div>
           <div className="p-3">
             {tab === "elements" && <ElementsDock ctl={ctl} />}
+            {tab === "photos" && <PhotosDock ctl={ctl} />}
             {tab === "text" && <TextDock ctl={ctl} />}
             {tab === "emoji" && <EmojiDock ctl={ctl} />}
             {tab === "bg" && <BgDock ctl={ctl} />}
@@ -754,6 +758,79 @@ export function LeftDock({ tab, setTab, ctl }: { tab: DockTab | null; setTab: (t
           </div>
         </div>
       )}
+    </div>
+  );
+}
+
+
+/* ── Banque de photos (CC0) ──────────────────────────────────────────────────
+   Photos réelles, servies en même origine depuis /stock. Non recolorables :
+   elles s'insèrent en calque image (filtres, rognage, ombre et export inclus). */
+function PhotosDock({ ctl }: { ctl: EditorCtl }) {
+  const [query, setQuery] = useState("");
+  const [cat, setCat] = useState<string>("nature");
+  const q = normalizeSearch(query.trim());
+
+  const items = useMemo(
+    () => (q ? PHOTOS.filter((p) => p.kw.includes(q) || normalizeSearch(p.label).includes(q)).slice(0, 150) : PHOTOS.filter((p) => p.cat === cat)),
+    [q, cat],
+  );
+
+  return (
+    <div>
+      <div className="relative mb-2.5">
+        <Search className="pointer-events-none absolute left-2.5 top-1/2 size-3.5 -translate-y-1/2 text-muted" />
+        <input
+          value={query}
+          onChange={(e) => setQuery(e.target.value)}
+          placeholder="Rechercher (montagne, café, chien…)"
+          className="w-full rounded-lg border border-white/10 bg-white/5 py-1.5 pl-8 pr-7 text-xs text-white outline-none placeholder:text-white/30 focus:border-purple-400/50"
+        />
+        {query && (
+          <button onClick={() => setQuery("")} className="absolute right-1.5 top-1/2 grid size-5 -translate-y-1/2 place-items-center rounded text-muted hover:text-white">
+            <X className="size-3" />
+          </button>
+        )}
+      </div>
+
+      {!q && (
+        <div className="no-scrollbar mb-2.5 flex gap-1 overflow-x-auto pb-0.5">
+          {PHOTO_CATEGORIES.map((c) => (
+            <button
+              key={c.id}
+              onClick={() => setCat(c.id)}
+              className={`shrink-0 rounded-full px-2.5 py-1 text-[10.5px] font-medium transition ${cat === c.id ? "bg-purple-500/25 text-purple-100" : "bg-white/5 text-muted hover:bg-white/10 hover:text-white"}`}
+            >
+              {c.label}
+            </button>
+          ))}
+        </div>
+      )}
+
+      {items.length === 0 ? (
+        <p className="px-1 py-4 text-center text-[11px] text-muted">Aucune photo pour « {query} ».</p>
+      ) : (
+        <div className="grid grid-cols-2 gap-1.5">
+          {items.map((p) => (
+            <button
+              key={p.id}
+              onClick={() => ctl.addPhoto(p)}
+              disabled={!ctl.canEdit}
+              title={p.label}
+              className="group relative aspect-[4/3] overflow-hidden rounded-lg border border-white/10 bg-white/5 transition hover:border-purple-400/50 disabled:opacity-40"
+            >
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src={photoSrc(p)} alt={p.label} loading="lazy" draggable={false}
+                className="size-full object-cover transition group-hover:scale-[1.04]" />
+            </button>
+          ))}
+        </div>
+      )}
+
+      <p className="mt-2.5 px-0.5 text-[10px] leading-relaxed text-muted">
+        {PHOTOS.length} photos libres de droits (CC0 — domaine public) : utilisables
+        librement, y compris commercialement, sans attribution.
+      </p>
     </div>
   );
 }

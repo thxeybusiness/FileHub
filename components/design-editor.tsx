@@ -20,6 +20,7 @@ import {
 } from "@/lib/design";
 import { type TextPreset } from "@/lib/design-presets";
 import { elementSlotDefaults, type ElementDef } from "@/lib/design-elements";
+import { photoSrc, type StockPhoto } from "@/lib/design-photos";
 import { LayerVisual, layerBoxStyle, textStyle } from "./design-render";
 import {
   type EditorCtl, type LayerPatch, type DockTab, type CtxMenuItem,
@@ -795,6 +796,23 @@ export function DesignEditor({
     }
   }, [canEdit, uploadFile, addAndSelect]);
 
+  // Photo de la banque intégrée : image servie en même origine (/stock),
+  // insérée telle quelle — pas de recoloration, comme une image importée.
+  const addPhoto = useCallback((p: StockPhoto) => {
+    if (!canEdit) return;
+    const d = docRef.current;
+    const aspect = p.w / p.h;
+    let w = Math.min(d.width * 0.72, p.w);
+    let h = w / aspect;
+    if (h > d.height * 0.85) { h = d.height * 0.85; w = h * aspect; }
+    addAndSelect(makeImage(d, {
+      src: photoSrc(p), name: p.label,
+      w: Math.round(w), h: Math.round(h),
+      x: Math.round((d.width - w) / 2), y: Math.round((d.height - h) / 2),
+      naturalW: p.w, naturalH: p.h,
+    } as Partial<ImageLayer>));
+  }, [canEdit, addAndSelect]);
+
   const replaceImage = useCallback(async (file: File) => {
     const target = docRef.current.layers.find((l) => selRef.current.includes(l.id) && l.type === "image");
     if (!target) return;
@@ -832,7 +850,7 @@ export function DesignEditor({
   const ctl: EditorCtl = {
     doc, selLayers, selIds, canEdit, uploading,
     patchSel, patchLayer, commitDoc, select,
-    addShape, addLine, addText, addEmoji, addElement, applyTemplate,
+    addShape, addLine, addText, addEmoji, addElement, addPhoto, applyTemplate,
     uploadClick: () => fileRef.current?.click(),
     replaceImageClick: () => replaceRef.current?.click(),
     align, distribute, order, duplicateSel, removeSel, flipSel,
