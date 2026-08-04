@@ -2572,6 +2572,431 @@ function tint(id: string, color: string) {
     `<path d="M 100 12 L 114 78 L 100 100 Z" fill="__CW__" opacity="0.45"/>` + glint(82, 74, 12, 8, -20));
 })();
 
+/* ═══════════ Vague 3D : volumes, facettes & matières (toutes catégories) ═══════════
+   Même règle qu'avant : chaque couleur reste éditable (une par emplacement),
+   le relief est CALCULÉ à partir de la teinte choisie — donc rien n'est figé. */
+(() => {
+  type Slots = { label: string; def?: string }[];
+  const A3 = (cat: string, id: string, label: string, kw: string, body: string, w = 200, h = 200, slots?: Slots) =>
+    add(cat, `h3${id}`, label, `${kw} 3d relief volume brillant lustré`, w, h, body, undefined, slots);
+
+  const D = (s: string) => `<defs>${s}</defs>`;
+  const RG = (id: string, cx = "34%", cy = "26%") =>
+    `<radialGradient id="${id}" cx="${cx}" cy="${cy}" r="76%"><stop offset="0" stop-color="__CLL__"/><stop offset="0.55" stop-color="__CM__"/><stop offset="1" stop-color="__CDD__"/></radialGradient>`;
+  const LG = (id: string, a: string, b: string, x2 = 1, y2 = 1) =>
+    `<linearGradient id="${id}" x1="0" y1="0" x2="${x2}" y2="${y2}"><stop offset="0" stop-color="${a}"/><stop offset="1" stop-color="${b}"/></linearGradient>`;
+  const shine = (cx: number, cy: number, rx: number, ry: number, rot = -28, o = 0.55) =>
+    `<ellipse cx="${N(cx)}" cy="${N(cy)}" rx="${N(rx)}" ry="${N(ry)}" fill="__CW__" opacity="${o}" transform="rotate(${rot} ${N(cx)} ${N(cy)})"/>`;
+  const contact = (cx: number, cy: number, rx: number, ry = 9, o = 0.25) =>
+    `<ellipse cx="${N(cx)}" cy="${N(cy)}" rx="${N(rx)}" ry="${N(ry)}" fill="__CDD__" opacity="${o}"/>`;
+  const clip = (cid: string, shape: string, inner: string) =>
+    `<defs><clipPath id="${cid}">${shape}</clipPath></defs><g clip-path="url(#${cid})">${inner}</g>`;
+
+  /* ── Sphères & billes (30) ── */
+  for (let s = 0; s < 30; s++) {
+    const r = rng(s * 17 + 3);
+    const R = 58 + r() * 20, gx = 24 + r() * 22, gy = 16 + r() * 20;
+    A3("geo", `orb${s}`, "Sphère", "sphere boule bille orbe", D(RG("o", `${N(gx)}%`, `${N(gy)}%`)) +
+      contact(100, 172, R * 0.78) + `<circle cx="100" cy="96" r="${N(R)}" fill="url(#o)"/>` +
+      shine(100 - R * 0.34, 96 - R * 0.42, R * 0.24, R * 0.16));
+  }
+
+  /* ── Cubes isométriques (24) ── */
+  for (let s = 0; s < 24; s++) {
+    const r = rng(s * 29 + 7);
+    const k = 40 + r() * 20, cx = 100, cy = 74;
+    const P = (dx: number, dy: number) => `${N(cx + dx)} ${N(cy + dy)}`;
+    A3("geo", `cube${s}`, "Cube", "cube boite volume isometrique",
+      contact(100, 172, k * 1.05, 11) +
+      `<path d="M ${P(0, -k)} L ${P(k * 1.05, -k * 0.42)} L ${P(0, k * 0.18)} L ${P(-k * 1.05, -k * 0.42)} Z" fill="__CLL__"/>` +
+      `<path d="M ${P(-k * 1.05, -k * 0.42)} L ${P(0, k * 0.18)} L ${P(0, k * 1.14)} L ${P(-k * 1.05, k * 0.54)} Z" fill="__CM__"/>` +
+      `<path d="M ${P(k * 1.05, -k * 0.42)} L ${P(0, k * 0.18)} L ${P(0, k * 1.14)} L ${P(k * 1.05, k * 0.54)} Z" fill="__CDD__"/>`);
+  }
+
+  /* ── Cylindres (20) ── */
+  for (let s = 0; s < 20; s++) {
+    const r = rng(s * 31 + 5);
+    const rx = 38 + r() * 20, hh = 36 + r() * 22, ry = rx * 0.34;
+    A3("geo", `cyl${s}`, "Cylindre", "cylindre tube volume",
+      D(LG("c", "__CLL__", "__CDD__", 1, 0)) + contact(100, 100 + hh + ry + 10, rx * 0.95, 8) +
+      `<path d="M ${N(100 - rx)} ${N(100 - hh)} V ${N(100 + hh)} A ${N(rx)} ${N(ry)} 0 0 0 ${N(100 + rx)} ${N(100 + hh)} V ${N(100 - hh)} Z" fill="url(#c)"/>` +
+      `<ellipse cx="100" cy="${N(100 - hh)}" rx="${N(rx)}" ry="${N(ry)}" fill="__CLL__"/>` +
+      `<ellipse cx="100" cy="${N(100 - hh)}" rx="${N(rx * 0.72)}" ry="${N(ry * 0.68)}" fill="__CW__" opacity="0.3"/>`);
+  }
+
+  /* ── Cônes (16) ── */
+  for (let s = 0; s < 16; s++) {
+    const r = rng(s * 37 + 11);
+    const rx = 40 + r() * 20, hh = 52 + r() * 22, ry = rx * 0.32;
+    // l'ombre de contact doit rester DANS la boîte (sinon elle est rognée)
+    const cy = Math.min(100 + hh + ry + 8, 200 - 12);
+    A3("geo", `cone${s}`, "Cône", "cone volume pointe",
+      D(LG("k", "__CLL__", "__CDD__", 1, 0)) + contact(100, cy, rx * 0.95, 8) +
+      `<path d="M 100 ${N(100 - hh)} L ${N(100 + rx)} ${N(100 + hh)} A ${N(rx)} ${N(ry)} 0 0 1 ${N(100 - rx)} ${N(100 + hh)} Z" fill="url(#k)"/>` +
+      `<path d="M 100 ${N(100 - hh)} L ${N(100 + rx * 0.2)} ${N(100 + hh)} A ${N(rx)} ${N(ry)} 0 0 1 ${N(100 - rx * 0.5)} ${N(100 + hh - 4)} Z" fill="__CW__" opacity="0.22"/>`);
+  }
+
+  /* ── Pyramides (16) ── */
+  for (let s = 0; s < 16; s++) {
+    const r = rng(s * 41 + 13);
+    const k = 44 + r() * 20, hh = 52 + r() * 20;
+    A3("geo", `pyr${s}`, "Pyramide", "pyramide volume triangle",
+      contact(100, 100 + hh + 12, k * 1.02, 9) +
+      `<path d="M 100 ${N(100 - hh)} L ${N(100 - k)} ${N(100 + hh)} L 100 ${N(100 + hh + k * 0.28)} Z" fill="__CL__"/>` +
+      `<path d="M 100 ${N(100 - hh)} L ${N(100 + k)} ${N(100 + hh)} L 100 ${N(100 + hh + k * 0.28)} Z" fill="__CDD__"/>`);
+  }
+
+  /* ── Anneaux volumétriques (20) ── */
+  for (let s = 0; s < 20; s++) {
+    const r = rng(s * 43 + 3);
+    const t = 12 + r() * 14, R = 60 + r() * 16 - t / 2;
+    A3("geo", `torus${s}`, "Anneau", "anneau tore donut volume",
+      D(LG("t", "__CLL__", "__CDD__", 0.4, 1)) + contact(100, 174, R, 8) +
+      `<circle cx="100" cy="98" r="${N(R)}" fill="none" stroke="url(#t)" stroke-width="${N(t)}"/>` +
+      `<circle cx="100" cy="98" r="${N(R)}" fill="none" stroke="__CW__" stroke-width="${N(t * 0.26)}" opacity="0.4" stroke-dasharray="${N(R * 1.1)} ${N(R * 5)}" transform="rotate(-135 100 98)"/>`);
+  }
+
+  /* ── Polygones à facettes (30) ── */
+  for (let sides = 3; sides <= 12; sides++) {
+    for (let v = 0; v < 3; v++) {
+      const R = 82 - v * 6;
+      let g = "";
+      for (let k = 0; k < sides; k++) {
+        const a1 = -90 + (k * 360) / sides, a2 = -90 + ((k + 1) * 360) / sides;
+        const [x1, y1] = polar(100, 100, R, a1), [x2, y2] = polar(100, 100, R, a2);
+        const lit = Math.cos((((a1 + a2) / 2 + 130) * Math.PI) / 180);
+        const face = lit > 0.45 ? "__CLL__" : lit > -0.1 ? "__CM__" : "__CDD__";
+        g += `<path d="M 100 100 L ${N(x1)} ${N(y1)} L ${N(x2)} ${N(y2)} Z" fill="${face}"/>`;
+      }
+      A3("geo", `facet${sides}_${v}`, `Polygone ${sides}`, `polygone facettes ${sides} gemme`, g);
+    }
+  }
+
+  /* ── Boutons & pastilles brillantes (24) ── */
+  for (let s = 0; s < 24; s++) {
+    const r = rng(s * 47 + 9);
+    const w = 88 + r() * 68, h = 48 + r() * 30, rad = h / 2;
+    A3("geo", `pill${s}`, "Bouton", "bouton pastille pilule brillant",
+      D(LG("p", "__CLL__", "__CD__", 0, 1)) + contact(100, 100 + h / 2 + 10, w * 0.44, 7) +
+      `<rect x="${N(100 - w / 2)}" y="${N(100 - h / 2)}" width="${N(w)}" height="${N(h)}" rx="${N(rad)}" fill="url(#p)"/>` +
+      `<rect x="${N(100 - w / 2 + 8)}" y="${N(100 - h / 2 + 5)}" width="${N(w - 16)}" height="${N(h * 0.36)}" rx="${N(h * 0.18)}" fill="__CW__" opacity="0.34"/>`);
+  }
+
+  /* ── Étoiles à facettes (32) ── */
+  for (let pts = 5; pts <= 12; pts++) {
+    for (let v = 0; v < 4; v++) {
+      const ratio = 0.36 + v * 0.08, R = 84;
+      let g = "";
+      for (let k = 0; k < pts * 2; k++) {
+        const a1 = -90 + (k * 180) / pts, a2 = -90 + ((k + 1) * 180) / pts;
+        const r1 = k % 2 === 0 ? R : R * ratio, r2 = k % 2 === 0 ? R * ratio : R;
+        const [x1, y1] = polar(100, 100, r1, a1), [x2, y2] = polar(100, 100, r2, a2);
+        const lit = Math.cos((((a1 + a2) / 2 + 130) * Math.PI) / 180);
+        g += `<path d="M 100 100 L ${N(x1)} ${N(y1)} L ${N(x2)} ${N(y2)} Z" fill="${lit > 0.2 ? "__CLL__" : lit > -0.35 ? "__CM__" : "__CDD__"}"/>`;
+      }
+      A3("stars", `star3${pts}_${v}`, `Étoile ${pts}`, `etoile ${pts} branches facettes relief`, g);
+    }
+  }
+
+  /* ── Sceaux bombés (24) ── */
+  for (let s = 0; s < 24; s++) {
+    const r = rng(s * 53 + 7);
+    const pts = 10 + Math.floor(r() * 16), R = 84, inner = R - (8 + r() * 14);
+    A3("badges", `seal3${s}`, "Sceau", "badge sceau tampon promo relief",
+      D(RG("b", "36%", "26%")) + `<path d="${starPts(100, 100, pts, R, inner)}" fill="url(#b)"/>` +
+      `<circle cx="100" cy="100" r="${N(inner * 0.72)}" fill="__CDD__" opacity="0.25"/>` + shine(78, 74, 20, 13));
+  }
+
+  /* ── Rubans en relief (16) ── */
+  for (let s = 0; s < 16; s++) {
+    const r = rng(s * 59 + 5);
+    const w = 140 + r() * 50, hh = 26 + r() * 14;
+    A3("badges", `ribbon3${s}`, "Ruban", "ruban banderole banniere relief",
+      D(LG("r", "__CLL__", "__CD__", 0, 1)) +
+      `<path d="M ${N(120 - w / 2 - 24)} ${N(64 - hh + 10)} L ${N(120 - w / 2)} 64 L ${N(120 - w / 2 - 24)} ${N(64 + hh + 10)} Z" fill="__CDD__"/>` +
+      `<path d="M ${N(120 + w / 2 + 24)} ${N(64 - hh + 10)} L ${N(120 + w / 2)} 64 L ${N(120 + w / 2 + 24)} ${N(64 + hh + 10)} Z" fill="__CDD__"/>` +
+      `<rect x="${N(120 - w / 2)}" y="${N(64 - hh)}" width="${N(w)}" height="${N(hh * 2)}" rx="6" fill="url(#r)"/>` +
+      `<rect x="${N(120 - w / 2)}" y="${N(64 - hh + 4)}" width="${N(w)}" height="${N(hh * 0.5)}" fill="__CW__" opacity="0.26"/>`, 240, 140);
+  }
+
+  /* ── Blobs lustrés (40) ── */
+  for (let s = 0; s < 40; s++) {
+    const r = rng(s * 61 + 11);
+    const n = 6 + Math.floor(r() * 4);
+    const pts: [number, number][] = [];
+    for (let i = 0; i < n; i++) pts.push(polar(100, 100, 52 + r() * 24, (i * 360) / n + r() * 16));
+    A3("blobs", `gloss${s}`, "Blob lustré", "blob organique lustre brillant",
+      D(RG("g", `${N(28 + r() * 16)}%`, `${N(22 + r() * 14)}%`)) +
+      `<path d="${smoothClosed(pts)}" fill="url(#g)"/>` + shine(74, 70, 16, 11));
+  }
+
+  /* ── Bulles de verre (16) ── */
+  for (let s = 0; s < 16; s++) {
+    const r = rng(s * 67 + 3);
+    const R = 56 + r() * 24;
+    A3("bubbles", `glass${s}`, "Bulle", "bulle verre sphere brillante savon",
+      `<circle cx="100" cy="100" r="${N(R)}" fill="__CM__" opacity="0.5"/>` +
+      `<circle cx="100" cy="100" r="${N(R)}" fill="none" stroke="__CLL__" stroke-width="3" opacity="0.8"/>` +
+      `<circle cx="100" cy="100" r="${N(R * 0.74)}" fill="__CLL__" opacity="0.14"/>` +
+      shine(100 - R * 0.36, 100 - R * 0.42, R * 0.24, R * 0.16, -30, 0.75) +
+      `<circle cx="${N(100 + R * 0.34)}" cy="${N(100 + R * 0.4)}" r="${N(R * 0.1)}" fill="__CW__" opacity="0.5"/>`);
+  }
+
+  /* ── Flèches extrudées (24) ── */
+  for (let s = 0; s < 24; s++) {
+    const r = rng(s * 71 + 5);
+    const body = 18 + r() * 14, split = 0.46 + r() * 0.14, dz = 6 + r() * 4;
+    const arrow = (ox: number, oy: number) =>
+      `M ${N(16 + ox)} ${N(70 - body + oy)} H ${N(split * 200 + ox)} V ${N(28 + oy)} L ${N(192 + ox)} ${N(70 + oy)} L ${N(split * 200 + ox)} ${N(112 + oy)} V ${N(70 + body + oy)} H ${N(16 + ox)} Z`;
+    A3("arrows", `ext${s}`, "Flèche 3D", "fleche arrow extrudee relief",
+      D(LG("a", "__CLL__", "__CD__", 0, 1)) +
+      `<path d="${arrow(dz, dz)}" fill="__CDD__"/>` + `<path d="${arrow(0, 0)}" fill="url(#a)"/>` +
+      `<path d="M 22 ${N(70 - body + 5)} H ${N(split * 200 - 8)} V ${N(70 - body + 15)} H 22 Z" fill="__CW__" opacity="0.28"/>`, 210, 145);
+  }
+
+  /* ── Cadres biseautés (20) ── */
+  for (let s = 0; s < 20; s++) {
+    const r = rng(s * 73 + 7);
+    const t = 12 + r() * 12, W = 190, H = 150;
+    // cadre CREUX : les 4 pans biseautés forment la bordure, l'intérieur reste vide
+    A3("frames", `bevel${s}`, "Cadre biseauté", "cadre bordure biseau relief",
+      `<path d="M 12 12 H ${N(12 + W)} L ${N(12 + W - t)} ${N(12 + t)} H ${N(12 + t)} Z" fill="__CLL__"/>` +
+      `<path d="M 12 12 V ${N(12 + H)} L ${N(12 + t)} ${N(12 + H - t)} V ${N(12 + t)} Z" fill="__CL__"/>` +
+      `<path d="M ${N(12 + W)} 12 V ${N(12 + H)} L ${N(12 + W - t)} ${N(12 + H - t)} V ${N(12 + t)} Z" fill="__CD__"/>` +
+      `<path d="M 12 ${N(12 + H)} H ${N(12 + W)} L ${N(12 + W - t)} ${N(12 + H - t)} H ${N(12 + t)} Z" fill="__CDD__"/>` +
+      `<rect x="${N(12 + t)}" y="${N(12 + t)}" width="${N(W - 2 * t)}" height="${N(H - 2 * t)}" fill="none" stroke="__CDD__" stroke-width="2" opacity="0.5"/>`, 214, 174);
+  }
+
+  /* ── Semis de billes (24) ── */
+  for (let s = 0; s < 24; s++) {
+    const r = rng(s * 79 + 3);
+    const cols = 4 + Math.floor(r() * 3), rows = 3 + Math.floor(r() * 3), gap = 44, rad = 11 + r() * 6;
+    let g = D(RG("d", "34%", "26%"));
+    for (let i = 0; i < cols; i++) for (let j = 0; j < rows; j++) {
+      const cx = 30 + i * gap + (j % 2) * (gap / 2), cy = 30 + j * gap;
+      g += `<circle cx="${N(cx)}" cy="${N(cy)}" r="${N(rad)}" fill="url(#d)"/>` +
+        `<circle cx="${N(cx - rad * 0.3)}" cy="${N(cy - rad * 0.34)}" r="${N(rad * 0.26)}" fill="__CW__" opacity="0.5"/>`;
+    }
+    A3("deco", `beads${s}`, "Billes", "motif billes perles semis relief", g, 30 + cols * gap + gap / 2 + 20, 30 + rows * gap + 20);
+  }
+
+  /* ── Feuilles en relief (24) ── */
+  for (let s = 0; s < 24; s++) {
+    const r = rng(s * 83 + 5);
+    const fat = 0.5 + r() * 0.4, bend = -16 + r() * 32, half = 80 * fat;
+    A3("nature", `leaf3${s}`, "Feuille", "nature feuille leaf plante relief",
+      D(LG("l", "__CLL__", "__CDD__", 1, 0.6)) +
+      `<path d="M 100 182 C ${N(100 - half)} 136 ${N(100 - half - bend)} 60 100 18 C ${N(100 + half - bend)} 60 ${N(100 + half)} 136 100 182 Z" fill="url(#l)"/>` +
+      `<path d="M 100 172 Q ${N(100 - bend / 2)} 100 100 34" stroke="__CLL__" stroke-width="4" fill="none" opacity="0.7"/>` +
+      shine(100 - half * 0.36, 84, half * 0.18, 18, -16, 0.28));
+  }
+
+  /* ── Fleurs en relief (24, multicolores) ── */
+  for (let s = 0; s < 24; s++) {
+    const r = rng(s * 89 + 7);
+    const petals = 5 + Math.floor(r() * 7), pr = 28 + r() * 12, py = 54 + r() * 6;
+    let g = D(RG("f", "40%", "24%"));
+    for (let k = 0; k < petals; k++)
+      g += `<ellipse cx="100" cy="${N(py)}" rx="${N(pr * 0.55)}" ry="${N(pr)}" fill="url(#f)" transform="rotate(${N((k * 360) / petals)} 100 100)"/>`;
+    g += `<circle cx="100" cy="100" r="${N(19 + r() * 7)}" fill="__C1~__"/>` +
+      `<circle cx="94" cy="94" r="6" fill="__C1~LL__" opacity="0.75"/>`;
+    A3("nature", `flower3${s}`, "Fleur", "nature fleur flower petales relief", g, 200, 200,
+      [{ label: "Pétales" }, { label: "Cœur", def: "#facc15" }]);
+  }
+
+  /* ── Arbres & buissons (16, multicolores) ── */
+  for (let s = 0; s < 16; s++) {
+    const r = rng(s * 97 + 3);
+    const nb = 3 + Math.floor(r() * 3);
+    let g = D(RG("t2", "34%", "24%")) + contact(100, 184, 44, 9) +
+      `<rect x="92" y="126" width="16" height="58" rx="7" fill="__C1~__"/>`;
+    for (let k = 0; k < nb; k++) {
+      const a = -90 + (k - (nb - 1) / 2) * 52;
+      const [x, y] = polar(100, 92, 28, a);
+      g += `<circle cx="${N(x)}" cy="${N(y)}" r="${N(32 + r() * 8)}" fill="url(#t2)"/>`;
+    }
+    g += shine(80, 66, 12, 8);
+    A3("nature", `tree3${s}`, "Arbre", "nature arbre buisson feuillage relief", g, 200, 200,
+      [{ label: "Feuillage" }, { label: "Tronc", def: "#92400e" }]);
+  }
+
+  /* ── Fruits en relief (30, multicolores) ── */
+  for (let s = 0; s < 30; s++) {
+    const r = rng(s * 101 + 11);
+    const R = 52 + r() * 18;
+    A3("food", `fruit${s}`, "Fruit", "food fruit rond brillant relief",
+      D(RG("fr", `${N(30 + r() * 12)}%`, `${N(24 + r() * 10)}%`)) + contact(100, 178, R * 0.8, 8) +
+      `<circle cx="100" cy="116" r="${N(R)}" fill="url(#fr)"/>` +
+      `<path d="M 100 ${N(116 - R + 4)} C 102 ${N(104 - R)} 110 ${N(96 - R)} 120 ${N(94 - R)}" stroke="__C1~DD__" stroke-width="7" fill="none"/>` +
+      `<path d="M 106 ${N(108 - R)} C 124 ${N(94 - R)} 146 ${N(100 - R)} 148 ${N(118 - R)} C 128 ${N(124 - R)} 110 ${N(116 - R)} 106 ${N(108 - R)} Z" fill="__C1~__"/>` +
+      shine(100 - R * 0.36, 116 - R * 0.44, R * 0.2, R * 0.28, -24, 0.42),
+      200, 200, [{ label: "Fruit" }, { label: "Feuille", def: "#22c55e" }]);
+  }
+
+  /* ── Planètes (16, multicolores) ── */
+  for (let s = 0; s < 16; s++) {
+    const r = rng(s * 103 + 5);
+    const R = 42 + r() * 14, tilt = -30 + r() * 40;
+    A3("weather", `planet${s}`, "Planète", "meteo planete espace astre relief",
+      D(RG("pl", "34%", "26%")) +
+      `<ellipse cx="100" cy="100" rx="${N(R * 1.7)}" ry="${N(R * 0.46)}" fill="__C1~__" opacity="0.95" transform="rotate(${N(tilt)} 100 100)"/>` +
+      `<circle cx="100" cy="100" r="${N(R)}" fill="url(#pl)"/>` +
+      `<ellipse cx="100" cy="100" rx="${N(R * 1.7)}" ry="${N(R * 0.46)}" fill="none" stroke="__C1~DD__" stroke-width="3" opacity="0.55" transform="rotate(${N(tilt)} 100 100)"/>` +
+      `<circle cx="${N(100 - R * 0.3)}" cy="${N(100 - R * 0.28)}" r="${N(R * 0.16)}" fill="__CDD__" opacity="0.3"/>` +
+      shine(100 - R * 0.36, 100 - R * 0.44, R * 0.22, R * 0.14),
+      200, 200, [{ label: "Planète" }, { label: "Anneau", def: "#fbbf24" }]);
+  }
+
+  /* ── Nuages volumétriques (12) ── */
+  for (let s = 0; s < 12; s++) {
+    const r = rng(s * 107 + 7);
+    const k = 0.86 + r() * 0.24;
+    A3("weather", `cloud3${s}`, "Nuage", "meteo nuage cloud volume relief",
+      D(RG("cl3", "34%", "24%")) +
+      `<circle cx="58" cy="102" r="${N(28 * k)}" fill="url(#cl3)"/>` +
+      `<circle cx="100" cy="82" r="${N(36 * k)}" fill="url(#cl3)"/>` +
+      `<circle cx="142" cy="100" r="${N(30 * k)}" fill="url(#cl3)"/>` +
+      `<rect x="30" y="100" width="140" height="32" rx="16" fill="__CD__"/>` +
+      `<rect x="30" y="100" width="140" height="16" rx="8" fill="__CM__" opacity="0.75"/>` + shine(80, 64, 14, 9), 200, 150);
+  }
+
+  /* ── Ballons de sport (20, multicolores) ── */
+  for (let s = 0; s < 20; s++) {
+    const r = rng(s * 109 + 3);
+    const R = 74 + r() * 8;
+    const style = s % 5;
+    const motif = style === 0
+      ? `<path d="${polyPts(100, 100, 5, 28)}" fill="__C1~__"/>` +
+        Array.from({ length: 5 }, (_, k) => {
+          const [x, y] = polar(100, 100, 60, -90 + k * 72);
+          const [ix, iy] = polar(100, 100, 30, -90 + k * 72);
+          return `<path d="M ${N(ix)} ${N(iy)} L ${N(x)} ${N(y)}" stroke="__C1~__" stroke-width="6" fill="none"/>`;
+        }).join("")
+      : style === 1 ? `<path d="M 8 100 H 192 M 100 8 V 192 M 40 36 C 84 80 84 120 40 164 M 160 36 C 116 80 116 120 160 164" fill="none" stroke="__C1~__" stroke-width="5"/>`
+      : style === 2 ? `<path d="M 38 20 C 80 68 80 132 38 180 M 162 20 C 120 68 120 132 162 180" fill="none" stroke="__C1~__" stroke-width="6"/>`
+      : style === 3 ? `<path d="M 100 8 C 56 60 56 140 100 192 M 8 100 C 68 86 154 124 192 86 M 36 34 C 92 100 92 144 56 190" fill="none" stroke="__C1~__" stroke-width="5"/>`
+      : Array.from({ length: 3 }, (_, k) => `<circle cx="${N(82 + k * 14)}" cy="${N(74 + (k % 2) * 22)}" r="8" fill="__C1~__"/>`).join("");
+    A3("sport", `ball${s}`, "Ballon", "sport ballon balle relief",
+      D(RG("bl3", "34%", "26%")) + contact(100, 184, R * 0.8, 8) +
+      `<circle cx="100" cy="100" r="${N(R)}" fill="url(#bl3)"/>` +
+      clip(`bc${s}`, `<circle cx="100" cy="100" r="${N(R)}"/>`, motif) +
+      shine(100 - R * 0.34, 100 - R * 0.4, R * 0.22, R * 0.15),
+      200, 200, [{ label: "Ballon" }, { label: "Motif", def: "#f8fafc" }]);
+  }
+
+  /* ── Cristaux & gemmes (20) ── */
+  for (let s = 0; s < 20; s++) {
+    const r = rng(s * 113 + 5);
+    const top = 24 + r() * 12, wid = 52 + r() * 22, bot = 146 + r() * 30;
+    A3("objects", `gem3${s}`, "Gemme", "objet gemme cristal diamant facettes",
+      `<path d="M ${N(100 - wid * 0.6)} ${N(top)} H ${N(100 + wid * 0.6)} L ${N(100 + wid)} ${N(top + 40)} L 100 ${N(bot)} L ${N(100 - wid)} ${N(top + 40)} Z" fill="__CM__"/>` +
+      `<path d="M ${N(100 - wid * 0.6)} ${N(top)} L ${N(100 - wid * 0.2)} ${N(top + 40)} L ${N(100 - wid)} ${N(top + 40)} Z" fill="__CLL__"/>` +
+      `<path d="M ${N(100 - wid * 0.2)} ${N(top + 40)} H ${N(100 + wid * 0.2)} L 100 ${N(bot)} Z" fill="__CL__"/>` +
+      `<path d="M ${N(100 + wid * 0.2)} ${N(top + 40)} L ${N(100 + wid)} ${N(top + 40)} L 100 ${N(bot)} Z" fill="__CDD__"/>` +
+      `<path d="M ${N(100 - wid)} ${N(top + 40)} L ${N(100 - wid * 0.2)} ${N(top + 40)} L 100 ${N(bot)} Z" fill="__CD__"/>` +
+      `<path d="M ${N(100 + wid * 0.6)} ${N(top)} L ${N(100 + wid * 0.2)} ${N(top + 40)} L ${N(100 + wid)} ${N(top + 40)} Z" fill="__CD__"/>` +
+      `<path d="M ${N(100 - wid * 0.6)} ${N(top)} H ${N(100 + wid * 0.6)} L ${N(100 + wid * 0.2)} ${N(top + 40)} H ${N(100 - wid * 0.2)} Z" fill="__CLL__"/>`, 200, 200);
+  }
+
+  /* ── Pièces & jetons (16, multicolores) ── */
+  for (let s = 0; s < 16; s++) {
+    const r = rng(s * 127 + 3);
+    const R = 62 + r() * 12, dz = 7 + r() * 5;
+    A3("objects", `coin3${s}`, "Pièce", "objet piece jeton monnaie relief",
+      D(RG("co3", "34%", "26%")) + contact(100, 100 + R + dz + 10, R * 0.85, 7) +
+      `<ellipse cx="100" cy="${N(100 + dz)}" rx="${N(R)}" ry="${N(R * 0.94)}" fill="__CDD__"/>` +
+      `<circle cx="100" cy="100" r="${N(R)}" fill="url(#co3)"/>` +
+      `<circle cx="100" cy="100" r="${N(R * 0.72)}" fill="__C1~__" opacity="0.85"/>` +
+      `<circle cx="100" cy="100" r="${N(R * 0.72)}" fill="none" stroke="__CDD__" stroke-width="2" opacity="0.4"/>` +
+      shine(100 - R * 0.34, 100 - R * 0.4, R * 0.22, R * 0.14),
+      200, 200, [{ label: "Pièce" }, { label: "Centre", def: "#fde68a" }]);
+  }
+
+  /* ── Ballons de baudruche (20, multicolores) ── */
+  for (let s = 0; s < 20; s++) {
+    const r = rng(s * 131 + 7);
+    const rx = 34 + r() * 12, ry = rx * (1.1 + r() * 0.18);
+    A3("party", `balloon3${s}`, "Ballon", "fete ballon baudruche party relief",
+      D(RG("ba3", "34%", "26%")) +
+      `<ellipse cx="90" cy="${N(ry + 18)}" rx="${N(rx)}" ry="${N(ry)}" fill="url(#ba3)"/>` +
+      `<path d="M ${N(90 - 9)} ${N(ry * 2 + 14)} H ${N(90 + 9)} L 90 ${N(ry * 2 + 30)} Z" fill="__CDD__"/>` +
+      `<path d="M 90 ${N(ry * 2 + 30)} C 104 ${N(ry * 2 + 54)} 76 ${N(ry * 2 + 74)} 90 ${N(ry * 2 + 96)}" stroke="__C1~__" stroke-width="3" fill="none"/>` +
+      shine(90 - rx * 0.38, ry * 0.72, rx * 0.2, ry * 0.26, -24, 0.5),
+      180, 210, [{ label: "Ballon" }, { label: "Ficelle", def: "#e2e8f0" }]);
+  }
+
+  /* ── Rosaces en relief (24) ── */
+  for (let s = 0; s < 24; s++) {
+    const r = rng(s * 137 + 5);
+    const petals = 6 + Math.floor(r() * 10), rMid = 42 + r() * 16, ph = 22 + r() * 14, pw = 8 + r() * 7;
+    let g = D(RG("ro3", "40%", "24%"));
+    for (let k = 0; k < petals; k++)
+      g += `<ellipse cx="100" cy="${N(100 - rMid)}" rx="${N(pw)}" ry="${N(ph)}" fill="url(#ro3)" transform="rotate(${N((k * 360) / petals)} 100 100)"/>`;
+    g += `<circle cx="100" cy="100" r="${N(14 + r() * 9)}" fill="__CLL__"/>` +
+      `<circle cx="100" cy="100" r="${N(8 + r() * 5)}" fill="__CDD__" opacity="0.4"/>`;
+    A3("ornaments", `rose3${s}`, "Rosace", "ornement rosace mandala relief", g);
+  }
+
+  /* ── Icônes bombées (24, multicolores) ── */
+  const GLY: [string, string, string][] = [
+    ["heart", "Cœur", "M 100 142 C 62 116 48 96 55 78 C 61 62 79 60 88 70 C 93 75 97 82 100 88 C 103 82 107 75 112 70 C 121 60 139 62 145 78 C 152 96 138 116 100 142 Z"],
+    ["star", "Étoile", starPts(100, 100, 5, 44, 19)],
+    ["check", "Coche", "M 70 100 L 90 122 L 132 76 L 144 88 L 90 146 L 58 112 Z"],
+    ["plus", "Plus", "M 88 60 H 112 V 88 H 140 V 112 H 112 V 140 H 88 V 112 H 60 V 88 H 88 Z"],
+    ["play", "Lecture", "M 82 66 L 142 100 L 82 134 Z"],
+    ["bolt", "Éclair", "M 112 54 L 74 106 H 98 L 90 148 L 130 94 H 104 Z"],
+    ["drop", "Goutte", "M 100 56 C 118 82 130 96 130 110 A 30 30 0 0 1 70 110 C 70 96 82 82 100 56 Z"],
+    ["bell", "Cloche", "M 100 58 C 84 58 76 70 76 84 V 106 L 66 118 H 134 L 124 106 V 84 C 124 70 116 58 100 58 Z M 90 126 A 12 12 0 0 0 110 126 Z"],
+  ];
+  GLY.forEach(([gid, glabel, d]) => {
+    for (let v = 0; v < 3; v++) {
+      const rad = v === 0 ? 44 : v === 1 ? 22 : 84;
+      A3("icons", `btn${gid}${v}`, glabel, `icone ${glabel} bouton bombe relief`,
+        D(LG("i3", "__CLL__", "__CD__", 0, 1)) + contact(100, 180, 62, 8) +
+        `<rect x="18" y="18" width="164" height="164" rx="${rad}" fill="url(#i3)"/>` +
+        `<rect x="30" y="28" width="140" height="58" rx="${N(Math.min(rad, 28))}" fill="__CW__" opacity="0.28"/>` +
+        `<path d="${d}" fill="__C1~__"/>`,
+        200, 200, [{ label: "Bouton" }, { label: "Symbole", def: "#ffffff" }]);
+    }
+  });
+
+  /* ── Écrans & modules tech (16) ── */
+  for (let s = 0; s < 16; s++) {
+    const r = rng(s * 139 + 3);
+    const rad = 8 + r() * 16;
+    A3("tech", `screen${s}`, "Écran", "tech ecran module carte relief",
+      D(LG("s3", "__CLL__", "__CD__", 0.3, 1)) + contact(100, 174, 72, 8) +
+      `<rect x="20" y="24" width="160" height="126" rx="${N(rad)}" fill="url(#s3)"/>` +
+      `<rect x="34" y="38" width="132" height="84" rx="${N(rad * 0.6)}" fill="__CDD__" opacity="0.55"/>` +
+      `<path d="M 34 38 H 166 L 130 122 H 34 Z" fill="__CW__" opacity="0.12"/>` +
+      Array.from({ length: 3 }, (_, k) => `<rect x="48" y="${N(54 + k * 20)}" width="${N(56 + r() * 46)}" height="7" rx="3" fill="__CW__" opacity="0.4"/>`).join("") +
+      `<rect x="70" y="156" width="60" height="8" rx="4" fill="__CDD__"/>`, 200, 186);
+  }
+
+  /* ── Anneaux bombés (20) ── */
+  for (let s = 0; s < 20; s++) {
+    const r = rng(s * 149 + 7);
+    const t = 10 + r() * 14, R = 62 + r() * 16 - t / 2;
+    A3("circles", `ring3${s}`, "Anneau", "cercle anneau bombe relief",
+      D(LG("c3", "__CLL__", "__CDD__", 0.5, 1)) +
+      `<circle cx="100" cy="100" r="${N(R)}" fill="none" stroke="url(#c3)" stroke-width="${N(t)}"/>` +
+      `<circle cx="100" cy="100" r="${N(R + t / 2)}" fill="none" stroke="__CDD__" stroke-width="1.5" opacity="0.35"/>` +
+      `<circle cx="100" cy="100" r="${N(R - t / 2)}" fill="none" stroke="__CW__" stroke-width="1.5" opacity="0.3"/>`);
+  }
+
+  /* ── Traits lustrés (20) ── */
+  for (let s = 0; s < 20; s++) {
+    const r = rng(s * 151 + 3);
+    const t = 12 + r() * 16, amp = 10 + r() * 14;
+    let d = "M 20 62 ";
+    for (let k = 0; k < 4; k++) d += `q 26 ${N(k % 2 ? amp : -amp)} 52 0 `;
+    A3("strokes", `glossy${s}`, "Trait lustré", "trait ruban vague lustre relief",
+      D(LG("st3", "__CLL__", "__CDD__", 0, 1)) +
+      `<path d="${d}" fill="none" stroke="url(#st3)" stroke-width="${N(t)}" stroke-linecap="round"/>` +
+      `<path d="${d}" fill="none" stroke="__CW__" stroke-width="${N(t * 0.28)}" stroke-linecap="round" opacity="0.35" transform="translate(0 ${N(-t * 0.22)})"/>`, 250, 124);
+  }
+})();
+
 /* ── Distribution des couleurs : chaque élément SANS teinte explicite reçoit
    une couleur de la palette de sa catégorie (index → couleur), pour un
    catalogue varié et coloré. Déterministe (ordre stable) → aucun décalage
