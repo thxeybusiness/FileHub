@@ -2288,6 +2288,256 @@ function tint(id: string, color: string) {
     lin("sf", "__CLL__", "__CD__") + Array.from({ length: 6 }, (_, k) => { const a = k * 60; const [x2, y2] = polar(100, 100, 86, a); const [bx, by] = polar(100, 100, 54, a); const [t1x, t1y] = polar(bx, by, 22, a - 40), [t2x, t2y] = polar(bx, by, 22, a + 40); return `<path d="M 100 100 L ${N(x2)} ${N(y2)} M ${N(t1x)} ${N(t1y)} L ${N(bx)} ${N(by)} L ${N(t2x)} ${N(t2y)}" stroke="url(#sf)" stroke-width="6" stroke-linecap="round" fill="none"/>`; }).join("") + `<circle cx="100" cy="100" r="10" fill="__CLL__"/>`);
 })();
 
+/* ═══════════ Vague HD 2 : relief & volume à grande échelle ═══════════ */
+(() => {
+  const HD = (cat: string, id: string, label: string, kw: string, color: string, body: string, w = 200, h = 200) =>
+    add(cat, `hd${id}`, label, `${kw} relief volume 3d détaillé travaillé dégradé`, w, h, body, color);
+  const orb = (cx: number, cy: number, r: number, gid: string) =>
+    `<defs><radialGradient id="${gid}" cx="35%" cy="28%" r="74%"><stop offset="0" stop-color="__CLL__"/><stop offset="0.55" stop-color="__CM__"/><stop offset="1" stop-color="__CDD__"/></radialGradient></defs><circle cx="${cx}" cy="${cy}" r="${r}" fill="url(#${gid})"/>`;
+  const orbE = (cx: number, cy: number, rx: number, ry: number, gid: string) =>
+    `<defs><radialGradient id="${gid}" cx="35%" cy="28%" r="74%"><stop offset="0" stop-color="__CLL__"/><stop offset="0.55" stop-color="__CM__"/><stop offset="1" stop-color="__CDD__"/></radialGradient></defs><ellipse cx="${cx}" cy="${cy}" rx="${rx}" ry="${ry}" fill="url(#${gid})"/>`;
+  const glint = (cx: number, cy: number, rx: number, ry: number, rot = -30, o = 0.6) =>
+    `<ellipse cx="${cx}" cy="${cy}" rx="${rx}" ry="${ry}" fill="__CW__" opacity="${o}" transform="rotate(${rot} ${cx} ${cy})"/>`;
+  const lin = (gid: string, a: string, b: string, x2 = "1", y2 = "1") =>
+    `<defs><linearGradient id="${gid}" x1="0" y1="0" x2="${x2}" y2="${y2}"><stop offset="0" stop-color="${a}"/><stop offset="1" stop-color="${b}"/></linearGradient></defs>`;
+  const eyes = (lx: number, rx: number, y: number, r: number) =>
+    `<circle cx="${lx}" cy="${y}" r="${r}" fill="__CDD__"/><circle cx="${rx}" cy="${y}" r="${r}" fill="__CDD__"/>` +
+    `<circle cx="${N(lx + r * 0.3)}" cy="${N(y - r * 0.35)}" r="${N(r * 0.34)}" fill="__CW__"/><circle cx="${N(rx + r * 0.3)}" cy="${N(y - r * 0.35)}" r="${N(r * 0.34)}" fill="__CW__"/>`;
+
+  /* ── Nature : fruits, plantes, paysage ── */
+  HD("nature", "leaf2", "Feuille ronde", "nature feuille leaf", "#16a34a",
+    lin("lf2", "__CLL__", "__CDD__") + `<path d="M 100 188 C 22 156 12 66 100 12 C 188 66 178 156 100 188 Z" fill="url(#lf2)"/>` +
+    `<path d="M 100 176 V 26" stroke="__CLL__" stroke-width="5" opacity="0.65" fill="none"/>` +
+    Array.from({ length: 5 }, (_, k) => `<path d="M 100 ${52 + k * 26} L ${64 - k * 2} ${34 + k * 26} M 100 ${52 + k * 26} L ${136 + k * 2} ${34 + k * 26}" stroke="__CD__" stroke-width="3" opacity="0.45" fill="none"/>`).join(""));
+  HD("nature", "clover", "Trèfle", "nature trèfle chance", "#22c55e",
+    Array.from({ length: 4 }, (_, k) => `<g transform="rotate(${k * 90} 100 100)">${orbE(100, 64, 28, 30, `cv${k}`)}</g>`).join("") +
+    `<path d="M 100 100 C 106 140 100 164 94 186" stroke="__CDD__" stroke-width="8" fill="none"/>`);
+  HD("nature", "pine", "Sapin", "nature sapin arbre forêt", "#16a34a",
+    `<rect x="90" y="160" width="20" height="34" rx="6" fill="__CDD__"/>` +
+    [0, 1, 2].map((k) => { const halfW = 40 + k * 20, topY = 16 + k * 46, botY = topY + 68;
+      return lin(`pn${k}`, "__CLL__", "__CD__", "1", "0.6") +
+        `<path d="M 100 ${topY} L ${N(100 + halfW)} ${botY} H ${N(100 - halfW)} Z" fill="url(#pn${k})"/>` +
+        `<path d="M 100 ${topY} L ${N(100 + halfW)} ${botY} H 100 Z" fill="__CDD__" opacity="0.28"/>`; }).join(""), 200, 210);
+  HD("nature", "flower2", "Fleur ronde", "nature fleur flower marguerite", "#a855f7",
+    Array.from({ length: 8 }, (_, k) => `<g transform="rotate(${N(k * 45)} 100 100)">${orbE(100, 54, 21, 32, `fp${k}`)}</g>`).join("") +
+    orb(100, 100, 26, "fc") + glint(92, 92, 7, 5, 0, 0.5));
+  HD("nature", "rose", "Rose", "nature rose fleur", "#f43f5e",
+    `<defs><radialGradient id="rs" cx="46%" cy="40%" r="62%"><stop offset="0" stop-color="__CLL__"/><stop offset="1" stop-color="__CDD__"/></radialGradient></defs>` +
+    `<path d="M 100 26 C 142 26 168 60 160 100 C 174 122 158 156 128 158 C 116 178 78 178 66 156 C 34 152 24 116 42 96 C 34 58 60 26 100 26 Z" fill="url(#rs)"/>` +
+    `<path d="M 100 52 C 124 56 134 82 118 98 C 98 92 90 68 100 52 Z" fill="__CLL__" opacity="0.55"/>` +
+    `<path d="M 108 84 C 122 96 118 116 102 120 C 92 108 96 90 108 84 Z" fill="__CD__" opacity="0.6"/>` +
+    `<path d="M 100 158 V 194" stroke="__CA__" stroke-width="8" fill="none"/>` +
+    `<path d="M 100 172 C 70 164 58 146 62 130 C 90 136 102 156 100 172 Z" fill="__CA__"/>`, 200, 200);
+  HD("nature", "sunflower", "Tournesol", "nature tournesol fleur soleil", "#facc15",
+    Array.from({ length: 14 }, (_, k) => `<g transform="rotate(${N(k * (360 / 14))} 100 100)">${orbE(100, 46, 13, 32, `sfp${k}`)}</g>`).join("") +
+    `<defs><radialGradient id="sfc" cx="40%" cy="34%" r="70%"><stop offset="0" stop-color="__CA__"/><stop offset="1" stop-color="__CDD__"/></radialGradient></defs><circle cx="100" cy="100" r="36" fill="url(#sfc)"/>` +
+    Array.from({ length: 9 }, (_, k) => { const [x, y] = polar(100, 100, 20, k * 40); return `<circle cx="${N(x)}" cy="${N(y)}" r="3.5" fill="__CDD__" opacity="0.6"/>`; }).join(""));
+  HD("nature", "cloud2", "Nuage volume", "nature nuage cloud ciel", "#e2e8f0",
+    orb(58, 106, 34, "cd1") + orb(104, 84, 44, "cd2") + orb(150, 104, 36, "cd3") + `<rect x="24" y="106" width="152" height="34" rx="17" fill="__CD__"/>` + `<rect x="24" y="106" width="152" height="18" rx="9" fill="__CM__" opacity="0.8"/>`, 200, 160);
+  HD("nature", "rock", "Rocher", "nature rocher pierre caillou", "#94a3b8",
+    lin("rk", "__CLL__", "__CDD__", "0.4", "1") + `<path d="M 20 160 L 48 70 L 96 40 L 156 66 L 184 160 Z" fill="url(#rk)"/>` +
+    `<path d="M 96 40 L 156 66 L 120 96 Z" fill="__CLL__" opacity="0.5"/><path d="M 48 70 L 96 40 L 120 96 L 74 110 Z" fill="__CL__" opacity="0.4"/>` +
+    `<path d="M 184 160 L 156 66 L 120 96 L 140 160 Z" fill="__CDD__" opacity="0.45"/>`, 200, 180);
+  HD("nature", "volcano", "Volcan", "nature volcan montagne", "#78716c",
+    lin("vc", "__CL__", "__CDD__", "0.3", "1") + `<path d="M 12 180 L 72 50 H 128 L 188 180 Z" fill="url(#vc)"/>` +
+    `<path d="M 72 50 H 128 L 112 66 H 88 Z" fill="__CDD__"/>` +
+    `<path d="M 84 50 C 78 30 92 22 90 8 C 104 20 100 36 108 50 Z" fill="__CA2__"/>` +
+    `<path d="M 100 66 C 108 96 96 120 104 148 L 88 148 C 82 116 92 92 88 66 Z" fill="__CA2__" opacity="0.8"/>`, 200, 200);
+  HD("nature", "seedling", "Pousse", "nature pousse germe plante", "#22c55e",
+    `<path d="M 100 190 V 110" stroke="__CD__" stroke-width="9" fill="none"/>` +
+    lin("sd1", "__CLL__", "__CD__") + `<path d="M 100 118 C 58 112 40 78 48 50 C 88 58 106 90 100 118 Z" fill="url(#sd1)"/>` +
+    lin("sd2", "__CL__", "__CDD__") + `<path d="M 100 100 C 142 94 160 62 152 36 C 112 44 96 74 100 100 Z" fill="url(#sd2)"/>` +
+    `<path d="M 60 172 A 40 18 0 0 1 140 172 Z" fill="__CDD__" opacity="0.35"/>`);
+  HD("nature", "island", "Île", "nature île plage tropical", "#22c55e",
+    `<ellipse cx="100" cy="158" rx="86" ry="26" fill="__CA__"/>` + `<ellipse cx="100" cy="152" rx="70" ry="20" fill="__CA2__"/>` +
+    `<path d="M 100 150 C 96 120 100 100 104 84" stroke="__CD__" stroke-width="9" fill="none"/>` +
+    Array.from({ length: 5 }, (_, k) => { const a = -160 + k * 30; const [ex, ey] = polar(104, 80, 62, a); return `<path d="M 104 80 Q ${N((104 + ex) / 2 + Math.cos((a + 90) * Math.PI / 180) * 18)} ${N((80 + ey) / 2 + Math.sin((a + 90) * Math.PI / 180) * 18)} ${N(ex)} ${N(ey)} Q ${N((104 + ex) / 2)} ${N((80 + ey) / 2)} 104 80 Z" fill="__CM__"/>`; }).join("") +
+    `<circle cx="104" cy="76" r="9" fill="__CDD__"/>`, 200, 190);
+
+  /* ── Sport ── */
+  HD("sport", "football", "Ballon rugby", "sport rugby football américain", "#a16207",
+    `<defs><radialGradient id="rb" cx="38%" cy="30%" r="72%"><stop offset="0" stop-color="__CLL__"/><stop offset="0.6" stop-color="__CM__"/><stop offset="1" stop-color="__CDD__"/></radialGradient></defs>` +
+    `<ellipse cx="110" cy="80" rx="94" ry="52" fill="url(#rb)"/>` +
+    `<path d="M 72 80 H 148 M 88 68 V 92 M 108 66 V 94 M 128 68 V 92" stroke="__CW__" stroke-width="5" opacity="0.85" fill="none"/>` +
+    `<path d="M 30 62 A 94 52 0 0 1 60 44" stroke="__CLL__" stroke-width="4" opacity="0.5" fill="none"/>`, 220, 160);
+  HD("sport", "ping", "Ping-pong", "sport ping pong raquette", "#ef4444",
+    orb(90, 76, 62, "pp") + `<circle cx="90" cy="76" r="62" fill="none" stroke="__CDD__" stroke-width="4" opacity="0.4"/>` +
+    lin("ph", "__CA2__", "__CDD__", "0", "1") + `<rect x="74" y="132" width="32" height="78" rx="12" fill="url(#ph)"/>` + glint(66, 54, 14, 10), 180, 220);
+  HD("sport", "whistle", "Sifflet", "sport sifflet arbitre", "#f59e0b",
+    `<path d="M 150 66 A 44 44 0 0 1 196 26" stroke="__CD__" stroke-width="9" fill="none"/>` +
+    lin("wh", "__CLL__", "__CDD__", "0.3", "1") +
+    `<path d="M 34 58 H 130 A 46 46 0 1 1 84 122 H 34 A 12 12 0 0 1 22 110 V 70 A 12 12 0 0 1 34 58 Z" fill="url(#wh)"/>` +
+    `<circle cx="130" cy="94" r="18" fill="__CDD__" opacity="0.5"/>` +
+    `<circle cx="30" cy="76" r="7" fill="__CDD__"/>` + glint(70, 74, 26, 8, -4, 0.4), 210, 160);
+  HD("sport", "kettle", "Kettlebell", "sport kettlebell fitness musculation", "#6366f1",
+    `<path d="M 68 70 V 54 A 27 27 0 0 1 122 54 V 70" fill="none" stroke="__CDD__" stroke-width="13"/>` +
+    `<defs><radialGradient id="kb" cx="36%" cy="30%" r="74%"><stop offset="0" stop-color="__CLL__"/><stop offset="0.55" stop-color="__CM__"/><stop offset="1" stop-color="__CDD__"/></radialGradient></defs>` +
+    `<path d="M 95 66 C 145 66 172 110 172 150 C 172 186 140 200 95 200 C 50 200 18 186 18 150 C 18 110 45 66 95 66 Z" fill="url(#kb)"/>` +
+    glint(58, 104, 14, 22, -26, 0.4), 190, 210);
+  HD("sport", "target", "Cible", "sport cible target fléchette tir", "#ef4444",
+    [86, 68, 50, 32].map((r, k) => `<circle cx="100" cy="100" r="${r}" fill="${k % 2 ? "__CW__" : "__CM__"}"/>`).join("") +
+    `<circle cx="100" cy="100" r="14" fill="__CA__"/>` +
+    `<circle cx="100" cy="100" r="86" fill="none" stroke="__CDD__" stroke-width="3" opacity="0.5"/>` +
+    `<path d="M 100 14 A 86 86 0 0 1 186 100 L 100 100 Z" fill="__CW__" opacity="0.12"/>`);
+  HD("sport", "stopwatch", "Chrono", "sport chrono chronomètre temps", "#f472b6",
+    `<rect x="76" y="10" width="42" height="20" rx="6" fill="__CDD__"/>` +
+    orb(97, 122, 78, "sw") + `<circle cx="97" cy="122" r="62" fill="__CW__" opacity="0.16"/>` +
+    `<path d="M 97 74 V 124 L 128 140" stroke="__CDD__" stroke-width="8" fill="none" stroke-linecap="round"/>` +
+    `<circle cx="97" cy="122" r="7" fill="__CA__"/>` + `<path d="M 150 56 L 166 40" stroke="__CDD__" stroke-width="9" fill="none"/>` + glint(66, 88, 14, 10), 200, 214);
+  HD("sport", "flagpole", "Drapeau golf", "sport golf drapeau but", "#ef4444",
+    `<ellipse cx="100" cy="190" rx="58" ry="14" fill="__CDD__" opacity="0.35"/>` +
+    `<path d="M 52 192 V 18" stroke="__CDD__" stroke-width="8" fill="none"/>` +
+    lin("fg", "__CLL__", "__CD__") + `<path d="M 52 22 L 158 52 L 52 82 Z" fill="url(#fg)"/>` + `<circle cx="52" cy="14" r="8" fill="__CA__"/>`, 180, 210);
+
+  /* ── Nourriture ── */
+  HD("food", "cherry", "Cerises", "food cerise cherry fruit", "#e11d48",
+    `<path d="M 100 30 C 72 56 60 88 62 124 M 100 30 C 128 56 140 88 138 124" stroke="__CA__" stroke-width="7" fill="none"/>` +
+    `<path d="M 100 34 C 118 22 138 26 142 42 C 122 48 106 44 100 34 Z" fill="__CA__"/>` +
+    orb(62, 150, 34, "ch1") + orb(138, 150, 34, "ch2") + glint(50, 138, 8, 6) + glint(126, 138, 8, 6));
+  HD("food", "strawberry", "Fraise", "food fraise strawberry fruit", "#f43f5e",
+    `<path d="M 100 30 L 70 50 L 100 46 Z M 100 30 L 130 50 L 100 46 Z M 62 46 L 90 58 L 72 64 Z M 138 46 L 110 58 L 128 64 Z" fill="__CA__"/>` +
+    `<defs><radialGradient id="sb" cx="38%" cy="28%" r="74%"><stop offset="0" stop-color="__CLL__"/><stop offset="0.6" stop-color="__CM__"/><stop offset="1" stop-color="__CDD__"/></radialGradient></defs>` +
+    `<path d="M 100 56 C 42 56 30 112 58 156 C 74 182 100 196 100 196 C 100 196 126 182 142 156 C 170 112 158 56 100 56 Z" fill="url(#sb)"/>` +
+    [[74, 96], [104, 90], [128, 108], [86, 128], [116, 140], [100, 166]].map(([x, y]) => `<ellipse cx="${x}" cy="${y}" rx="4" ry="6" fill="__CA2__" opacity="0.9"/>`).join("") + glint(74, 84, 10, 16, -22, 0.5), 200, 210);
+  HD("food", "lemon", "Citron", "food citron lemon agrume", "#facc15",
+    `<defs><radialGradient id="lm" cx="34%" cy="28%" r="76%"><stop offset="0" stop-color="__CLL__"/><stop offset="0.6" stop-color="__CM__"/><stop offset="1" stop-color="__CDD__"/></radialGradient></defs>` +
+    `<path d="M 22 80 C 22 36 92 30 132 44 C 174 58 194 78 194 80 C 194 82 174 102 132 116 C 92 130 22 124 22 80 Z" fill="url(#lm)"/>` +
+    `<circle cx="196" cy="80" r="7" fill="__CD__"/><circle cx="20" cy="80" r="6" fill="__CD__"/>` + glint(70, 60, 22, 10, -14, 0.45), 210, 160);
+  HD("food", "avocado", "Avocat", "food avocat avocado fruit", "#65a30d",
+    lin("av", "__CLL__", "__CD__") + `<path d="M 90 18 C 40 18 28 92 40 142 C 50 184 74 202 90 202 C 106 202 130 184 140 142 C 152 92 140 18 90 18 Z" fill="url(#av)"/>` +
+    `<path d="M 90 40 C 54 40 46 96 56 138 C 64 172 78 186 90 186 C 102 186 116 172 124 138 C 134 96 126 40 90 40 Z" fill="__CW__" opacity="0.55"/>` +
+    orb(90, 138, 28, "avp"), 180, 220);
+  HD("food", "cupcake", "Cupcake", "food cupcake gâteau muffin dessert", "#f472b6",
+    lin("cpb", "__CA2__", "__CDD__", "0.4", "1") + `<path d="M 46 100 L 60 194 H 130 L 144 100 Z" fill="url(#cpb)"/>` +
+    `<path d="M 54 122 H 136 M 60 152 H 130" stroke="__CDD__" stroke-width="5" opacity="0.4" fill="none"/>` +
+    `<defs><radialGradient id="cpt" cx="38%" cy="26%" r="76%"><stop offset="0" stop-color="__CLL__"/><stop offset="0.6" stop-color="__CM__"/><stop offset="1" stop-color="__CD__"/></radialGradient></defs>` +
+    `<path d="M 95 26 C 58 26 40 62 60 88 C 44 98 50 120 72 118 C 76 134 110 134 116 118 C 138 120 146 96 128 86 C 148 60 130 26 95 26 Z" fill="url(#cpt)"/>` +
+    `<circle cx="95" cy="18" r="10" fill="__CA__"/>` + glint(70, 52, 10, 7), 190, 210);
+  HD("food", "coffee", "Café", "food café tasse boisson", "#a16207",
+    `<path d="M 150 74 H 176 A 26 26 0 0 1 150 120" fill="none" stroke="__CD__" stroke-width="10"/>` +
+    lin("cf", "__CLL__", "__CDD__", "1", "0.3") + `<path d="M 30 62 H 150 V 120 A 44 44 0 0 1 30 120 Z" fill="url(#cf)"/>` +
+    `<ellipse cx="90" cy="62" rx="60" ry="14" fill="__CA2__"/><ellipse cx="90" cy="62" rx="48" ry="9" fill="__CDD__" opacity="0.5"/>` +
+    `<path d="M 66 24 C 60 38 74 44 68 58 M 100 22 C 94 36 108 42 102 56 M 134 26 C 128 40 142 46 136 60" stroke="__CW__" stroke-width="5" opacity="0.5" fill="none"/>`, 210, 190);
+  HD("food", "cake", "Gâteau", "food gâteau cake anniversaire dessert", "#f9a8d4",
+    lin("ck1", "__CLL__", "__CD__", "1", "0.4") + `<path d="M 26 96 H 174 V 178 H 26 Z" fill="url(#ck1)"/>` +
+    `<path d="M 26 130 H 174" stroke="__CDD__" stroke-width="5" opacity="0.35" fill="none"/>` +
+    `<path d="M 26 96 C 42 78 62 110 78 96 C 94 82 110 110 126 96 C 142 82 158 110 174 96 V 76 H 26 Z" fill="__CW__" opacity="0.75"/>` +
+    `<rect x="94" y="30" width="12" height="46" rx="4" fill="__CA__"/>` + `<path d="M 100 12 C 110 22 110 32 100 32 C 90 32 90 22 100 12 Z" fill="__CA2__"/>`, 200, 200);
+  HD("food", "burger", "Burger", "food burger hamburger fast food", "#f59e0b",
+    `<defs><radialGradient id="bnt" cx="40%" cy="20%" r="80%"><stop offset="0" stop-color="__CLL__"/><stop offset="1" stop-color="__CD__"/></radialGradient></defs>` +
+    `<path d="M 22 66 C 22 26 178 26 178 66 Z" fill="url(#bnt)"/>` +
+    [[64, 48], [100, 40], [136, 48], [82, 58], [118, 58]].map(([x, y]) => `<ellipse cx="${x}" cy="${y}" rx="6" ry="4" fill="__CW__" opacity="0.7"/>`).join("") +
+    `<path d="M 18 74 C 40 62 160 62 182 74 C 160 86 40 86 18 74 Z" fill="__CA__"/>` +
+    `<rect x="26" y="88" width="148" height="24" rx="8" fill="__CDD__"/>` +
+    `<path d="M 22 118 C 40 108 160 108 178 118 C 178 158 22 158 22 118 Z" fill="url(#bnt)"/>`, 200, 175);
+  HD("food", "pizza", "Pizza", "food pizza part slice", "#f97316",
+    lin("pz", "__CA2__", "__CD__", "0.2", "1") + `<path d="M 100 12 L 178 194 C 128 210 72 210 22 194 Z" fill="url(#pz)"/>` +
+    `<path d="M 100 44 L 160 182 C 122 194 78 194 40 182 Z" fill="__CLL__" opacity="0.45"/>` +
+    [[86, 100, 12], [126, 128, 11], [72, 152, 10], [120, 176, 9]].map(([x, y, r]) => `<circle cx="${x}" cy="${y}" r="${r}" fill="__CM__"/><circle cx="${N(Number(x) - 3)}" cy="${N(Number(y) - 3)}" r="${N(Number(r) * 0.4)}" fill="__CLL__" opacity="0.6"/>`).join(""), 200, 215);
+  HD("food", "egg", "Œuf", "food oeuf egg", "#f8fafc",
+    `<defs><radialGradient id="eg" cx="36%" cy="26%" r="76%"><stop offset="0" stop-color="__CLL__"/><stop offset="0.6" stop-color="__CM__"/><stop offset="1" stop-color="__CDD__"/></radialGradient></defs>` +
+    `<path d="M 90 14 C 42 14 26 116 44 162 C 58 198 122 198 136 162 C 154 116 138 14 90 14 Z" fill="url(#eg)"/>` + glint(66, 66, 12, 20, -24, 0.55), 180, 210);
+  HD("food", "bread", "Pain", "food pain bread boulangerie", "#d97706",
+    `<defs><radialGradient id="br" cx="40%" cy="24%" r="78%"><stop offset="0" stop-color="__CLL__"/><stop offset="0.6" stop-color="__CM__"/><stop offset="1" stop-color="__CDD__"/></radialGradient></defs>` +
+    `<path d="M 20 118 C 20 66 66 40 106 40 C 146 40 192 66 192 118 C 192 138 174 148 152 148 H 60 C 38 148 20 138 20 118 Z" fill="url(#br)"/>` +
+    `<path d="M 58 72 L 44 100 M 90 62 L 74 92 M 124 62 L 108 92 M 156 72 L 142 100" stroke="__CDD__" stroke-width="6" opacity="0.45" fill="none"/>`, 212, 170);
+
+  /* ── Objets ── */
+  HD("objects", "camera", "Appareil photo", "objet caméra photo appareil", "#818cf8",
+    lin("cm", "__CL__", "__CDD__", "0.4", "1") + `<path d="M 14 48 H 66 L 82 26 H 138 L 154 48 H 206 V 152 H 14 Z" fill="url(#cm)" stroke="none"/>` +
+    `<circle cx="110" cy="100" r="40" fill="__CDD__"/>` + orb(110, 100, 32, "cml") + `<circle cx="110" cy="100" r="14" fill="__CW__" opacity="0.25"/>` + glint(98, 88, 9, 6) +
+    `<circle cx="180" cy="66" r="8" fill="__CA__"/>`, 220, 170);
+  HD("objects", "gift", "Cadeau", "objet cadeau gift boîte", "#f472b6",
+    lin("gf", "__CLL__", "__CD__", "0.6", "1") + `<rect x="30" y="86" width="140" height="106" rx="8" fill="url(#gf)"/>` +
+    `<rect x="20" y="66" width="160" height="30" rx="8" fill="__CL__"/>` +
+    `<rect x="86" y="66" width="28" height="126" fill="__CA__"/>` +
+    `<path d="M 100 66 C 62 66 44 30 68 20 C 90 12 100 48 100 66 C 100 48 110 12 132 20 C 156 30 138 66 100 66 Z" fill="__CA__"/>` +
+    `<circle cx="100" cy="58" r="10" fill="__CA2__"/>`, 200, 210);
+  HD("objects", "rocket", "Fusée", "objet fusée rocket espace", "#fb7185",
+    lin("rk2", "__CLL__", "__CD__", "1", "0.2") + `<path d="M 85 8 C 122 42 132 96 122 150 H 48 C 38 96 48 42 85 8 Z" fill="url(#rk2)"/>` +
+    `<circle cx="85" cy="66" r="20" fill="__CDD__"/><circle cx="85" cy="66" r="14" fill="__CW__" opacity="0.5"/>` +
+    `<path d="M 48 122 L 14 168 L 52 158 Z M 122 122 L 156 168 L 118 158 Z" fill="__CDD__"/>` +
+    `<path d="M 68 150 H 102 L 85 210 Z" fill="__CA2__"/><path d="M 78 150 H 92 L 85 186 Z" fill="__CW__" opacity="0.7"/>`, 170, 220);
+  HD("objects", "trophy2", "Coupe", "objet coupe trophée prix", "#eab308",
+    lin("tp2", "__CLL__", "__CDD__", "1", "0.3") + `<path d="M 52 24 H 148 V 84 A 48 48 0 0 1 52 84 Z" fill="url(#tp2)"/>` +
+    `<path d="M 52 40 H 20 A 34 34 0 0 0 58 88 M 148 40 H 180 A 34 34 0 0 1 142 88" fill="none" stroke="__CD__" stroke-width="9"/>` +
+    `<rect x="90" y="130" width="20" height="26" fill="__CD__"/><path d="M 58 156 H 142 L 152 182 H 48 Z" fill="__CDD__"/>` +
+    `<path d="M 74 36 V 76 A 26 26 0 0 0 100 96" stroke="__CW__" stroke-width="7" opacity="0.6" fill="none"/>` +
+    `<path d="${starPts(100, 62, 5, 20, 9)}" fill="__CA__" opacity="0.9"/>`, 200, 200);
+  HD("objects", "book", "Livre", "objet livre book lecture", "#38bdf8",
+    lin("bk2", "__CLL__", "__CD__", "1", "0.4") + `<path d="M 100 46 C 76 28 34 28 18 38 V 156 C 34 146 76 146 100 164 Z" fill="url(#bk2)"/>` +
+    `<path d="M 100 46 C 124 28 166 28 182 38 V 156 C 166 146 124 146 100 164 Z" fill="__CD__"/>` +
+    `<path d="M 100 46 V 164" stroke="__CDD__" stroke-width="6" fill="none"/>` +
+    `<path d="M 36 62 H 84 M 36 86 H 84 M 36 110 H 76" stroke="__CW__" stroke-width="5" opacity="0.5" fill="none"/>` +
+    `<path d="M 116 62 H 164 M 116 86 H 164 M 116 110 H 156" stroke="__CW__" stroke-width="5" opacity="0.32" fill="none"/>`, 200, 190);
+  HD("objects", "cup", "Mug", "objet mug tasse boisson", "#f87171",
+    `<path d="M 148 76 H 172 A 26 26 0 0 1 148 122" fill="none" stroke="__CD__" stroke-width="11"/>` +
+    lin("mg2", "__CLL__", "__CDD__", "1", "0.2") + `<path d="M 32 52 H 148 V 148 A 22 22 0 0 1 126 170 H 54 A 22 22 0 0 1 32 148 Z" fill="url(#mg2)"/>` +
+    `<ellipse cx="90" cy="52" rx="58" ry="13" fill="__CL__"/><ellipse cx="90" cy="52" rx="46" ry="8" fill="__CDD__" opacity="0.45"/>` + glint(52, 96, 8, 26, -8, 0.35), 200, 190);
+  HD("objects", "clock", "Horloge", "objet horloge heure temps clock", "#60a5fa",
+    orb(100, 100, 88, "cl2") + `<circle cx="100" cy="100" r="70" fill="__CW__" opacity="0.18"/>` +
+    Array.from({ length: 12 }, (_, k) => { const [x1, y1] = polar(100, 100, 62, k * 30), [x2, y2] = polar(100, 100, 72, k * 30); return `<path d="M ${N(x1)} ${N(y1)} L ${N(x2)} ${N(y2)}" stroke="__CDD__" stroke-width="${k % 3 ? 3 : 5}" opacity="0.7" fill="none"/>`; }).join("") +
+    `<path d="M 100 100 V 52 M 100 100 L 134 122" stroke="__CDD__" stroke-width="8" stroke-linecap="round" fill="none"/><circle cx="100" cy="100" r="8" fill="__CA__"/>` + glint(72, 68, 16, 11));
+  HD("objects", "key", "Clé", "objet clé key serrure", "#fbbf24",
+    lin("ky", "__CLL__", "__CDD__", "0.6", "1") + `<circle cx="56" cy="66" r="42" fill="url(#ky)"/><circle cx="56" cy="66" r="17" fill="__CDD__"/>` +
+    `<rect x="92" y="54" width="112" height="24" rx="8" fill="url(#ky)"/>` +
+    `<rect x="158" y="70" width="14" height="30" rx="4" fill="__CD__"/><rect x="184" y="70" width="14" height="24" rx="4" fill="__CD__"/>` + glint(40, 46, 12, 8), 215, 135);
+  HD("objects", "gamepad", "Manette", "objet manette jeu gaming", "#a78bfa",
+    lin("gp", "__CLL__", "__CDD__", "0.5", "1") + `<path d="M 62 62 H 138 C 176 62 192 128 174 158 C 158 182 138 150 128 136 H 72 C 62 150 42 182 26 158 C 8 128 24 62 62 62 Z" fill="url(#gp)"/>` +
+    `<rect x="42" y="92" width="30" height="10" rx="5" fill="__CDD__"/><rect x="52" y="82" width="10" height="30" rx="5" fill="__CDD__"/>` +
+    `<circle cx="136" cy="92" r="9" fill="__CA__"/><circle cx="156" cy="110" r="9" fill="__CA2__"/><circle cx="116" cy="110" r="9" fill="__CW__" opacity="0.8"/>`, 200, 200);
+  HD("objects", "paint", "Palette", "objet palette peinture art couleur", "#f472b6",
+    `<defs><radialGradient id="pal" cx="40%" cy="30%" r="76%"><stop offset="0" stop-color="__CLL__"/><stop offset="1" stop-color="__CD__"/></radialGradient></defs>` +
+    `<path fill-rule="evenodd" d="M 105 16 C 40 16 12 66 20 116 C 26 154 62 172 92 160 C 104 156 100 140 108 134 C 120 126 138 138 156 130 C 186 116 196 60 158 34 C 142 22 124 16 105 16 Z${holeC(70, 130, 15)}" fill="url(#pal)"/>` +
+    `<circle cx="54" cy="70" r="13" fill="__CA__"/><circle cx="100" cy="50" r="13" fill="__CA2__"/><circle cx="148" cy="72" r="13" fill="__CDD__"/><circle cx="152" cy="110" r="12" fill="__CW__"/>`, 210, 190);
+  HD("objects", "headphones", "Casque", "objet casque audio musique", "#22d3ee",
+    `<path d="M 34 118 V 96 A 66 66 0 0 1 166 96 V 118" fill="none" stroke="__CD__" stroke-width="14"/>` +
+    lin("hp", "__CLL__", "__CDD__", "0.4", "1") + `<rect x="16" y="110" width="38" height="66" rx="16" fill="url(#hp)"/><rect x="146" y="110" width="38" height="66" rx="16" fill="url(#hp)"/>` +
+    `<rect x="26" y="122" width="18" height="42" rx="9" fill="__CW__" opacity="0.3"/>`, 200, 190);
+  HD("objects", "wallet", "Portefeuille", "objet portefeuille argent wallet", "#818cf8",
+    lin("wl", "__CLL__", "__CD__", "0.5", "1") + `<rect x="18" y="48" width="164" height="110" rx="18" fill="url(#wl)"/>` +
+    `<path d="M 18 78 H 182 V 108 H 18 Z" fill="__CDD__" opacity="0.4"/>` +
+    `<rect x="120" y="86" width="70" height="40" rx="10" fill="__CA__"/><circle cx="155" cy="106" r="10" fill="__CDD__"/>`, 200, 190);
+
+  /* ── Météo ── */
+  HD("weather", "sun2", "Soleil radieux", "météo soleil sun rayons", "#f59e0b",
+    `<circle cx="100" cy="100" r="88" fill="__CA2__" opacity="0.18"/>` +
+    Array.from({ length: 16 }, (_, k) => { const a = k * 22.5; const [x2, y2] = polar(100, 100, 92, a); return `<path d="M ${N(polar(100, 100, 56, a - 4)[0])} ${N(polar(100, 100, 56, a - 4)[1])} L ${N(x2)} ${N(y2)} L ${N(polar(100, 100, 56, a + 4)[0])} ${N(polar(100, 100, 56, a + 4)[1])} Z" fill="__CA2__"/>`; }).join("") +
+    orb(100, 100, 54, "sn2") + glint(82, 80, 15, 10));
+  HD("weather", "storm", "Orage", "météo orage éclair storm nuage", "#94a3b8",
+    orb(58, 92, 32, "sr1") + orb(104, 70, 42, "sr2") + orb(150, 90, 34, "sr3") + `<rect x="26" y="92" width="150" height="32" rx="16" fill="__CD__"/>` +
+    `<path d="M 112 128 L 76 182 H 102 L 88 214 L 138 156 H 110 L 126 128 Z" fill="__CA2__"/>` +
+    `<path d="M 112 128 L 92 158 H 106 L 98 186 L 124 152 H 108 Z" fill="__CW__" opacity="0.6"/>`, 200, 220);
+  HD("weather", "snowman", "Bonhomme de neige", "météo bonhomme neige hiver snowman", "#e2e8f0",
+    orb(95, 158, 54, "sm1") + orb(95, 88, 40, "sm2") +
+    eyes(84, 106, 82, 6) + `<path d="M 95 92 L 128 100 L 95 108 Z" fill="__CA2__"/>` +
+    `<circle cx="95" cy="134" r="6" fill="__CDD__"/><circle cx="95" cy="158" r="6" fill="__CDD__"/><circle cx="95" cy="182" r="6" fill="__CDD__"/>` +
+    `<path d="M 55 100 L 20 84 M 135 100 L 170 84" stroke="__CA__" stroke-width="6" fill="none"/>` +
+    `<rect x="64" y="48" width="62" height="12" rx="4" fill="__CDD__"/><rect x="76" y="20" width="38" height="30" rx="4" fill="__CDD__"/>`, 190, 220);
+  HD("weather", "thermometer", "Thermomètre", "météo thermomètre température", "#f87171",
+    `<rect x="46" y="16" width="28" height="150" rx="14" fill="__CW__" opacity="0.35"/>` +
+    `<rect x="46" y="16" width="28" height="150" rx="14" fill="none" stroke="__CD__" stroke-width="5"/>` +
+    `<rect x="53" y="86" width="14" height="86" rx="7" fill="__CM__"/>` + orb(60, 178, 28, "th") +
+    Array.from({ length: 5 }, (_, k) => `<path d="M 80 ${44 + k * 24} H 96" stroke="__CD__" stroke-width="4" fill="none"/>`).join(""), 140, 215);
+
+  /* ── Fête ── */
+  HD("party", "balloons", "Ballons", "fête ballons party anniversaire", "#f472b6",
+    `<path d="M 62 108 C 70 148 66 176 60 200 M 100 92 C 100 140 100 172 100 200 M 140 110 C 132 150 136 176 142 200" stroke="__CD__" stroke-width="3" fill="none"/>` +
+    orbE(62, 66, 34, 42, "bl1") + orbE(140, 68, 32, 40, "bl2") + orbE(100, 50, 38, 46, "bl3") +
+    glint(48, 48, 8, 13, -24) + glint(88, 32, 8, 12, -24), 200, 210);
+  HD("party", "cake2", "Gâteau fête", "fête gâteau anniversaire bougies", "#f9a8d4",
+    lin("ck2", "__CLL__", "__CD__", "1", "0.4") + `<path d="M 22 108 H 178 V 182 H 22 Z" fill="url(#ck2)"/>` +
+    `<path d="M 22 108 C 40 92 58 122 76 108 C 94 94 106 122 124 108 C 142 94 160 122 178 108 V 88 H 22 Z" fill="__CW__" opacity="0.8"/>` +
+    [60, 100, 140].map((x, k) => `<rect x="${x - 6}" y="${44 - (k === 1 ? 8 : 0)}" width="12" height="${46 + (k === 1 ? 8 : 0)}" rx="4" fill="__CA__"/>` + `<path d="M ${x} ${26 - (k === 1 ? 8 : 0)} C ${x + 10} ${36 - (k === 1 ? 8 : 0)} ${x + 10} ${46 - (k === 1 ? 8 : 0)} ${x} ${46 - (k === 1 ? 8 : 0)} C ${x - 10} ${46 - (k === 1 ? 8 : 0)} ${x - 10} ${36 - (k === 1 ? 8 : 0)} ${x} ${26 - (k === 1 ? 8 : 0)} Z" fill="__CA2__"/>`).join(""), 200, 200);
+  HD("party", "confetti", "Confettis", "fête confettis party paillettes", "#a855f7",
+    Array.from({ length: 26 }, (_, k) => { const r = rng(k * 37 + 5); const x = 12 + r() * 176, y = 12 + r() * 176, t = Math.floor(r() * 3), c = ["__CM__", "__CA__", "__CA2__", "__CLL__"][Math.floor(r() * 4)];
+      return t === 0 ? `<circle cx="${N(x)}" cy="${N(y)}" r="${N(4 + r() * 5)}" fill="${c}"/>` : t === 1 ? `<rect x="${N(x)}" y="${N(y)}" width="${N(8 + r() * 8)}" height="${N(5 + r() * 5)}" rx="2" fill="${c}" transform="rotate(${N(r() * 90)} ${N(x)} ${N(y)})"/>` : `<path d="${starPts(x, y, 4, N(8 + r() * 5), N(3 + r() * 2))}" fill="${c}"/>`; }).join(""));
+  HD("party", "star", "Étoile brillante", "fête étoile star brillante", "#fde047",
+    `<circle cx="100" cy="100" r="86" fill="__CA2__" opacity="0.14"/>` +
+    lin("stb", "__CLL__", "__CD__") + `<path d="${starPts(100, 100, 5, 88, 36)}" fill="url(#stb)"/>` +
+    `<path d="M 100 12 L 114 78 L 100 100 Z" fill="__CW__" opacity="0.45"/>` + glint(82, 74, 12, 8, -20));
+})();
+
 /* ── Distribution des couleurs : chaque élément SANS teinte explicite reçoit
    une couleur de la palette de sa catégorie (index → couleur), pour un
    catalogue varié et coloré. Déterministe (ordre stable) → aucun décalage
