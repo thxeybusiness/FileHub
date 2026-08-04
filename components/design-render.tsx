@@ -20,9 +20,9 @@ export function LayerVisual({ layer: l }: { layer: Layer }) {
   // le dégradé) du calque, étiré dans sa boîte — même règle que l'export.
   const elementSrc = useMemo(() => {
     if (l.type !== "element") return null;
-    const svg = elementSvgByRef(l.ref, l.fill, l.gradient);
+    const svg = elementSvgByRef(l.ref, l.fill, l.gradient, l.slots ?? []);
     return svg ? `data:image/svg+xml;charset=utf-8,${encodeURIComponent(svg)}` : null;
-  }, [l.type === "element" ? l.ref : "", l.type === "element" ? l.fill : "", l.type === "element" ? JSON.stringify(l.gradient) : ""]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [l.type === "element" ? l.ref : "", l.type === "element" ? l.fill : "", l.type === "element" ? JSON.stringify(l.gradient) : "", l.type === "element" ? JSON.stringify(l.slots ?? []) : ""]); // eslint-disable-line react-hooks/exhaustive-deps
 
   if (l.type === "element") {
     return elementSrc ? (

@@ -26,7 +26,7 @@ import {
   EMOJI_GROUPS, BG_SOLIDS, GRADIENT_PRESETS, FILTER_PRESETS, TEXT_PRESETS,
   TEMPLATES, templateDoc, type TextPreset,
 } from "@/lib/design-presets";
-import { ELEMENTS, ELEMENT_CATEGORIES, elementThumbSrc, normalizeSearch, type ElementDef } from "@/lib/design-elements";
+import { ELEMENTS, ELEMENT_CATEGORIES, ELEMENT_INDEX, elementSlotDefaults, elementThumbSrc, normalizeSearch, type ElementDef } from "@/lib/design-elements";
 import { DocPreview } from "./design-render";
 
 export const ACCENT = "#a855f7";
@@ -365,6 +365,51 @@ export function ColorPopover({ label, value, onChange, onClose, gradient, onGrad
 }
 
 /** Pastille + popover couleur, prête à poser dans une barre ou un panneau. */
+/* ── Couleurs d'un élément : une pastille ÉDITABLE par emplacement ──
+   Un élément multicolore (ballon + coutures, pomme + feuille…) expose une
+   couleur par emplacement : chacune se change indépendamment, en teinte unie
+   ou en dégradé. Les éléments monochromes n'en exposent qu'une. */
+export function elementSlotLabels(l: ElementLayer): string[] {
+  const def = ELEMENT_INDEX.get(l.ref);
+  if (!def?.slots?.length) return ["Couleur"];
+  return def.slots.map((s) => s.label);
+}
+
+export function ElementColorChips({ l, ctl, disabled, compact }: { l: ElementLayer; ctl: EditorCtl; disabled?: boolean; compact?: boolean }) {
+  const def = ELEMENT_INDEX.get(l.ref);
+  const labels = elementSlotLabels(l);
+  const defaults = def ? elementSlotDefaults(def) : [{ fill: l.fill, gradient: null }];
+  // Emplacements secondaires : valeur du calque, sinon couleur de départ.
+  const slotAt = (i: number) => l.slots?.[i - 1] ?? defaults[i] ?? { fill: l.fill, gradient: null };
+
+  const patchSlot = (i: number, next: { fill: string; gradient: GradientFill | null }) => {
+    const cur = Array.from({ length: Math.max(0, labels.length - 1) }, (_, k) => slotAt(k + 1));
+    cur[i - 1] = next;
+    ctl.patchSel({ slots: cur }, true);
+  };
+
+  return (
+    <>
+      {labels.map((label, i) => {
+        const v = i === 0 ? { fill: l.fill, gradient: l.gradient } : slotAt(i);
+        return (
+          <ColorChip
+            key={i}
+            compact={compact}
+            label={compact ? label : label}
+            value={v.fill}
+            gradient={v.gradient}
+            onChange={(c) => (i === 0 ? ctl.patchSel({ fill: c, gradient: null }, true) : patchSlot(i, { fill: c, gradient: null }))}
+            onGradient={(g) => (i === 0 ? ctl.patchSel({ gradient: g }, true) : patchSlot(i, { fill: v.fill, gradient: g }))}
+            disabled={disabled}
+            anchor={compact ? "left" : undefined}
+          />
+        );
+      })}
+    </>
+  );
+}
+
 export function ColorChip({ label, value, gradient, onChange, onGradient, allowTransparent, disabled, compact, anchor }: {
   label: string;
   value: string;
@@ -428,12 +473,7 @@ export function ContextBar({ ctl }: { ctl: EditorCtl }) {
       {sameType === "shape" && <ShapeQuick l={ls[0] as ShapeLayer} ctl={ctl} />}
       {sameType === "line" && <LineQuick l={ls[0] as LineLayer} ctl={ctl} />}
       {sameType === "image" && one && <ImageQuick l={one as ImageLayer} ctl={ctl} />}
-      {sameType === "element" && (
-        <ColorChip compact label="Couleur de l'élément" value={(ls[0] as ElementLayer).fill} gradient={(ls[0] as ElementLayer).gradient}
-          onChange={(v) => ctl.patchSel({ fill: v, gradient: null }, true)}
-          onGradient={(g) => ctl.patchSel({ gradient: g }, true)}
-          anchor="left" />
-      )}
+      {sameType === "element" && <ElementColorChips l={ls[0] as ElementLayer} ctl={ctl} compact />}
 
       {ls.length > 1 && (
         <>
@@ -1064,12 +1104,13 @@ function PropsPanel({ ctl }: { ctl: EditorCtl }) {
       )}
       {one.type === "image" && <ImageProps l={one} ctl={ctl} dis={dis} />}
       {one.type === "element" && (
-        <Section title="Couleur de l'élément">
-          <ColorChip label="Couleur" value={one.fill} gradient={one.gradient}
-            onChange={(v) => ctl.patchSel({ fill: v, gradient: null }, true)}
-            onGradient={(g) => ctl.patchSel({ gradient: g }, true)}
-            disabled={dis} />
-          <p className="text-[10.5px] leading-relaxed text-muted">Élément monochrome : une seule couleur, remplaçable par n'importe quelle teinte ou un dégradé.</p>
+        <Section title={elementSlotLabels(one).length > 1 ? "Couleurs de l'élément" : "Couleur de l'élément"}>
+          <ElementColorChips l={one} ctl={ctl} disabled={dis} />
+          <p className="text-[10.5px] leading-relaxed text-muted">
+            {elementSlotLabels(one).length > 1
+              ? "Élément multicolore : chaque couleur se modifie séparément — teinte unie ou dégradé."
+              : "Élément monochrome : une seule couleur, remplaçable par n'importe quelle teinte ou un dégradé."}
+          </p>
         </Section>
       )}
 

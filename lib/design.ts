@@ -168,8 +168,11 @@ export type ImageLayer = BaseLayer & {
 export type ElementLayer = BaseLayer & {
   type: "element";
   ref: string;
-  fill: string;
+  fill: string;                 // emplacement de couleur PRINCIPAL
   gradient: GradientFill | null;
+  // Éléments multicolores : couleurs des emplacements SECONDAIRES (def.slots[1..]).
+  // Vide = on retombe sur les couleurs de départ de l'élément.
+  slots: { fill: string; gradient: GradientFill | null }[];
   natW: number; // viewBox natif (ratio + repère du dégradé)
   natH: number;
 };
@@ -504,6 +507,12 @@ function migrateLayer(raw: LegacyLayer): Layer | null {
       ref: typeof raw.ref === "string" ? (raw.ref as string) : "",
       fill: typeof raw.fill === "string" ? (raw.fill as string) : "#8b5cf6",
       gradient: (raw.gradient as GradientFill) ?? null,
+      slots: Array.isArray(raw.slots)
+        ? (raw.slots as unknown[]).map((s) => {
+            const o = (s ?? {}) as Record<string, unknown>;
+            return { fill: typeof o.fill === "string" ? o.fill : "#8b5cf6", gradient: (o.gradient as GradientFill) ?? null };
+          })
+        : [],
       natW: Number(raw.natW) || 200,
       natH: Number(raw.natH) || 200,
     }) as ElementLayer;
@@ -608,6 +617,7 @@ export function makeElement(doc: DesignDoc, patch: Partial<ElementLayer> = {}): 
     ref: "",
     fill: "#8b5cf6",
     gradient: null,
+    slots: [],
     natW: 200,
     natH: 200,
     ...patch,
@@ -843,7 +853,7 @@ async function drawElement(ctx: CanvasRenderingContext2D, l: ElementLayer, sh: D
   // Import différé pour éviter tout cycle au chargement (design-elements ne
   // consomme de ce module que des types).
   const { elementSvgByRef } = await import("./design-elements");
-  const svg = elementSvgByRef(l.ref, l.fill, l.gradient);
+  const svg = elementSvgByRef(l.ref, l.fill, l.gradient, l.slots ?? []);
   if (!svg) return;
   const img = await loadImage(`data:image/svg+xml;charset=utf-8,${encodeURIComponent(svg)}`);
   // Rendu ÉTIRÉ (comme le DOM) dans un intermédiaire en pixels d'export.

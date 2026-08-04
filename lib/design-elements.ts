@@ -18,7 +18,21 @@ export type ElementDef = {
   body: string; // SVG interne, peinture = __C__
   keywords: string;
   defaultColor?: string;
+  /** Emplacements de couleur ÉDITABLES. slots[0] = couleur principale (le
+   *  fill/gradient du calque) ; slots[1..] = couleurs secondaires (calque.slots).
+   *  Absent = élément monochrome classique (une seule couleur). */
+  slots?: { label: string; def?: string }[];
 };
+
+/** Peinture d'un emplacement : couleur unie OU dégradé. */
+export type SlotPaint = { fill: string; gradient: GradientFill | null };
+
+/** Couleurs de départ de TOUS les emplacements d'un élément. */
+export function elementSlotDefaults(def: ElementDef): SlotPaint[] {
+  const base = def.defaultColor ?? "#8b5cf6";
+  if (!def.slots?.length) return [{ fill: base, gradient: null }];
+  return def.slots.map((s, i) => ({ fill: s.def ?? (i === 0 ? base : base), gradient: null }));
+}
 
 export const ELEMENT_CATEGORIES: { id: string; label: string }[] = [
   { id: "circles", label: "Cercles & cadres" },
@@ -147,11 +161,11 @@ export function normalizeSearch(s: string): string {
 
 const items: ElementDef[] = [];
 const seen = new Set<string>();
-function add(cat: string, id: string, label: string, keywords: string, w: number, h: number, body: string, defaultColor?: string) {
+function add(cat: string, id: string, label: string, keywords: string, w: number, h: number, body: string, defaultColor?: string, slots?: { label: string; def?: string }[]) {
   const full = `${cat}.${id}`;
   if (seen.has(full)) throw new Error(`id d'élément dupliqué : ${full}`);
   seen.add(full);
-  items.push({ id: full, label, cat, w, h, body, keywords: normalizeSearch(`${label} ${keywords}`), defaultColor });
+  items.push({ id: full, label, cat, w, h, body, keywords: normalizeSearch(`${label} ${keywords}`), defaultColor, slots });
 }
 // Surcharge ponctuelle de la couleur de départ d'un élément déjà créé.
 function tint(id: string, color: string) {
@@ -2140,12 +2154,16 @@ function tint(id: string, color: string) {
    automatiquement (jetons __CM__/__CL__/__CLL__/__CD__/__CDD__/__CA__/__CW__),
    plus des dégradés internes pour le volume. Pas du 2D plat. */
 (() => {
-  const HD = (cat: string, id: string, label: string, kw: string, color: string, body: string, w = 200, h = 200) =>
-    add(cat, `hd${id}`, label, `${kw} relief volume 3d détaillé travaillé dégradé`, w, h, body, color);
+  const HD = (cat: string, id: string, label: string, kw: string, color: string, body: string, w = 200, h = 200, slots?: { label: string; def?: string }[]) =>
+    add(cat, `hd${id}`, label, `${kw} relief volume 3d détaillé travaillé dégradé`, w, h, body, color, slots);
   const orb = (cx: number, cy: number, r: number, gid: string) =>
     `<defs><radialGradient id="${gid}" cx="35%" cy="28%" r="74%"><stop offset="0" stop-color="__CLL__"/><stop offset="0.55" stop-color="__CM__"/><stop offset="1" stop-color="__CDD__"/></radialGradient></defs><circle cx="${cx}" cy="${cy}" r="${r}" fill="url(#${gid})"/>`;
   const glint = (cx: number, cy: number, rx: number, ry: number, rot = -30) =>
     `<ellipse cx="${cx}" cy="${cy}" rx="${rx}" ry="${ry}" fill="__CW__" opacity="0.6" transform="rotate(${rot} ${cx} ${cy})"/>`;
+  // Motif STRICTEMENT contenu dans la sphère : sans découpe, les coutures
+  // débordent de la silhouette du ballon.
+  const inBall = (cx: number, cy: number, r: number, cid: string, inner: string) =>
+    `<defs><clipPath id="${cid}"><circle cx="${cx}" cy="${cy}" r="${r}"/></clipPath></defs><g clip-path="url(#${cid})">${inner}</g>`;
   const lin = (gid: string, a: string, b: string, x2 = "1", y2 = "1") =>
     `<defs><linearGradient id="${gid}" x1="0" y1="0" x2="${x2}" y2="${y2}"><stop offset="0" stop-color="${a}"/><stop offset="1" stop-color="${b}"/></linearGradient></defs>`;
 
@@ -2157,7 +2175,7 @@ function tint(id: string, color: string) {
   HD("nature", "flower", "Fleur", "nature fleur flower", "#ec4899",
     `<defs><radialGradient id="pet" cx="50%" cy="30%" r="70%"><stop offset="0" stop-color="__CLL__"/><stop offset="1" stop-color="__CD__"/></radialGradient></defs>` +
     Array.from({ length: 7 }, (_, k) => `<ellipse cx="100" cy="52" rx="20" ry="42" fill="url(#pet)" transform="rotate(${N((k * 360) / 7)} 100 100)"/>`).join("") +
-    `<circle cx="100" cy="100" r="24" fill="__CA__"/>` + `<circle cx="100" cy="100" r="24" fill="none" stroke="__CDD__" stroke-width="3" opacity="0.4"/>` + glint(92, 92, 8, 6, 0));
+    `<circle cx="100" cy="100" r="24" fill="__C1~__"/>` + `<circle cx="100" cy="100" r="24" fill="none" stroke="__CDD__" stroke-width="3" opacity="0.4"/>` + glint(92, 92, 8, 6, 0), 200, 200, [{ label: "Pétales" }, { label: "Cœur", def: "#facc15" }]);
   HD("nature", "sun", "Soleil", "nature soleil sun", "#fbbf24",
     `<defs><radialGradient id="sg" cx="50%" cy="50%" r="50%"><stop offset="0" stop-color="__CLL__"/><stop offset="0.6" stop-color="__CM__"/><stop offset="1" stop-color="__CD__"/></radialGradient></defs>` +
     Array.from({ length: 12 }, (_, k) => { const a = k * 30; const [x1, y1] = polar(100, 100, 58, a), [x2, y2] = polar(100, 100, 92, a); return `<path d="M ${N(polar(100, 100, 58, a - 5)[0])} ${N(polar(100, 100, 58, a - 5)[1])} L ${N(x2)} ${N(y2)} L ${N(polar(100, 100, 58, a + 5)[0])} ${N(polar(100, 100, 58, a + 5)[1])} Z" fill="__CA2__"/>`; }).join("") +
@@ -2184,7 +2202,7 @@ function tint(id: string, color: string) {
     lin("ca", "__CL__", "__CD__", "1", "0") + `<rect x="82" y="60" width="36" height="130" rx="18" fill="url(#ca)"/>` +
     `<path d="M 82 128 C 60 128 50 112 50 92 A 12 12 0 0 1 74 92 V 110" fill="none" stroke="__CM__" stroke-width="22" stroke-linecap="round"/>` +
     `<path d="M 118 112 C 140 112 150 96 150 76 A 12 12 0 0 1 126 76 V 94" fill="none" stroke="__CM__" stroke-width="22" stroke-linecap="round"/>` +
-    `<path d="M 100 66 V 180" stroke="__CDD__" stroke-width="3" opacity="0.35" fill="none"/>` + `<circle cx="100" cy="58" r="12" fill="__CA__"/>`, 200, 200);
+    `<path d="M 100 66 V 180" stroke="__CDD__" stroke-width="3" opacity="0.35" fill="none"/>` + `<circle cx="100" cy="58" r="12" fill="__C1~__"/>`, 200, 200, [{ label: "Cactus" }, { label: "Fleur", def: "#f472b6" }]);
   HD("nature", "wave", "Vague", "nature vague mer eau wave", "#0ea5e9",
     lin("wv", "__CL__", "__CDD__", "0", "1") + `<path d="M 10 120 C 40 60 90 60 118 96 C 138 122 168 120 190 96 V 180 H 10 Z" fill="url(#wv)"/>` +
     `<path d="M 10 120 C 40 60 90 60 118 96 C 138 122 168 120 190 96" fill="none" stroke="__CW__" stroke-width="6" opacity="0.7"/>` +
@@ -2192,28 +2210,40 @@ function tint(id: string, color: string) {
 
   /* Sport — ballons en relief */
   HD("sport", "soccer", "Ballon foot", "sport football ballon soccer", "#f8fafc",
-    orb(100, 100, 84, "sc") + `<path d="${polyPts(100, 100, 5, 30)}" fill="__CDD__"/>` +
-    Array.from({ length: 5 }, (_, k) => { const [x, y] = polar(100, 100, 60, -90 + k * 72); return `<path d="M ${N(polar(100, 100, 34, -90 + k * 72)[0])} ${N(polar(100, 100, 34, -90 + k * 72)[1])} L ${N(x)} ${N(y)}" stroke="__CDD__" stroke-width="6" fill="none"/>` + `<circle cx="${N(x)}" cy="${N(y)}" r="9" fill="__CDD__" opacity="0.55"/>`; }).join("") + glint(74, 72, 16, 11));
+    orb(100, 100, 84, "sc") +
+    inBall(100, 100, 84, "scc", `<path d="${polyPts(100, 100, 5, 30)}" fill="__C1~__"/>` +
+      Array.from({ length: 5 }, (_, k) => { const [x, y] = polar(100, 100, 60, -90 + k * 72); return `<path d="M ${N(polar(100, 100, 34, -90 + k * 72)[0])} ${N(polar(100, 100, 34, -90 + k * 72)[1])} L ${N(x)} ${N(y)}" stroke="__C1~__" stroke-width="6" fill="none"/>` + `<circle cx="${N(x)}" cy="${N(y)}" r="9" fill="__C1~__" opacity="0.7"/>`; }).join("")) +
+    glint(74, 72, 16, 11), 200, 200, [{ label: "Ballon" }, { label: "Motif", def: "#1f2937" }]);
   HD("sport", "basket", "Ballon basket", "sport basketball ballon", "#f97316",
-    orb(100, 100, 84, "bk") + `<path d="M 16 100 H 184 M 100 16 V 184 M 42 40 C 82 80 82 120 42 160 M 158 40 C 118 80 118 120 158 160" fill="none" stroke="__CDD__" stroke-width="4" opacity="0.7"/>` + glint(74, 72, 15, 10));
+    orb(100, 100, 84, "bk") +
+    inBall(100, 100, 84, "bkc", `<path d="M 16 100 H 184 M 100 16 V 184 M 42 40 C 82 80 82 120 42 160 M 158 40 C 118 80 118 120 158 160" fill="none" stroke="__C1~__" stroke-width="5"/>`) +
+    glint(74, 72, 15, 10), 200, 200, [{ label: "Ballon" }, { label: "Lignes", def: "#1f2937" }]);
   HD("sport", "tennis", "Balle tennis", "sport tennis balle", "#a3e635",
-    orb(100, 100, 84, "tn") + `<path d="M 40 30 C 78 68 78 132 40 170 M 160 30 C 122 68 122 132 160 170" fill="none" stroke="__CW__" stroke-width="6" opacity="0.85"/>` + glint(74, 72, 15, 10));
+    orb(100, 100, 84, "tn") +
+    inBall(100, 100, 84, "tnc", `<path d="M 40 26 C 80 68 80 132 40 174 M 160 26 C 120 68 120 132 160 174" fill="none" stroke="__C1~__" stroke-width="6"/>`) +
+    glint(74, 72, 15, 10), 200, 200, [{ label: "Balle" }, { label: "Coutures", def: "#f8fafc" }]);
   HD("sport", "baseball", "Balle baseball", "sport baseball balle", "#f8fafc",
-    orb(100, 100, 84, "bb") + `<path d="M 46 34 C 74 70 74 130 46 166 M 154 34 C 126 70 126 130 154 166" fill="none" stroke="__CA__" stroke-width="4"/>` +
-    Array.from({ length: 6 }, (_, k) => `<path d="M 54 ${44 + k * 20} l 10 -6 M 146 ${44 + k * 20} l -10 -6" stroke="__CA__" stroke-width="3" fill="none"/>`).join("") + glint(74, 72, 14, 10));
+    orb(100, 100, 84, "bb") +
+    inBall(100, 100, 84, "bbc", `<path d="M 46 30 C 76 70 76 130 46 170 M 154 30 C 124 70 124 130 154 170" fill="none" stroke="__C1~__" stroke-width="4"/>` +
+      Array.from({ length: 6 }, (_, k) => `<path d="M 54 ${44 + k * 20} l 11 -7 M 146 ${44 + k * 20} l -11 -7" stroke="__C1~__" stroke-width="3" fill="none"/>`).join("")) +
+    glint(74, 72, 14, 10), 200, 200, [{ label: "Balle" }, { label: "Coutures", def: "#e11d48" }]);
   HD("sport", "volley", "Volley", "sport volley volleyball ballon", "#38bdf8",
-    orb(100, 100, 84, "vl") + `<path d="M 100 16 C 60 62 60 138 100 184 M 16 100 C 72 90 150 120 184 90 M 40 40 C 90 100 90 140 60 180" fill="none" stroke="__CW__" stroke-width="5" opacity="0.6"/>` + glint(74, 72, 14, 10));
+    orb(100, 100, 84, "vl") +
+    inBall(100, 100, 84, "vlc", `<path d="M 100 12 C 58 60 58 140 100 188 M 12 100 C 70 88 152 122 188 88 M 38 36 C 92 100 92 142 58 186" fill="none" stroke="__C1~__" stroke-width="5"/>`) +
+    glint(74, 72, 14, 10), 200, 200, [{ label: "Ballon" }, { label: "Lignes", def: "#f8fafc" }]);
   HD("sport", "bowling", "Boule bowling", "sport bowling boule", "#6366f1",
-    orb(100, 100, 84, "bw") + `<circle cx="80" cy="74" r="8" fill="__CDD__"/><circle cx="106" cy="68" r="8" fill="__CDD__"/><circle cx="94" cy="94" r="8" fill="__CDD__"/>` + glint(72, 64, 13, 9));
+    orb(100, 100, 84, "bw") +
+    inBall(100, 100, 84, "bwc", `<circle cx="80" cy="74" r="8" fill="__C1~__"/><circle cx="106" cy="68" r="8" fill="__C1~__"/><circle cx="94" cy="94" r="8" fill="__C1~__"/>`) +
+    glint(72, 64, 13, 9), 200, 200, [{ label: "Boule" }, { label: "Trous", def: "#1f2937" }]);
   HD("sport", "trophy", "Trophée", "sport trophée coupe prix", "#f59e0b",
     lin("tr", "__CLL__", "__CD__") + `<path d="M 56 26 H 144 V 88 A 44 44 0 0 1 56 88 Z" fill="url(#tr)"/>` +
     `<path d="M 56 42 H 24 A 32 32 0 0 0 60 88 M 144 42 H 176 A 32 32 0 0 1 140 88" fill="none" stroke="__CD__" stroke-width="8"/>` +
     `<rect x="92" y="132" width="16" height="26" fill="__CD__"/><rect x="64" y="158" width="72" height="20" rx="4" fill="__CDD__"/>` +
     `<path d="M 78 40 V 74 A 22 22 0 0 0 100 84" stroke="__CLL__" stroke-width="6" opacity="0.7" fill="none"/>`, 200, 200);
   HD("sport", "medal", "Médaille", "sport médaille récompense", "#fbbf24",
-    `<path d="M 50 12 L 95 90 L 140 12 Z" fill="__CA__" opacity="0.85"/>` +
+    `<path d="M 50 12 L 95 90 L 140 12 Z" fill="__C1~__" opacity="0.85"/>` +
     orb(95, 132, 56, "md") + `<circle cx="95" cy="132" r="40" fill="none" stroke="__CDD__" stroke-width="4" opacity="0.5"/>` +
-    `<path d="${starPts(95, 132, 5, 28, 12)}" fill="__CLL__"/>`, 190, 200);
+    `<path d="${starPts(95, 132, 5, 28, 12)}" fill="__CLL__"/>`, 190, 200, [{ label: "Médaille" }, { label: "Ruban", def: "#ef4444" }]);
   HD("sport", "dumbbell", "Haltère", "sport haltère musculation fitness", "#818cf8",
     lin("db", "__CLL__", "__CDD__", "0", "1") + `<rect x="14" y="42" width="28" height="96" rx="8" fill="url(#db)"/><rect x="48" y="30" width="26" height="120" rx="8" fill="url(#db)"/>` +
     `<rect x="186" y="42" width="-28" height="96" rx="8" fill="url(#db)" transform="translate(200 0) scale(-1 1)"/>` +
@@ -2225,12 +2255,12 @@ function tint(id: string, color: string) {
     `<path d="M 100 58 C 102 40 110 30 124 28" fill="none" stroke="__CDD__" stroke-width="7"/>` +
     `<defs><radialGradient id="ap" cx="38%" cy="30%" r="72%"><stop offset="0" stop-color="__CLL__"/><stop offset="0.6" stop-color="__CM__"/><stop offset="1" stop-color="__CDD__"/></radialGradient></defs>` +
     `<path d="M 100 62 C 78 42 46 48 40 84 C 34 124 58 176 84 176 C 92 178 100 172 100 172 C 100 172 108 178 116 176 C 142 176 166 124 160 84 C 154 48 122 42 100 62 Z" fill="url(#ap)"/>` +
-    `<path d="M 108 42 C 128 28 150 34 152 54 C 130 60 110 52 108 42 Z" fill="__CA__"/>` + glint(74, 92, 12, 22, -18));
+    `<path d="M 108 42 C 128 28 150 34 152 54 C 130 60 110 52 108 42 Z" fill="__C1~__"/>` + glint(74, 92, 12, 22, -18), 200, 200, [{ label: "Pomme" }, { label: "Feuille", def: "#22c55e" }]);
   HD("food", "orange", "Orange", "food orange agrume fruit", "#fb923c",
     orb(100, 106, 76, "or") + `<circle cx="100" cy="106" r="76" fill="none" stroke="__CDD__" stroke-width="2" opacity="0.3"/>` +
-    `<path d="M 100 30 L 84 12 L 118 12 Z" fill="__CA__"/>` + glint(76, 84, 14, 10));
+    `<path d="M 100 30 L 84 12 L 118 12 Z" fill="__C1~__"/>` + glint(76, 84, 14, 10), 200, 200, [{ label: "Orange" }, { label: "Feuille", def: "#22c55e" }]);
   HD("food", "grapes", "Raisin", "food raisin grappe fruit", "#8b5cf6",
-    (() => { const rows = [[100], [80, 120], [66, 100, 134], [82, 118], [100]]; let cy = 66, g = `<path d="M 100 30 C 96 44 100 52 100 60" stroke="__CDD__" stroke-width="6" fill="none"/>` + `<path d="M 100 40 C 120 30 138 34 140 50 C 122 56 106 50 100 40 Z" fill="__CA__"/>`; let i = 0; rows.forEach((row) => { row.forEach((cx) => { g += orb(cx, cy, 19, `gr${i++}`); }); cy += 32; }); return g; })(), 200, 210);
+    (() => { const rows = [[100], [80, 120], [66, 100, 134], [82, 118], [100]]; let cy = 66, g = `<path d="M 100 30 C 96 44 100 52 100 60" stroke="__CDD__" stroke-width="6" fill="none"/>` + `<path d="M 100 40 C 120 30 138 34 140 50 C 122 56 106 50 100 40 Z" fill="__C1~__"/>`; let i = 0; rows.forEach((row) => { row.forEach((cx) => { g += orb(cx, cy, 19, `gr${i++}`); }); cy += 32; }); return g; })(), 200, 210, [{ label: "Raisin" }, { label: "Feuille", def: "#22c55e" }]);
   HD("food", "icecream", "Glace", "food glace cornet ice cream", "#f9a8d4",
     lin("cn", "__CA2__", "__CD__") + `<path d="M 74 210 L 42 100 H 158 L 126 210 Z" fill="url(#cn)"/>` +
     `<path d="M 58 118 L 74 150 M 100 110 V 158 M 142 118 L 126 150" stroke="__CDD__" stroke-width="3" opacity="0.4" fill="none"/>` +
@@ -2269,7 +2299,7 @@ function tint(id: string, color: string) {
   HD("objects", "crown", "Couronne", "objet couronne roi premium crown", "#fbbf24",
     lin("cr", "__CLL__", "__CD__") + `<path d="M 24 150 L 14 54 L 62 90 L 100 30 L 138 90 L 186 54 L 176 150 Z" fill="url(#cr)"/>` +
     `<rect x="24" y="150" width="152" height="20" rx="4" fill="__CDD__"/>` +
-    `<circle cx="14" cy="48" r="8" fill="__CA__"/><circle cx="100" cy="24" r="9" fill="__CA__"/><circle cx="186" cy="48" r="8" fill="__CA__"/><circle cx="100" cy="120" r="10" fill="__CA__"/>`, 200, 180);
+    `<circle cx="14" cy="48" r="8" fill="__C1~__"/><circle cx="100" cy="24" r="9" fill="__C1~__"/><circle cx="186" cy="48" r="8" fill="__C1~__"/><circle cx="100" cy="120" r="10" fill="__C1~__"/>`, 200, 180, [{ label: "Couronne" }, { label: "Gemmes", def: "#22d3ee" }]);
   HD("objects", "coin", "Pièce", "objet pièce monnaie coin argent", "#fbbf24",
     orb(100, 100, 82, "co") + `<circle cx="100" cy="100" r="62" fill="none" stroke="__CDD__" stroke-width="4" opacity="0.4"/>` +
     `<path d="M 100 58 V 142 M 84 74 H 112 A 14 14 0 0 1 112 102 H 84 H 118" stroke="__CDD__" stroke-width="7" fill="none" opacity="0.55"/>` + glint(76, 76, 14, 10));
@@ -2290,8 +2320,8 @@ function tint(id: string, color: string) {
 
 /* ═══════════ Vague HD 2 : relief & volume à grande échelle ═══════════ */
 (() => {
-  const HD = (cat: string, id: string, label: string, kw: string, color: string, body: string, w = 200, h = 200) =>
-    add(cat, `hd${id}`, label, `${kw} relief volume 3d détaillé travaillé dégradé`, w, h, body, color);
+  const HD = (cat: string, id: string, label: string, kw: string, color: string, body: string, w = 200, h = 200, slots?: { label: string; def?: string }[]) =>
+    add(cat, `hd${id}`, label, `${kw} relief volume 3d détaillé travaillé dégradé`, w, h, body, color, slots);
   const orb = (cx: number, cy: number, r: number, gid: string) =>
     `<defs><radialGradient id="${gid}" cx="35%" cy="28%" r="74%"><stop offset="0" stop-color="__CLL__"/><stop offset="0.55" stop-color="__CM__"/><stop offset="1" stop-color="__CDD__"/></radialGradient></defs><circle cx="${cx}" cy="${cy}" r="${r}" fill="url(#${gid})"/>`;
   const orbE = (cx: number, cy: number, rx: number, ry: number, gid: string) =>
@@ -2300,6 +2330,10 @@ function tint(id: string, color: string) {
     `<ellipse cx="${cx}" cy="${cy}" rx="${rx}" ry="${ry}" fill="__CW__" opacity="${o}" transform="rotate(${rot} ${cx} ${cy})"/>`;
   const lin = (gid: string, a: string, b: string, x2 = "1", y2 = "1") =>
     `<defs><linearGradient id="${gid}" x1="0" y1="0" x2="${x2}" y2="${y2}"><stop offset="0" stop-color="${a}"/><stop offset="1" stop-color="${b}"/></linearGradient></defs>`;
+  // Motif STRICTEMENT contenu dans la sphère : sans découpe, les coutures
+  // débordent de la silhouette du ballon.
+  const inBall = (cx: number, cy: number, r: number, cid: string, inner: string) =>
+    `<defs><clipPath id="${cid}"><circle cx="${cx}" cy="${cy}" r="${r}"/></clipPath></defs><g clip-path="url(#${cid})">${inner}</g>`;
   const eyes = (lx: number, rx: number, y: number, r: number) =>
     `<circle cx="${lx}" cy="${y}" r="${r}" fill="__CDD__"/><circle cx="${rx}" cy="${y}" r="${r}" fill="__CDD__"/>` +
     `<circle cx="${N(lx + r * 0.3)}" cy="${N(y - r * 0.35)}" r="${N(r * 0.34)}" fill="__CW__"/><circle cx="${N(rx + r * 0.3)}" cy="${N(y - r * 0.35)}" r="${N(r * 0.34)}" fill="__CW__"/>`;
@@ -2326,12 +2360,12 @@ function tint(id: string, color: string) {
     `<path d="M 100 26 C 142 26 168 60 160 100 C 174 122 158 156 128 158 C 116 178 78 178 66 156 C 34 152 24 116 42 96 C 34 58 60 26 100 26 Z" fill="url(#rs)"/>` +
     `<path d="M 100 52 C 124 56 134 82 118 98 C 98 92 90 68 100 52 Z" fill="__CLL__" opacity="0.55"/>` +
     `<path d="M 108 84 C 122 96 118 116 102 120 C 92 108 96 90 108 84 Z" fill="__CD__" opacity="0.6"/>` +
-    `<path d="M 100 158 V 194" stroke="__CA__" stroke-width="8" fill="none"/>` +
-    `<path d="M 100 172 C 70 164 58 146 62 130 C 90 136 102 156 100 172 Z" fill="__CA__"/>`, 200, 200);
+    `<path d="M 100 158 V 194" stroke="__C1~__" stroke-width="8" fill="none"/>` +
+    `<path d="M 100 172 C 70 164 58 146 62 130 C 90 136 102 156 100 172 Z" fill="__C1~__"/>`, 200, 200, [{ label: "Fleur" }, { label: "Tige & feuille", def: "#22c55e" }]);
   HD("nature", "sunflower", "Tournesol", "nature tournesol fleur soleil", "#facc15",
     Array.from({ length: 14 }, (_, k) => `<g transform="rotate(${N(k * (360 / 14))} 100 100)">${orbE(100, 46, 13, 32, `sfp${k}`)}</g>`).join("") +
-    `<defs><radialGradient id="sfc" cx="40%" cy="34%" r="70%"><stop offset="0" stop-color="__CA__"/><stop offset="1" stop-color="__CDD__"/></radialGradient></defs><circle cx="100" cy="100" r="36" fill="url(#sfc)"/>` +
-    Array.from({ length: 9 }, (_, k) => { const [x, y] = polar(100, 100, 20, k * 40); return `<circle cx="${N(x)}" cy="${N(y)}" r="3.5" fill="__CDD__" opacity="0.6"/>`; }).join(""));
+    `<defs><radialGradient id="sfc" cx="40%" cy="34%" r="70%"><stop offset="0" stop-color="__C1~__"/><stop offset="1" stop-color="__CDD__"/></radialGradient></defs><circle cx="100" cy="100" r="36" fill="url(#sfc)"/>` +
+    Array.from({ length: 9 }, (_, k) => { const [x, y] = polar(100, 100, 20, k * 40); return `<circle cx="${N(x)}" cy="${N(y)}" r="3.5" fill="__CDD__" opacity="0.6"/>`; }).join(""), 200, 200, [{ label: "Pétales" }, { label: "Cœur", def: "#78350f" }]);
   HD("nature", "cloud2", "Nuage volume", "nature nuage cloud ciel", "#e2e8f0",
     orb(58, 106, 34, "cd1") + orb(104, 84, 44, "cd2") + orb(150, 104, 36, "cd3") + `<rect x="24" y="106" width="152" height="34" rx="17" fill="__CD__"/>` + `<rect x="24" y="106" width="152" height="18" rx="9" fill="__CM__" opacity="0.8"/>`, 200, 160);
   HD("nature", "rock", "Rocher", "nature rocher pierre caillou", "#94a3b8",
@@ -2341,18 +2375,18 @@ function tint(id: string, color: string) {
   HD("nature", "volcano", "Volcan", "nature volcan montagne", "#78716c",
     lin("vc", "__CL__", "__CDD__", "0.3", "1") + `<path d="M 12 180 L 72 50 H 128 L 188 180 Z" fill="url(#vc)"/>` +
     `<path d="M 72 50 H 128 L 112 66 H 88 Z" fill="__CDD__"/>` +
-    `<path d="M 84 50 C 78 30 92 22 90 8 C 104 20 100 36 108 50 Z" fill="__CA2__"/>` +
-    `<path d="M 100 66 C 108 96 96 120 104 148 L 88 148 C 82 116 92 92 88 66 Z" fill="__CA2__" opacity="0.8"/>`, 200, 200);
+    `<path d="M 84 50 C 78 30 92 22 90 8 C 104 20 100 36 108 50 Z" fill="__C1~L__"/>` +
+    `<path d="M 100 66 C 108 96 96 120 104 148 L 88 148 C 82 116 92 92 88 66 Z" fill="__C1~L__" opacity="0.8"/>`, 200, 200, [{ label: "Volcan" }, { label: "Lave", def: "#f97316" }]);
   HD("nature", "seedling", "Pousse", "nature pousse germe plante", "#22c55e",
     `<path d="M 100 190 V 110" stroke="__CD__" stroke-width="9" fill="none"/>` +
     lin("sd1", "__CLL__", "__CD__") + `<path d="M 100 118 C 58 112 40 78 48 50 C 88 58 106 90 100 118 Z" fill="url(#sd1)"/>` +
     lin("sd2", "__CL__", "__CDD__") + `<path d="M 100 100 C 142 94 160 62 152 36 C 112 44 96 74 100 100 Z" fill="url(#sd2)"/>` +
     `<path d="M 60 172 A 40 18 0 0 1 140 172 Z" fill="__CDD__" opacity="0.35"/>`);
   HD("nature", "island", "Île", "nature île plage tropical", "#22c55e",
-    `<ellipse cx="100" cy="158" rx="86" ry="26" fill="__CA__"/>` + `<ellipse cx="100" cy="152" rx="70" ry="20" fill="__CA2__"/>` +
+    `<ellipse cx="100" cy="158" rx="86" ry="26" fill="__C1~__"/>` + `<ellipse cx="100" cy="152" rx="70" ry="20" fill="__C1~L__"/>` +
     `<path d="M 100 150 C 96 120 100 100 104 84" stroke="__CD__" stroke-width="9" fill="none"/>` +
     Array.from({ length: 5 }, (_, k) => { const a = -160 + k * 30; const [ex, ey] = polar(104, 80, 62, a); return `<path d="M 104 80 Q ${N((104 + ex) / 2 + Math.cos((a + 90) * Math.PI / 180) * 18)} ${N((80 + ey) / 2 + Math.sin((a + 90) * Math.PI / 180) * 18)} ${N(ex)} ${N(ey)} Q ${N((104 + ex) / 2)} ${N((80 + ey) / 2)} 104 80 Z" fill="__CM__"/>`; }).join("") +
-    `<circle cx="104" cy="76" r="9" fill="__CDD__"/>`, 200, 190);
+    `<circle cx="104" cy="76" r="9" fill="__CDD__"/>`, 200, 190, [{ label: "Palmier" }, { label: "Sable", def: "#fbbf24" }]);
 
   /* ── Sport ── */
   HD("sport", "football", "Ballon rugby", "sport rugby football américain", "#a16207",
@@ -2362,7 +2396,7 @@ function tint(id: string, color: string) {
     `<path d="M 30 62 A 94 52 0 0 1 60 44" stroke="__CLL__" stroke-width="4" opacity="0.5" fill="none"/>`, 220, 160);
   HD("sport", "ping", "Ping-pong", "sport ping pong raquette", "#ef4444",
     orb(90, 76, 62, "pp") + `<circle cx="90" cy="76" r="62" fill="none" stroke="__CDD__" stroke-width="4" opacity="0.4"/>` +
-    lin("ph", "__CA2__", "__CDD__", "0", "1") + `<rect x="74" y="132" width="32" height="78" rx="12" fill="url(#ph)"/>` + glint(66, 54, 14, 10), 180, 220);
+    lin("ph", "__C1~L__", "__CDD__", "0", "1") + `<rect x="74" y="132" width="32" height="78" rx="12" fill="url(#ph)"/>` + glint(66, 54, 14, 10), 180, 220, [{ label: "Raquette" }, { label: "Manche", def: "#a16207" }]);
   HD("sport", "whistle", "Sifflet", "sport sifflet arbitre", "#f59e0b",
     `<path d="M 150 66 A 44 44 0 0 1 196 26" stroke="__CD__" stroke-width="9" fill="none"/>` +
     lin("wh", "__CLL__", "__CDD__", "0.3", "1") +
@@ -2387,18 +2421,18 @@ function tint(id: string, color: string) {
   HD("sport", "flagpole", "Drapeau golf", "sport golf drapeau but", "#ef4444",
     `<ellipse cx="100" cy="190" rx="58" ry="14" fill="__CDD__" opacity="0.35"/>` +
     `<path d="M 52 192 V 18" stroke="__CDD__" stroke-width="8" fill="none"/>` +
-    lin("fg", "__CLL__", "__CD__") + `<path d="M 52 22 L 158 52 L 52 82 Z" fill="url(#fg)"/>` + `<circle cx="52" cy="14" r="8" fill="__CA__"/>`, 180, 210);
+    lin("fg", "__CLL__", "__CD__") + `<path d="M 52 22 L 158 52 L 52 82 Z" fill="url(#fg)"/>` + `<circle cx="52" cy="14" r="8" fill="__C1~__"/>`, 180, 210, [{ label: "Drapeau" }, { label: "Mât", def: "#94a3b8" }]);
 
   /* ── Nourriture ── */
   HD("food", "cherry", "Cerises", "food cerise cherry fruit", "#e11d48",
-    `<path d="M 100 30 C 72 56 60 88 62 124 M 100 30 C 128 56 140 88 138 124" stroke="__CA__" stroke-width="7" fill="none"/>` +
-    `<path d="M 100 34 C 118 22 138 26 142 42 C 122 48 106 44 100 34 Z" fill="__CA__"/>` +
-    orb(62, 150, 34, "ch1") + orb(138, 150, 34, "ch2") + glint(50, 138, 8, 6) + glint(126, 138, 8, 6));
+    `<path d="M 100 30 C 72 56 60 88 62 124 M 100 30 C 128 56 140 88 138 124" stroke="__C1~__" stroke-width="7" fill="none"/>` +
+    `<path d="M 100 34 C 118 22 138 26 142 42 C 122 48 106 44 100 34 Z" fill="__C1~__"/>` +
+    orb(62, 150, 34, "ch1") + orb(138, 150, 34, "ch2") + glint(50, 138, 8, 6) + glint(126, 138, 8, 6), 200, 200, [{ label: "Cerises" }, { label: "Tige & feuille", def: "#22c55e" }]);
   HD("food", "strawberry", "Fraise", "food fraise strawberry fruit", "#f43f5e",
-    `<path d="M 100 30 L 70 50 L 100 46 Z M 100 30 L 130 50 L 100 46 Z M 62 46 L 90 58 L 72 64 Z M 138 46 L 110 58 L 128 64 Z" fill="__CA__"/>` +
+    `<path d="M 100 30 L 70 50 L 100 46 Z M 100 30 L 130 50 L 100 46 Z M 62 46 L 90 58 L 72 64 Z M 138 46 L 110 58 L 128 64 Z" fill="__C1~__"/>` +
     `<defs><radialGradient id="sb" cx="38%" cy="28%" r="74%"><stop offset="0" stop-color="__CLL__"/><stop offset="0.6" stop-color="__CM__"/><stop offset="1" stop-color="__CDD__"/></radialGradient></defs>` +
     `<path d="M 100 56 C 42 56 30 112 58 156 C 74 182 100 196 100 196 C 100 196 126 182 142 156 C 170 112 158 56 100 56 Z" fill="url(#sb)"/>` +
-    [[74, 96], [104, 90], [128, 108], [86, 128], [116, 140], [100, 166]].map(([x, y]) => `<ellipse cx="${x}" cy="${y}" rx="4" ry="6" fill="__CA2__" opacity="0.9"/>`).join("") + glint(74, 84, 10, 16, -22, 0.5), 200, 210);
+    [[74, 96], [104, 90], [128, 108], [86, 128], [116, 140], [100, 166]].map(([x, y]) => `<ellipse cx="${x}" cy="${y}" rx="4" ry="6" fill="__C1~L__" opacity="0.9"/>`).join("") + glint(74, 84, 10, 16, -22, 0.5), 200, 210, [{ label: "Fraise" }, { label: "Feuilles", def: "#22c55e" }]);
   HD("food", "lemon", "Citron", "food citron lemon agrume", "#facc15",
     `<defs><radialGradient id="lm" cx="34%" cy="28%" r="76%"><stop offset="0" stop-color="__CLL__"/><stop offset="0.6" stop-color="__CM__"/><stop offset="1" stop-color="__CDD__"/></radialGradient></defs>` +
     `<path d="M 22 80 C 22 36 92 30 132 44 C 174 58 194 78 194 80 C 194 82 174 102 132 116 C 92 130 22 124 22 80 Z" fill="url(#lm)"/>` +
@@ -2408,32 +2442,32 @@ function tint(id: string, color: string) {
     `<path d="M 90 40 C 54 40 46 96 56 138 C 64 172 78 186 90 186 C 102 186 116 172 124 138 C 134 96 126 40 90 40 Z" fill="__CW__" opacity="0.55"/>` +
     orb(90, 138, 28, "avp"), 180, 220);
   HD("food", "cupcake", "Cupcake", "food cupcake gâteau muffin dessert", "#f472b6",
-    lin("cpb", "__CA2__", "__CDD__", "0.4", "1") + `<path d="M 46 100 L 60 194 H 130 L 144 100 Z" fill="url(#cpb)"/>` +
+    lin("cpb", "__C1~L__", "__CDD__", "0.4", "1") + `<path d="M 46 100 L 60 194 H 130 L 144 100 Z" fill="url(#cpb)"/>` +
     `<path d="M 54 122 H 136 M 60 152 H 130" stroke="__CDD__" stroke-width="5" opacity="0.4" fill="none"/>` +
     `<defs><radialGradient id="cpt" cx="38%" cy="26%" r="76%"><stop offset="0" stop-color="__CLL__"/><stop offset="0.6" stop-color="__CM__"/><stop offset="1" stop-color="__CD__"/></radialGradient></defs>` +
     `<path d="M 95 26 C 58 26 40 62 60 88 C 44 98 50 120 72 118 C 76 134 110 134 116 118 C 138 120 146 96 128 86 C 148 60 130 26 95 26 Z" fill="url(#cpt)"/>` +
-    `<circle cx="95" cy="18" r="10" fill="__CA__"/>` + glint(70, 52, 10, 7), 190, 210);
+    `<circle cx="95" cy="18" r="10" fill="__C1~__"/>` + glint(70, 52, 10, 7), 190, 210, [{ label: "Glaçage" }, { label: "Caissette", def: "#a16207" }]);
   HD("food", "coffee", "Café", "food café tasse boisson", "#a16207",
     `<path d="M 150 74 H 176 A 26 26 0 0 1 150 120" fill="none" stroke="__CD__" stroke-width="10"/>` +
     lin("cf", "__CLL__", "__CDD__", "1", "0.3") + `<path d="M 30 62 H 150 V 120 A 44 44 0 0 1 30 120 Z" fill="url(#cf)"/>` +
-    `<ellipse cx="90" cy="62" rx="60" ry="14" fill="__CA2__"/><ellipse cx="90" cy="62" rx="48" ry="9" fill="__CDD__" opacity="0.5"/>` +
-    `<path d="M 66 24 C 60 38 74 44 68 58 M 100 22 C 94 36 108 42 102 56 M 134 26 C 128 40 142 46 136 60" stroke="__CW__" stroke-width="5" opacity="0.5" fill="none"/>`, 210, 190);
+    `<ellipse cx="90" cy="62" rx="60" ry="14" fill="__C1~L__"/><ellipse cx="90" cy="62" rx="48" ry="9" fill="__CDD__" opacity="0.5"/>` +
+    `<path d="M 66 24 C 60 38 74 44 68 58 M 100 22 C 94 36 108 42 102 56 M 134 26 C 128 40 142 46 136 60" stroke="__CW__" stroke-width="5" opacity="0.5" fill="none"/>`, 210, 190, [{ label: "Tasse" }, { label: "Café", def: "#78350f" }]);
   HD("food", "cake", "Gâteau", "food gâteau cake anniversaire dessert", "#f9a8d4",
     lin("ck1", "__CLL__", "__CD__", "1", "0.4") + `<path d="M 26 96 H 174 V 178 H 26 Z" fill="url(#ck1)"/>` +
     `<path d="M 26 130 H 174" stroke="__CDD__" stroke-width="5" opacity="0.35" fill="none"/>` +
     `<path d="M 26 96 C 42 78 62 110 78 96 C 94 82 110 110 126 96 C 142 82 158 110 174 96 V 76 H 26 Z" fill="__CW__" opacity="0.75"/>` +
-    `<rect x="94" y="30" width="12" height="46" rx="4" fill="__CA__"/>` + `<path d="M 100 12 C 110 22 110 32 100 32 C 90 32 90 22 100 12 Z" fill="__CA2__"/>`, 200, 200);
+    `<rect x="94" y="30" width="12" height="46" rx="4" fill="__C1~__"/>` + `<path d="M 100 12 C 110 22 110 32 100 32 C 90 32 90 22 100 12 Z" fill="__C1~L__"/>`, 200, 200, [{ label: "Gâteau" }, { label: "Bougie", def: "#f59e0b" }]);
   HD("food", "burger", "Burger", "food burger hamburger fast food", "#f59e0b",
     `<defs><radialGradient id="bnt" cx="40%" cy="20%" r="80%"><stop offset="0" stop-color="__CLL__"/><stop offset="1" stop-color="__CD__"/></radialGradient></defs>` +
     `<path d="M 22 66 C 22 26 178 26 178 66 Z" fill="url(#bnt)"/>` +
     [[64, 48], [100, 40], [136, 48], [82, 58], [118, 58]].map(([x, y]) => `<ellipse cx="${x}" cy="${y}" rx="6" ry="4" fill="__CW__" opacity="0.7"/>`).join("") +
-    `<path d="M 18 74 C 40 62 160 62 182 74 C 160 86 40 86 18 74 Z" fill="__CA__"/>` +
+    `<path d="M 18 74 C 40 62 160 62 182 74 C 160 86 40 86 18 74 Z" fill="__C1~__"/>` +
     `<rect x="26" y="88" width="148" height="24" rx="8" fill="__CDD__"/>` +
-    `<path d="M 22 118 C 40 108 160 108 178 118 C 178 158 22 158 22 118 Z" fill="url(#bnt)"/>`, 200, 175);
+    `<path d="M 22 118 C 40 108 160 108 178 118 C 178 158 22 158 22 118 Z" fill="url(#bnt)"/>`, 200, 175, [{ label: "Pain" }, { label: "Garniture", def: "#22c55e" }]);
   HD("food", "pizza", "Pizza", "food pizza part slice", "#f97316",
-    lin("pz", "__CA2__", "__CD__", "0.2", "1") + `<path d="M 100 12 L 178 194 C 128 210 72 210 22 194 Z" fill="url(#pz)"/>` +
+    lin("pz", "__C1~L__", "__CD__", "0.2", "1") + `<path d="M 100 12 L 178 194 C 128 210 72 210 22 194 Z" fill="url(#pz)"/>` +
     `<path d="M 100 44 L 160 182 C 122 194 78 194 40 182 Z" fill="__CLL__" opacity="0.45"/>` +
-    [[86, 100, 12], [126, 128, 11], [72, 152, 10], [120, 176, 9]].map(([x, y, r]) => `<circle cx="${x}" cy="${y}" r="${r}" fill="__CM__"/><circle cx="${N(Number(x) - 3)}" cy="${N(Number(y) - 3)}" r="${N(Number(r) * 0.4)}" fill="__CLL__" opacity="0.6"/>`).join(""), 200, 215);
+    [[86, 100, 12], [126, 128, 11], [72, 152, 10], [120, 176, 9]].map(([x, y, r]) => `<circle cx="${x}" cy="${y}" r="${r}" fill="__CM__"/><circle cx="${N(Number(x) - 3)}" cy="${N(Number(y) - 3)}" r="${N(Number(r) * 0.4)}" fill="__CLL__" opacity="0.6"/>`).join(""), 200, 215, [{ label: "Pâte" }, { label: "Garniture", def: "#e11d48" }]);
   HD("food", "egg", "Œuf", "food oeuf egg", "#f8fafc",
     `<defs><radialGradient id="eg" cx="36%" cy="26%" r="76%"><stop offset="0" stop-color="__CLL__"/><stop offset="0.6" stop-color="__CM__"/><stop offset="1" stop-color="__CDD__"/></radialGradient></defs>` +
     `<path d="M 90 14 C 42 14 26 116 44 162 C 58 198 122 198 136 162 C 154 116 138 14 90 14 Z" fill="url(#eg)"/>` + glint(66, 66, 12, 20, -24, 0.55), 180, 210);
@@ -2446,24 +2480,24 @@ function tint(id: string, color: string) {
   HD("objects", "camera", "Appareil photo", "objet caméra photo appareil", "#818cf8",
     lin("cm", "__CL__", "__CDD__", "0.4", "1") + `<path d="M 14 48 H 66 L 82 26 H 138 L 154 48 H 206 V 152 H 14 Z" fill="url(#cm)" stroke="none"/>` +
     `<circle cx="110" cy="100" r="40" fill="__CDD__"/>` + orb(110, 100, 32, "cml") + `<circle cx="110" cy="100" r="14" fill="__CW__" opacity="0.25"/>` + glint(98, 88, 9, 6) +
-    `<circle cx="180" cy="66" r="8" fill="__CA__"/>`, 220, 170);
+    `<circle cx="180" cy="66" r="8" fill="__C1~__"/>`, 220, 170, [{ label: "Boîtier" }, { label: "Voyant", def: "#ef4444" }]);
   HD("objects", "gift", "Cadeau", "objet cadeau gift boîte", "#f472b6",
     lin("gf", "__CLL__", "__CD__", "0.6", "1") + `<rect x="30" y="86" width="140" height="106" rx="8" fill="url(#gf)"/>` +
     `<rect x="20" y="66" width="160" height="30" rx="8" fill="__CL__"/>` +
-    `<rect x="86" y="66" width="28" height="126" fill="__CA__"/>` +
-    `<path d="M 100 66 C 62 66 44 30 68 20 C 90 12 100 48 100 66 C 100 48 110 12 132 20 C 156 30 138 66 100 66 Z" fill="__CA__"/>` +
-    `<circle cx="100" cy="58" r="10" fill="__CA2__"/>`, 200, 210);
+    `<rect x="86" y="66" width="28" height="126" fill="__C1~__"/>` +
+    `<path d="M 100 66 C 62 66 44 30 68 20 C 90 12 100 48 100 66 C 100 48 110 12 132 20 C 156 30 138 66 100 66 Z" fill="__C1~__"/>` +
+    `<circle cx="100" cy="58" r="10" fill="__C1~L__"/>`, 200, 210, [{ label: "Boîte" }, { label: "Ruban", def: "#facc15" }]);
   HD("objects", "rocket", "Fusée", "objet fusée rocket espace", "#fb7185",
     lin("rk2", "__CLL__", "__CD__", "1", "0.2") + `<path d="M 85 8 C 122 42 132 96 122 150 H 48 C 38 96 48 42 85 8 Z" fill="url(#rk2)"/>` +
     `<circle cx="85" cy="66" r="20" fill="__CDD__"/><circle cx="85" cy="66" r="14" fill="__CW__" opacity="0.5"/>` +
     `<path d="M 48 122 L 14 168 L 52 158 Z M 122 122 L 156 168 L 118 158 Z" fill="__CDD__"/>` +
-    `<path d="M 68 150 H 102 L 85 210 Z" fill="__CA2__"/><path d="M 78 150 H 92 L 85 186 Z" fill="__CW__" opacity="0.7"/>`, 170, 220);
+    `<path d="M 68 150 H 102 L 85 210 Z" fill="__C1~L__"/><path d="M 78 150 H 92 L 85 186 Z" fill="__CW__" opacity="0.7"/>`, 170, 220, [{ label: "Fusée" }, { label: "Flamme", def: "#f59e0b" }]);
   HD("objects", "trophy2", "Coupe", "objet coupe trophée prix", "#eab308",
     lin("tp2", "__CLL__", "__CDD__", "1", "0.3") + `<path d="M 52 24 H 148 V 84 A 48 48 0 0 1 52 84 Z" fill="url(#tp2)"/>` +
     `<path d="M 52 40 H 20 A 34 34 0 0 0 58 88 M 148 40 H 180 A 34 34 0 0 1 142 88" fill="none" stroke="__CD__" stroke-width="9"/>` +
     `<rect x="90" y="130" width="20" height="26" fill="__CD__"/><path d="M 58 156 H 142 L 152 182 H 48 Z" fill="__CDD__"/>` +
     `<path d="M 74 36 V 76 A 26 26 0 0 0 100 96" stroke="__CW__" stroke-width="7" opacity="0.6" fill="none"/>` +
-    `<path d="${starPts(100, 62, 5, 20, 9)}" fill="__CA__" opacity="0.9"/>`, 200, 200);
+    `<path d="${starPts(100, 62, 5, 20, 9)}" fill="__C1~__" opacity="0.9"/>`, 200, 200, [{ label: "Coupe" }, { label: "Étoile", def: "#fef08a" }]);
   HD("objects", "book", "Livre", "objet livre book lecture", "#38bdf8",
     lin("bk2", "__CLL__", "__CD__", "1", "0.4") + `<path d="M 100 46 C 76 28 34 28 18 38 V 156 C 34 146 76 146 100 164 Z" fill="url(#bk2)"/>` +
     `<path d="M 100 46 C 124 28 166 28 182 38 V 156 C 166 146 124 146 100 164 Z" fill="__CD__"/>` +
@@ -2477,7 +2511,7 @@ function tint(id: string, color: string) {
   HD("objects", "clock", "Horloge", "objet horloge heure temps clock", "#60a5fa",
     orb(100, 100, 88, "cl2") + `<circle cx="100" cy="100" r="70" fill="__CW__" opacity="0.18"/>` +
     Array.from({ length: 12 }, (_, k) => { const [x1, y1] = polar(100, 100, 62, k * 30), [x2, y2] = polar(100, 100, 72, k * 30); return `<path d="M ${N(x1)} ${N(y1)} L ${N(x2)} ${N(y2)}" stroke="__CDD__" stroke-width="${k % 3 ? 3 : 5}" opacity="0.7" fill="none"/>`; }).join("") +
-    `<path d="M 100 100 V 52 M 100 100 L 134 122" stroke="__CDD__" stroke-width="8" stroke-linecap="round" fill="none"/><circle cx="100" cy="100" r="8" fill="__CA__"/>` + glint(72, 68, 16, 11));
+    `<path d="M 100 100 V 52 M 100 100 L 134 122" stroke="__CDD__" stroke-width="8" stroke-linecap="round" fill="none"/><circle cx="100" cy="100" r="8" fill="__C1~__"/>` + glint(72, 68, 16, 11), 200, 200, [{ label: "Cadran" }, { label: "Aiguilles", def: "#ef4444" }]);
   HD("objects", "key", "Clé", "objet clé key serrure", "#fbbf24",
     lin("ky", "__CLL__", "__CDD__", "0.6", "1") + `<circle cx="56" cy="66" r="42" fill="url(#ky)"/><circle cx="56" cy="66" r="17" fill="__CDD__"/>` +
     `<rect x="92" y="54" width="112" height="24" rx="8" fill="url(#ky)"/>` +
@@ -2485,11 +2519,11 @@ function tint(id: string, color: string) {
   HD("objects", "gamepad", "Manette", "objet manette jeu gaming", "#a78bfa",
     lin("gp", "__CLL__", "__CDD__", "0.5", "1") + `<path d="M 62 62 H 138 C 176 62 192 128 174 158 C 158 182 138 150 128 136 H 72 C 62 150 42 182 26 158 C 8 128 24 62 62 62 Z" fill="url(#gp)"/>` +
     `<rect x="42" y="92" width="30" height="10" rx="5" fill="__CDD__"/><rect x="52" y="82" width="10" height="30" rx="5" fill="__CDD__"/>` +
-    `<circle cx="136" cy="92" r="9" fill="__CA__"/><circle cx="156" cy="110" r="9" fill="__CA2__"/><circle cx="116" cy="110" r="9" fill="__CW__" opacity="0.8"/>`, 200, 200);
+    `<circle cx="136" cy="92" r="9" fill="__C1~__"/><circle cx="156" cy="110" r="9" fill="__C1~L__"/><circle cx="116" cy="110" r="9" fill="__CW__" opacity="0.8"/>`, 200, 200, [{ label: "Manette" }, { label: "Boutons", def: "#f43f5e" }]);
   HD("objects", "paint", "Palette", "objet palette peinture art couleur", "#f472b6",
     `<defs><radialGradient id="pal" cx="40%" cy="30%" r="76%"><stop offset="0" stop-color="__CLL__"/><stop offset="1" stop-color="__CD__"/></radialGradient></defs>` +
     `<path fill-rule="evenodd" d="M 105 16 C 40 16 12 66 20 116 C 26 154 62 172 92 160 C 104 156 100 140 108 134 C 120 126 138 138 156 130 C 186 116 196 60 158 34 C 142 22 124 16 105 16 Z${holeC(70, 130, 15)}" fill="url(#pal)"/>` +
-    `<circle cx="54" cy="70" r="13" fill="__CA__"/><circle cx="100" cy="50" r="13" fill="__CA2__"/><circle cx="148" cy="72" r="13" fill="__CDD__"/><circle cx="152" cy="110" r="12" fill="__CW__"/>`, 210, 190);
+    `<circle cx="54" cy="70" r="13" fill="__C1~__"/><circle cx="100" cy="50" r="13" fill="__C1~L__"/><circle cx="148" cy="72" r="13" fill="__CDD__"/><circle cx="152" cy="110" r="12" fill="__CW__"/>`, 210, 190, [{ label: "Palette" }, { label: "Peintures", def: "#38bdf8" }]);
   HD("objects", "headphones", "Casque", "objet casque audio musique", "#22d3ee",
     `<path d="M 34 118 V 96 A 66 66 0 0 1 166 96 V 118" fill="none" stroke="__CD__" stroke-width="14"/>` +
     lin("hp", "__CLL__", "__CDD__", "0.4", "1") + `<rect x="16" y="110" width="38" height="66" rx="16" fill="url(#hp)"/><rect x="146" y="110" width="38" height="66" rx="16" fill="url(#hp)"/>` +
@@ -2497,7 +2531,7 @@ function tint(id: string, color: string) {
   HD("objects", "wallet", "Portefeuille", "objet portefeuille argent wallet", "#818cf8",
     lin("wl", "__CLL__", "__CD__", "0.5", "1") + `<rect x="18" y="48" width="164" height="110" rx="18" fill="url(#wl)"/>` +
     `<path d="M 18 78 H 182 V 108 H 18 Z" fill="__CDD__" opacity="0.4"/>` +
-    `<rect x="120" y="86" width="70" height="40" rx="10" fill="__CA__"/><circle cx="155" cy="106" r="10" fill="__CDD__"/>`, 200, 190);
+    `<rect x="120" y="86" width="70" height="40" rx="10" fill="__C1~__"/><circle cx="155" cy="106" r="10" fill="__CDD__"/>`, 200, 190, [{ label: "Portefeuille" }, { label: "Carte", def: "#facc15" }]);
 
   /* ── Météo ── */
   HD("weather", "sun2", "Soleil radieux", "météo soleil sun rayons", "#f59e0b",
@@ -2506,14 +2540,14 @@ function tint(id: string, color: string) {
     orb(100, 100, 54, "sn2") + glint(82, 80, 15, 10));
   HD("weather", "storm", "Orage", "météo orage éclair storm nuage", "#94a3b8",
     orb(58, 92, 32, "sr1") + orb(104, 70, 42, "sr2") + orb(150, 90, 34, "sr3") + `<rect x="26" y="92" width="150" height="32" rx="16" fill="__CD__"/>` +
-    `<path d="M 112 128 L 76 182 H 102 L 88 214 L 138 156 H 110 L 126 128 Z" fill="__CA2__"/>` +
-    `<path d="M 112 128 L 92 158 H 106 L 98 186 L 124 152 H 108 Z" fill="__CW__" opacity="0.6"/>`, 200, 220);
+    `<path d="M 112 128 L 76 182 H 102 L 88 214 L 138 156 H 110 L 126 128 Z" fill="__C1~L__"/>` +
+    `<path d="M 112 128 L 92 158 H 106 L 98 186 L 124 152 H 108 Z" fill="__CW__" opacity="0.6"/>`, 200, 220, [{ label: "Nuage" }, { label: "Éclair", def: "#facc15" }]);
   HD("weather", "snowman", "Bonhomme de neige", "météo bonhomme neige hiver snowman", "#e2e8f0",
     orb(95, 158, 54, "sm1") + orb(95, 88, 40, "sm2") +
-    eyes(84, 106, 82, 6) + `<path d="M 95 92 L 128 100 L 95 108 Z" fill="__CA2__"/>` +
+    eyes(84, 106, 82, 6) + `<path d="M 95 92 L 128 100 L 95 108 Z" fill="__C1~L__"/>` +
     `<circle cx="95" cy="134" r="6" fill="__CDD__"/><circle cx="95" cy="158" r="6" fill="__CDD__"/><circle cx="95" cy="182" r="6" fill="__CDD__"/>` +
-    `<path d="M 55 100 L 20 84 M 135 100 L 170 84" stroke="__CA__" stroke-width="6" fill="none"/>` +
-    `<rect x="64" y="48" width="62" height="12" rx="4" fill="__CDD__"/><rect x="76" y="20" width="38" height="30" rx="4" fill="__CDD__"/>`, 190, 220);
+    `<path d="M 55 100 L 20 84 M 135 100 L 170 84" stroke="__C1~__" stroke-width="6" fill="none"/>` +
+    `<rect x="64" y="48" width="62" height="12" rx="4" fill="__CDD__"/><rect x="76" y="20" width="38" height="30" rx="4" fill="__CDD__"/>`, 190, 220, [{ label: "Neige" }, { label: "Écharpe & carotte", def: "#f97316" }]);
   HD("weather", "thermometer", "Thermomètre", "météo thermomètre température", "#f87171",
     `<rect x="46" y="16" width="28" height="150" rx="14" fill="__CW__" opacity="0.35"/>` +
     `<rect x="46" y="16" width="28" height="150" rx="14" fill="none" stroke="__CD__" stroke-width="5"/>` +
@@ -2528,7 +2562,7 @@ function tint(id: string, color: string) {
   HD("party", "cake2", "Gâteau fête", "fête gâteau anniversaire bougies", "#f9a8d4",
     lin("ck2", "__CLL__", "__CD__", "1", "0.4") + `<path d="M 22 108 H 178 V 182 H 22 Z" fill="url(#ck2)"/>` +
     `<path d="M 22 108 C 40 92 58 122 76 108 C 94 94 106 122 124 108 C 142 94 160 122 178 108 V 88 H 22 Z" fill="__CW__" opacity="0.8"/>` +
-    [60, 100, 140].map((x, k) => `<rect x="${x - 6}" y="${44 - (k === 1 ? 8 : 0)}" width="12" height="${46 + (k === 1 ? 8 : 0)}" rx="4" fill="__CA__"/>` + `<path d="M ${x} ${26 - (k === 1 ? 8 : 0)} C ${x + 10} ${36 - (k === 1 ? 8 : 0)} ${x + 10} ${46 - (k === 1 ? 8 : 0)} ${x} ${46 - (k === 1 ? 8 : 0)} C ${x - 10} ${46 - (k === 1 ? 8 : 0)} ${x - 10} ${36 - (k === 1 ? 8 : 0)} ${x} ${26 - (k === 1 ? 8 : 0)} Z" fill="__CA2__"/>`).join(""), 200, 200);
+    [60, 100, 140].map((x, k) => `<rect x="${x - 6}" y="${44 - (k === 1 ? 8 : 0)}" width="12" height="${46 + (k === 1 ? 8 : 0)}" rx="4" fill="__C1~__"/>` + `<path d="M ${x} ${26 - (k === 1 ? 8 : 0)} C ${x + 10} ${36 - (k === 1 ? 8 : 0)} ${x + 10} ${46 - (k === 1 ? 8 : 0)} ${x} ${46 - (k === 1 ? 8 : 0)} C ${x - 10} ${46 - (k === 1 ? 8 : 0)} ${x - 10} ${36 - (k === 1 ? 8 : 0)} ${x} ${26 - (k === 1 ? 8 : 0)} Z" fill="__C1~L__"/>`).join(""), 200, 200, [{ label: "Gâteau" }, { label: "Bougies", def: "#f59e0b" }]);
   HD("party", "confetti", "Confettis", "fête confettis party paillettes", "#a855f7",
     Array.from({ length: 26 }, (_, k) => { const r = rng(k * 37 + 5); const x = 12 + r() * 176, y = 12 + r() * 176, t = Math.floor(r() * 3), c = ["__CM__", "__CA__", "__CA2__", "__CLL__"][Math.floor(r() * 4)];
       return t === 0 ? `<circle cx="${N(x)}" cy="${N(y)}" r="${N(4 + r() * 5)}" fill="${c}"/>` : t === 1 ? `<rect x="${N(x)}" y="${N(y)}" width="${N(8 + r() * 8)}" height="${N(5 + r() * 5)}" rx="2" fill="${c}" transform="rotate(${N(r() * 90)} ${N(x)} ${N(y)})"/>` : `<path d="${starPts(x, y, 4, N(8 + r() * 5), N(3 + r() * 2))}" fill="${c}"/>`; }).join(""));
@@ -2578,6 +2612,116 @@ tint("weather.rainbow0", "#f472b6"); tint("weather.storm0", "#facc15");
 tint("weather.cloudsun0", "#fbbf24"); tint("weather.moonstar0", "#fde68a"); tint("weather.thermometer0", "#f87171");
 tint("sport.basket0", "#fb923c"); tint("sport.tennis0", "#a3e635"); tint("sport.soccer0", "#e2e8f0");
 tint("sport.medal1", "#fbbf24"); tint("sport.flagp0", "#f87171");
+
+
+/* ── Anti-débordement ──────────────────────────────────────────────────────
+   Un tracé qui sort de la boîte déclarée est ROGNÉ au rendu (le viewBox coupe) :
+   coutures de ballon qui dépassent, branche de sapin tronquée, bout de
+   serpentin coupé… Ces marges ont été MESURÉES dans le navigateur (boîtes
+   englobantes réelles, contour compris) : on agrandit la boîte et on recentre
+   le dessin, donc plus rien n'est coupé. Les motifs volontairement rognés
+   (rayures diagonales en fond) ne sont pas touchés.
+   [gauche, haut, droite, bas] */
+const OVERFLOW_PAD: Record<string, [number, number, number, number]> = {
+  "animals.lion0": [7, 7, 7, 7],
+  "animals.lion2": [7, 7, 7, 7],
+  "animals.peacock1": [4, 0, 4, 0],
+  "arrows.both2": [3, 0, 3, 0],
+  "arrows.both3": [5, 0, 5, 0],
+  "arrows.dash0": [0, 0, 2, 0],
+  "arrows.dash1": [0, 0, 2, 0],
+  "arrows.dash2": [0, 0, 2, 0],
+  "arrows.dash3": [0, 0, 2, 0],
+  "arrows.elbow4": [0, 0, 0, 8],
+  "arrows.elbow5": [0, 2, 0, 0],
+  "arrows.str1": [0, 0, 2, 0],
+  "arrows.str2": [0, 0, 6, 0],
+  "arrows.str3": [0, 0, 7, 0],
+  "arrows.str4": [0, 0, 11, 0],
+  "arrows.zig2_1": [0, 3, 0, 0],
+  "blobs.fill11": [0, 0, 0, 4],
+  "blobs.fill15": [0, 3, 0, 0],
+  "blobs.fill31": [0, 3, 0, 0],
+  "blobs.fill43": [0, 0, 5, 0],
+  "blobs.fill59": [0, 2, 0, 0],
+  "blobs.fill7": [0, 2, 0, 3],
+  "blobs.xf104": [4, 0, 0, 0],
+  "blobs.xf13": [0, 0, 3, 0],
+  "blobs.xf14": [11, 11, 0, 0],
+  "blobs.xf18": [0, 0, 4, 0],
+  "blobs.xf19": [0, 0, 0, 9],
+  "blobs.xf23": [0, 0, 0, 3],
+  "blobs.xf28": [0, 9, 4, 0],
+  "blobs.xf29": [0, 4, 0, 0],
+  "blobs.xf3": [3, 0, 0, 0],
+  "blobs.xf34": [0, 7, 1, 0],
+  "blobs.xf39": [6, 0, 0, 0],
+  "blobs.xf4": [0, 5, 0, 2],
+  "blobs.xf44": [0, 0, 7, 0],
+  "blobs.xf54": [1, 0, 0, 0],
+  "blobs.xf69": [14, 6, 1, 0],
+  "blobs.xf79": [0, 0, 6, 3],
+  "blobs.xf83": [0, 4, 0, 0],
+  "blobs.xf89": [7, 1, 0, 0],
+  "blobs.xf9": [0, 7, 7, 13],
+  "blobs.xo31": [1, 0, 0, 0],
+  "circles.brush0": [0, 0, 4, 0],
+  "circles.brush10": [0, 0, 4, 3],
+  "circles.brush18": [0, 0, 1, 0],
+  "circles.brush23": [0, 0, 18, 0],
+  "circles.brush30": [0, 0, 27, 0],
+  "circles.brush34": [0, 0, 4, 0],
+  "circles.brush35": [0, 0, 0, 2],
+  "circles.brush6": [0, 0, 1, 0],
+  "deco.semis0": [0, 24, 0, 0],
+  "food.grapes0": [0, 0, 0, 13],
+  "food.grapes1": [0, 0, 0, 13],
+  "food.grapes1b": [0, 0, 0, 4],
+  "food.grapes2": [0, 0, 0, 13],
+  "food.hdgrapes": [0, 0, 0, 3],
+  "icons.stargroup1": [0, 0, 8, 0],
+  "nature.hddroplet": [0, 0, 0, 10],
+  "nature.mount2": [0, 0, 12, 0],
+  "nature.palm1": [0, 3, 0, 0],
+  "nature.pine1": [0, 0, 38, 0],
+  "nature.waterdrop1": [0, 0, 0, 8],
+  "objects.balloon2": [0, 0, 0, 6],
+  "ornaments.rosette1": [8, 8, 8, 3],
+  "ornaments.rosette11": [1, 0, 1, 0],
+  "ornaments.rosette16": [0, 9, 0, 9],
+  "ornaments.rosette17": [5, 5, 5, 5],
+  "ornaments.rosette2": [11, 11, 11, 6],
+  "ornaments.rosette24": [9, 11, 9, 11],
+  "ornaments.rosette28": [5, 5, 5, 5],
+  "ornaments.rosette37": [5, 6, 5, 0],
+  "ornaments.rosette38": [7, 6, 7, 6],
+  "ornaments.rosette40": [4, 3, 4, 3],
+  "ornaments.rosette43": [4, 4, 4, 4],
+  "ornaments.rosette7": [1, 0, 1, 0],
+  "party.balloon0": [0, 0, 0, 2],
+  "party.balloon3": [0, 0, 0, 10],
+  "party.buntingx": [0, 0, 2, 0],
+  "party.confetti1": [0, 0, 0, 3],
+  "party.confetti15": [0, 2, 0, 0],
+  "party.confetti5": [0, 0, 3, 0],
+  "party.streamer0": [0, 14, 11, 0],
+  "party.streamer1": [0, 22, 9, 0],
+  "party.streamer2": [0, 21, 8, 0],
+  "party.streamer3": [0, 20, 5, 0],
+  "party.streamer4": [0, 8, 1, 0],
+  "party.streamer5": [0, 14, 5, 0],
+  "party.streamer6": [0, 0, 12, 0],
+  "party.streamer7": [0, 19, 2, 0],
+  "tech.circuit4": [0, 2, 0, 0]
+};
+for (const e of items) {
+  const p = OVERFLOW_PAD[e.id];
+  if (!p) continue;
+  const [l, t, r, b] = p;
+  e.body = `<g transform="translate(${l} ${t})">${e.body}</g>`;
+  e.w += l + r;
+  e.h += t + b;
+}
 
 export const ELEMENTS: ElementDef[] = items;
 export const ELEMENT_INDEX: Map<string, ElementDef> = new Map(items.map((e) => [e.id, e]));
@@ -2635,42 +2779,74 @@ function deriveShades(base: string): Shades {
   return { CM: toHex(...rgb), CL: L(0.12), CLL: L(0.26, -0.05), CD: L(-0.12), CDD: L(-0.25, 0.04), CA: rot(148), CA2: rot(40, 0.03), CW: L(0.42, -0.25) };
 }
 
-export function elementSvg(def: ElementDef, fill: string, gradient: GradientFill | null): string {
+/** Jeton de peinture : __C__ (principal), __CL__/__CDD__… (nuances dérivées),
+ *  __C1~__ / __C1~L__… (emplacement secondaire n° 1 et ses nuances). */
+const TOKEN_RE = /__C(?:(\d+)~)?([A-Z0-9]*)__/g;
+
+export function elementSvg(
+  def: ElementDef,
+  fill: string,
+  gradient: GradientFill | null,
+  extraSlots: SlotPaint[] = [],
+): string {
+  // Peinture de chaque emplacement : 0 = principal, 1.. = secondaires.
+  const defaults = elementSlotDefaults(def);
+  const paints: SlotPaint[] = [{ fill, gradient }];
+  for (let i = 1; i < defaults.length; i++) paints.push(extraSlots[i - 1] ?? defaults[i]);
+
   let defs = "";
-  let paint = fill;
-  if (gradient) {
-    paint = "url(#g)";
-    if (gradient.type === "radial") {
-      const r = Math.sqrt((def.w / 2) ** 2 + (def.h / 2) ** 2);
-      defs = `<defs><radialGradient id="g" gradientUnits="userSpaceOnUse" cx="${def.w / 2}" cy="${def.h / 2}" r="${N(r)}"><stop offset="0" stop-color="${gradient.from}"/><stop offset="1" stop-color="${gradient.to}"/></radialGradient></defs>`;
+  const slotPaint: string[] = [];
+  const slotShades: Shades[] = [];
+  paints.forEach((p, i) => {
+    const gid = `g${i}`;
+    if (p.gradient) {
+      slotPaint.push(`url(#${gid})`);
+      if (p.gradient.type === "radial") {
+        const r = Math.sqrt((def.w / 2) ** 2 + (def.h / 2) ** 2);
+        defs += `<radialGradient id="${gid}" gradientUnits="userSpaceOnUse" cx="${def.w / 2}" cy="${def.h / 2}" r="${N(r)}"><stop offset="0" stop-color="${p.gradient.from}"/><stop offset="1" stop-color="${p.gradient.to}"/></radialGradient>`;
+      } else {
+        const q = linPts(p.gradient.angle, def.w, def.h);
+        defs += `<linearGradient id="${gid}" gradientUnits="userSpaceOnUse" x1="${N(q.x1)}" y1="${N(q.y1)}" x2="${N(q.x2)}" y2="${N(q.y2)}"><stop offset="0" stop-color="${p.gradient.from}"/><stop offset="1" stop-color="${p.gradient.to}"/></linearGradient>`;
+      }
     } else {
-      const p = linPts(gradient.angle, def.w, def.h);
-      defs = `<defs><linearGradient id="g" gradientUnits="userSpaceOnUse" x1="${N(p.x1)}" y1="${N(p.y1)}" x2="${N(p.x2)}" y2="${N(p.y2)}"><stop offset="0" stop-color="${gradient.from}"/><stop offset="1" stop-color="${gradient.to}"/></linearGradient></defs>`;
+      slotPaint.push(p.fill);
     }
-  }
-  const sh = deriveShades(gradient ? gradient.from : fill);
-  let body = def.body;
-  if (body.includes("__C")) {
-    body = body.split("__CLL__").join(sh.CLL).split("__CL__").join(sh.CL)
-      .split("__CDD__").join(sh.CDD).split("__CD__").join(sh.CD)
-      .split("__CA2__").join(sh.CA2).split("__CA__").join(sh.CA)
-      .split("__CW__").join(sh.CW).split("__CM__").join(sh.CM);
-  }
-  body = body.split(C).join(paint);
-  return `<svg xmlns="http://www.w3.org/2000/svg" width="${def.w}" height="${def.h}" viewBox="0 0 ${def.w} ${def.h}">${defs}${body}</svg>`;
+    slotShades.push(deriveShades(p.gradient ? p.gradient.from : p.fill));
+  });
+
+  const body = def.body.replace(TOKEN_RE, (_m, slotStr: string | undefined, code: string) => {
+    const i = slotStr ? Number(slotStr) : 0;
+    const sh = slotShades[i] ?? slotShades[0];
+    const paint = slotPaint[i] ?? slotPaint[0];
+    switch (code) {
+      case "": return paint;      // couleur (ou dégradé) de l'emplacement
+      case "M": return sh.CM;
+      case "L": return sh.CL;
+      case "LL": return sh.CLL;
+      case "D": return sh.CD;
+      case "DD": return sh.CDD;
+      case "W": return sh.CW;
+      case "A": return sh.CA;
+      case "A2": return sh.CA2;
+      default: return paint;
+    }
+  });
+
+  return `<svg xmlns="http://www.w3.org/2000/svg" width="${def.w}" height="${def.h}" viewBox="0 0 ${def.w} ${def.h}">${defs ? `<defs>${defs}</defs>` : ""}${body}</svg>`;
 }
 
-export function elementSvgByRef(ref: string, fill: string, gradient: GradientFill | null): string | null {
+export function elementSvgByRef(ref: string, fill: string, gradient: GradientFill | null, extraSlots: SlotPaint[] = []): string | null {
   const def = ELEMENT_INDEX.get(ref);
-  return def ? elementSvg(def, fill, gradient) : null;
+  return def ? elementSvg(def, fill, gradient, extraSlots) : null;
 }
 
-export function elementDataUri(def: ElementDef, fill: string, gradient: GradientFill | null = null): string {
-  return `data:image/svg+xml;charset=utf-8,${encodeURIComponent(elementSvg(def, fill, gradient))}`;
+export function elementDataUri(def: ElementDef, fill: string, gradient: GradientFill | null = null, extraSlots: SlotPaint[] = []): string {
+  return `data:image/svg+xml;charset=utf-8,${encodeURIComponent(elementSvg(def, fill, gradient, extraSlots))}`;
 }
 
 /** Vignette du catalogue : couleur cohérente par défaut de l'élément
     (recolorable ensuite dans l'éditeur), lisible sur le panneau sombre. */
 export function elementThumbSrc(def: ElementDef): string {
-  return elementDataUri(def, def.defaultColor ?? "#cbd5e1");
+  const d = elementSlotDefaults(def);
+  return elementDataUri(def, d[0].fill ?? "#cbd5e1", null, d.slice(1));
 }
