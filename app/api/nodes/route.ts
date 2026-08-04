@@ -5,6 +5,7 @@ import { prisma } from "@/lib/prisma";
 import { serializeNode } from "@/lib/nodes";
 import { getSpaceRole, canEditRole } from "@/lib/spaces";
 import { logActivity, actorNameFor } from "@/lib/activity";
+import { callerIsFounder } from "@/lib/founder";
 
 export const runtime = "nodejs";
 
@@ -221,6 +222,11 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Nom invalide" }, { status: 400 });
   }
   const { name, parentId, color, type = "folder", spaceId } = parsed.data;
+
+  // ACCÈS PRIVÉ : l'application Design est réservée aux comptes Fondateur.
+  if (type === "design" && !(await callerIsFounder(userId))) {
+    return NextResponse.json({ error: "Application réservée." }, { status: 403 });
+  }
 
   // Espace commun : rôle éditeur (ou plus) requis pour créer.
   if (spaceId) {

@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { getUserId } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { callerIsFounder } from "@/lib/founder";
 
 // Liste des créations de l'application « Design » (personnelles).
 export const dynamic = "force-dynamic";
@@ -8,6 +9,10 @@ export const dynamic = "force-dynamic";
 export async function GET() {
   const userId = await getUserId();
   if (!userId) return NextResponse.json({ error: "Non authentifié." }, { status: 401 });
+  // ACCÈS PRIVÉ : application Design réservée aux comptes Fondateur.
+  if (!(await callerIsFounder(userId))) {
+    return NextResponse.json({ error: "Application réservée." }, { status: 403 });
+  }
 
   const rows = await prisma.node.findMany({
     where: { userId, spaceId: null, type: "design", trashed: false },

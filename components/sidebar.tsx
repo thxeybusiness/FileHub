@@ -261,6 +261,8 @@ export function Sidebar({ initial }: { initial: Me }) {
                 </span>
                 {!inAccompagnement && !inDesign && <ChevronRight className="size-4 shrink-0 text-brand-300" />}
               </button>
+              {/* Application Design : privée (comptes Fondateur) pour l'instant. */}
+              {isFounder && (
               <button
                 onClick={() => goApp("/drive/design")}
                 className={cn(
@@ -277,6 +279,7 @@ export function Sidebar({ initial }: { initial: Me }) {
                 </span>
                 {inDesign && <ChevronRight className="size-4 shrink-0 text-purple-300" />}
               </button>
+              )}
               <button
                 onClick={() => goApp("/drive/accompagnement")}
                 className={cn(

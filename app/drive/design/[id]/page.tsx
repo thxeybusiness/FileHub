@@ -1,5 +1,6 @@
 import { notFound, redirect } from "next/navigation";
-import { getUserId } from "@/lib/auth";
+import { getCurrentUser } from "@/lib/auth";
+import { isFounder } from "@/lib/plans";
 import { prisma } from "@/lib/prisma";
 import { getBreadcrumb, nodeBackHref, type NodeScope } from "@/lib/nodes";
 import { getMemberSpaceIds, nodeAccessWhere, canWriteSpace } from "@/lib/spaces";
@@ -7,8 +8,11 @@ import { DesignEditor } from "@/components/design-editor";
 
 // Studio Design : éditeur graphique à calques (façon Canva / Photopea).
 export default async function Page({ params }: { params: Promise<{ id: string }> }) {
-  const userId = await getUserId();
-  if (!userId) redirect("/login");
+  // ACCÈS PRIVÉ : application réservée aux comptes Fondateur pour l'instant.
+  const user = await getCurrentUser();
+  if (!user) redirect("/login");
+  if (!isFounder(user.email)) redirect("/drive");
+  const userId = user.id;
   const { id } = await params;
 
   const memberIds = await getMemberSpaceIds(userId);
