@@ -55,6 +55,7 @@ export const ELEMENT_CATEGORIES: { id: string; label: string }[] = [
   { id: "geo", label: "Formes géométriques" },
   { id: "ornaments", label: "Ornements & rosaces" },
   { id: "frames", label: "Cadres & bordures" },
+  { id: "daily", label: "Objets du quotidien" },
 ];
 
 /* Palette par catégorie : chaque élément reçoit une teinte de départ
@@ -83,6 +84,7 @@ const CAT_PALETTE: Record<string, string[]> = {
   geo: VIBRANT,
   ornaments: VIBRANT,
   frames: VIBRANT,
+  daily: VIBRANT,
 };
 
 /* ═══════════ Outils ═══════════ */
@@ -2994,6 +2996,269 @@ function tint(id: string, color: string) {
       D(LG("st3", "__CLL__", "__CDD__", 0, 1)) +
       `<path d="${d}" fill="none" stroke="url(#st3)" stroke-width="${N(t)}" stroke-linecap="round"/>` +
       `<path d="${d}" fill="none" stroke="__CW__" stroke-width="${N(t * 0.28)}" stroke-linecap="round" opacity="0.35" transform="translate(0 ${N(-t * 0.22)})"/>`, 250, 124);
+  }
+})();
+
+/* ═══════════ Objets du quotidien — 2D & 3D ═══════════
+   Chaque objet est dessiné UNE fois (sa géométrie), puis décliné en deux
+   rendus : « plat » (aplats recolorables) et « relief » (dégradés dérivés,
+   reflet et ombre de contact). La troisième forme — la photo réelle — vit dans
+   la banque d'images (onglet Photos).
+   Chaque partie est affectée à un emplacement de couleur, donc tout est
+   éditable séparément. */
+(() => {
+  type Painter = {
+    f: (d: string, slot?: number) => string;                              // forme pleine
+    r: (x: number, y: number, w: number, h: number, rx: number, slot?: number) => string; // rectangle
+    c: (cx: number, cy: number, rad: number, slot?: number) => string;    // disque
+    e: (cx: number, cy: number, rx: number, ry: number, slot?: number) => string;
+    s: (d: string, sw: number, slot?: number) => string;                  // trait
+    defs: () => string;
+  };
+  const tok = (slot: number, code = "") => (slot ? `__C${slot}~${code}__` : `__C${code}__`);
+
+  /* Rendu plat : aplats purs. */
+  const flatPainter = (): Painter => ({
+    f: (d, slot = 0) => `<path d="${d}" fill="${tok(slot)}"/>`,
+    r: (x, y, w, h, rx, slot = 0) => `<rect x="${N(x)}" y="${N(y)}" width="${N(w)}" height="${N(h)}" rx="${N(rx)}" fill="${tok(slot)}"/>`,
+    c: (cx, cy, rad, slot = 0) => `<circle cx="${N(cx)}" cy="${N(cy)}" r="${N(rad)}" fill="${tok(slot)}"/>`,
+    e: (cx, cy, rx, ry, slot = 0) => `<ellipse cx="${N(cx)}" cy="${N(cy)}" rx="${N(rx)}" ry="${N(ry)}" fill="${tok(slot)}"/>`,
+    s: (d, sw, slot = 0) => `<path d="${d}" fill="none" stroke="${tok(slot)}" stroke-width="${N(sw)}" stroke-linecap="round" stroke-linejoin="round"/>`,
+    defs: () => "",
+  });
+
+  /* Rendu relief : chaque partie reçoit un dégradé dérivé de SA couleur. */
+  const reliefPainter = (): Painter => {
+    let n = 0;
+    const out: string[] = [];
+    const grad = (slot: number, radial: boolean) => {
+      const id = `q${n++}`;
+      const L = tok(slot, "LL"), M = tok(slot, "M"), D = tok(slot, "DD");
+      out.push(radial
+        ? `<radialGradient id="${id}" cx="34%" cy="26%" r="76%"><stop offset="0" stop-color="${L}"/><stop offset="0.55" stop-color="${M}"/><stop offset="1" stop-color="${D}"/></radialGradient>`
+        : `<linearGradient id="${id}" x1="0" y1="0" x2="0.35" y2="1"><stop offset="0" stop-color="${L}"/><stop offset="1" stop-color="${D}"/></linearGradient>`);
+      return `url(#${id})`;
+    };
+    return {
+      f: (d, slot = 0) => `<path d="${d}" fill="${grad(slot, false)}"/>`,
+      r: (x, y, w, h, rx, slot = 0) => `<rect x="${N(x)}" y="${N(y)}" width="${N(w)}" height="${N(h)}" rx="${N(rx)}" fill="${grad(slot, false)}"/>`,
+      c: (cx, cy, rad, slot = 0) => `<circle cx="${N(cx)}" cy="${N(cy)}" r="${N(rad)}" fill="${grad(slot, true)}"/>`,
+      e: (cx, cy, rx, ry, slot = 0) => `<ellipse cx="${N(cx)}" cy="${N(cy)}" rx="${N(rx)}" ry="${N(ry)}" fill="${grad(slot, true)}"/>`,
+      s: (d, sw, slot = 0) => `<path d="${d}" fill="none" stroke="${grad(slot, false)}" stroke-width="${N(sw)}" stroke-linecap="round" stroke-linejoin="round"/>`,
+      defs: () => (out.length ? `<defs>${out.join("")}</defs>` : ""),
+    };
+  };
+
+  type Sub = { id: string; label: string; kw: string; w: number; h: number; slots: { label: string; def?: string }[]; draw: (P: Painter) => string };
+  const SUBS: Sub[] = [];
+  const sub = (id: string, label: string, kw: string, w: number, h: number, slots: { label: string; def?: string }[], draw: (P: Painter) => string) =>
+    SUBS.push({ id, label, kw, w, h, slots, draw });
+
+  const K = "quotidien maison objet";
+  const BODY = { label: "Corps" }, SCREEN = { label: "Écran", def: "#38bdf8" }, DETAIL = { label: "Détail", def: "#e2e8f0" };
+
+  /* ── Écrans & informatique ── */
+  sub("monitor", "Écran", `${K} écran moniteur ordinateur bureau`, 200, 180, [BODY, SCREEN, DETAIL], (P) =>
+    P.r(14, 18, 172, 118, 12, 0) + P.r(28, 30, 144, 88, 6, 1) + P.f("M 78 136 H 122 L 130 158 H 70 Z", 0) + P.r(58, 156, 84, 12, 6, 2));
+  sub("tv", "Télévision", `${K} télé tv salon écran`, 200, 175, [BODY, SCREEN, DETAIL], (P) =>
+    P.r(10, 14, 180, 116, 10, 0) + P.r(22, 26, 156, 92, 5, 1) + P.s("M 62 158 L 84 132 M 138 158 L 116 132", 9, 0) + P.r(56, 156, 88, 10, 5, 2));
+  sub("laptop", "Ordinateur portable", `${K} ordinateur portable laptop`, 220, 160, [BODY, SCREEN, DETAIL], (P) =>
+    P.r(40, 16, 140, 100, 9, 0) + P.r(52, 27, 116, 74, 4, 1) + P.f("M 14 116 H 206 L 194 146 H 26 Z", 0) + P.r(84, 126, 52, 8, 4, 2));
+  sub("tablet", "Tablette", `${K} tablette ipad écran`, 150, 200, [BODY, SCREEN, DETAIL], (P) =>
+    P.r(20, 12, 110, 176, 14, 0) + P.r(31, 26, 88, 138, 5, 1) + P.c(75, 176, 7, 2));
+  sub("phone", "Smartphone", `${K} téléphone smartphone mobile`, 120, 200, [BODY, SCREEN, DETAIL], (P) =>
+    P.r(16, 10, 88, 180, 16, 0) + P.r(25, 26, 70, 142, 6, 1) + P.r(50, 16, 20, 5, 3, 2) + P.c(60, 178, 6, 2));
+  sub("keyboard", "Clavier", `${K} clavier keyboard touches`, 220, 120, [BODY, DETAIL], (P) => {
+    let g = P.r(10, 22, 200, 78, 10, 0);
+    for (let r0 = 0; r0 < 3; r0++) for (let c0 = 0; c0 < 8; c0++) g += P.r(22 + c0 * 23, 32 + r0 * 18, 17, 13, 3, 1);
+    return g + P.r(60, 86, 100, 11, 5, 1);
+  });
+  sub("mouse", "Souris", `${K} souris mouse clic`, 120, 190, [BODY, DETAIL], (P) =>
+    P.r(20, 14, 80, 162, 40, 0) + P.s("M 60 20 V 76", 6, 1) + P.r(52, 34, 16, 30, 8, 1));
+  sub("printer", "Imprimante", `${K} imprimante bureau papier`, 200, 180, [BODY, DETAIL, SCREEN], (P) =>
+    P.r(52, 14, 96, 44, 4, 1) + P.r(16, 58, 168, 62, 10, 0) + P.r(52, 112, 96, 56, 4, 1) + P.c(152, 82, 8, 2));
+  sub("router", "Box internet", `${K} box routeur wifi internet`, 200, 160, [BODY, DETAIL, SCREEN], (P) =>
+    P.r(28, 84, 144, 56, 12, 0) + P.s("M 68 84 L 44 30 M 132 84 L 156 30", 8, 1) +
+    P.c(60, 112, 7, 2) + P.c(84, 112, 7, 2) + P.c(108, 112, 7, 2));
+  sub("console", "Console de jeu", `${K} console jeu gaming`, 200, 180, [BODY, DETAIL, SCREEN], (P) =>
+    P.f("M 58 66 H 142 C 180 66 196 132 178 162 C 162 186 142 154 132 140 H 68 C 58 154 38 186 22 162 C 4 132 20 66 58 66 Z", 0) +
+    P.s("M 46 96 V 122 M 33 109 H 59", 8, 1) + P.c(140, 96, 9, 2) + P.c(158, 114, 9, 1) + P.c(120, 114, 9, 1));
+  sub("robot", "Tête de robot", `${K} robot androïde ia tête`, 200, 190, [BODY, SCREEN, DETAIL], (P) =>
+    P.s("M 100 20 V 40", 7, 2) + P.c(100, 14, 9, 2) +
+    P.r(30, 40, 140, 112, 22, 0) + P.r(46, 58, 108, 58, 12, 1) +
+    P.c(74, 87, 11, 2) + P.c(126, 87, 11, 2) + P.r(74, 128, 52, 10, 5, 2) +
+    P.r(12, 74, 14, 40, 7, 0) + P.r(174, 74, 14, 40, 7, 0) + P.r(66, 152, 68, 20, 8, 0));
+  sub("robot2", "Robot rond", `${K} robot bot assistant ia`, 190, 190, [BODY, SCREEN, DETAIL], (P) =>
+    P.s("M 95 18 V 38", 6, 2) + P.c(95, 12, 8, 2) +
+    P.c(95, 106, 72, 0) + P.e(95, 96, 52, 38, 1) + P.c(76, 96, 10, 2) + P.c(114, 96, 10, 2) +
+    P.r(70, 150, 50, 12, 6, 2));
+  sub("speaker", "Enceinte", `${K} enceinte son musique haut-parleur`, 140, 200, [BODY, DETAIL, SCREEN], (P) =>
+    P.r(20, 12, 100, 176, 14, 0) + P.c(70, 126, 32, 1) + P.c(70, 126, 13, 2) + P.c(70, 54, 15, 1));
+  sub("headset", "Casque audio", `${K} casque audio écouteurs musique`, 200, 190, [BODY, DETAIL], (P) =>
+    P.s("M 34 122 V 98 A 66 66 0 0 1 166 98 V 122", 15, 0) + P.r(16, 114, 40, 66, 16, 0) + P.r(144, 114, 40, 66, 16, 0) +
+    P.r(26, 126, 20, 42, 10, 1) + P.r(154, 126, 20, 42, 10, 1));
+  sub("camera", "Appareil photo", `${K} appareil photo caméra`, 210, 160, [BODY, DETAIL, SCREEN], (P) =>
+    P.f("M 14 44 H 62 L 78 22 H 132 L 148 44 H 196 V 142 H 14 Z", 0) + P.c(105, 92, 36, 1) + P.c(105, 92, 20, 2) + P.c(172, 60, 7, 2));
+  sub("remote", "Télécommande", `${K} télécommande tv zapper`, 110, 200, [BODY, DETAIL, SCREEN], (P) => {
+    let g = P.r(20, 10, 70, 180, 16, 0) + P.r(32, 22, 46, 26, 5, 1);
+    for (let r0 = 0; r0 < 4; r0++) for (let c0 = 0; c0 < 2; c0++) g += P.c(43 + c0 * 24, 76 + r0 * 26, 7, 2);
+    return g;
+  });
+
+  /* ── Électroménager ── */
+  sub("fridge", "Réfrigérateur", `${K} frigo réfrigérateur cuisine`, 150, 210, [BODY, DETAIL], (P) =>
+    P.r(24, 10, 102, 190, 12, 0) + P.s("M 24 78 H 126", 5, 1) + P.r(104, 40, 8, 26, 4, 1) + P.r(104, 92, 8, 26, 4, 1));
+  sub("oven", "Four", `${K} four cuisine cuisson`, 180, 190, [BODY, SCREEN, DETAIL], (P) =>
+    P.r(16, 14, 148, 166, 12, 0) + P.r(30, 60, 120, 100, 8, 1) + P.c(48, 36, 8, 2) + P.c(72, 36, 8, 2) + P.r(96, 28, 52, 16, 8, 2));
+  sub("microwave", "Micro-ondes", `${K} micro-ondes cuisine`, 210, 150, [BODY, SCREEN, DETAIL], (P) =>
+    P.r(12, 20, 186, 110, 12, 0) + P.r(26, 34, 118, 82, 8, 1) + P.r(156, 40, 30, 10, 5, 2) + P.c(171, 76, 12, 2));
+  sub("washer", "Lave-linge", `${K} lave-linge machine à laver`, 170, 200, [BODY, SCREEN, DETAIL], (P) =>
+    P.r(16, 12, 138, 176, 12, 0) + P.c(85, 116, 46, 1) + P.c(85, 116, 30, 2) + P.c(44, 42, 9, 2) + P.r(66, 34, 74, 16, 8, 2));
+  sub("kettle", "Bouilloire", `${K} bouilloire thé cuisine`, 180, 190, [BODY, DETAIL], (P) =>
+    P.f("M 40 62 H 128 L 140 160 H 28 Z", 0) + P.s("M 128 76 C 164 82 164 128 132 134", 11, 1) + P.r(60, 42, 48, 20, 8, 1) + P.r(24, 160, 120, 14, 6, 1));
+  sub("toaster", "Grille-pain", `${K} grille-pain toaster cuisine`, 200, 150, [BODY, DETAIL], (P) =>
+    P.r(24, 46, 152, 86, 16, 0) + P.r(58, 34, 28, 30, 5, 1) + P.r(114, 34, 28, 30, 5, 1) + P.c(160, 90, 9, 1) + P.r(40, 60, 12, 40, 6, 1));
+  sub("coffee", "Machine à café", `${K} machine café expresso cuisine`, 170, 200, [BODY, SCREEN, DETAIL], (P) =>
+    P.r(20, 12, 130, 176, 14, 0) + P.r(34, 26, 102, 44, 6, 1) + P.r(60, 84, 50, 16, 6, 2) + P.f("M 62 120 H 108 L 100 156 H 70 Z", 2));
+  sub("blender", "Mixeur", `${K} mixeur blender cuisine`, 170, 200, [BODY, DETAIL], (P) =>
+    P.f("M 24 12 H 146 L 132 118 H 38 Z", 1) + P.r(30, 118, 110, 68, 14, 0) + P.r(52, 138, 66, 12, 6, 1) + P.c(85, 168, 10, 1));
+  sub("fan", "Ventilateur", `${K} ventilateur air été`, 190, 200, [BODY, DETAIL], (P) => {
+    let g = P.c(95, 92, 74, 1);
+    for (let k = 0; k < 4; k++) g += P.f(`M 95 92 L ${N(polar(95, 92, 62, k * 90 - 20)[0])} ${N(polar(95, 92, 62, k * 90 - 20)[1])} L ${N(polar(95, 92, 62, k * 90 + 26)[0])} ${N(polar(95, 92, 62, k * 90 + 26)[1])} Z`, 0);
+    return g + P.c(95, 92, 14, 2) + P.s("M 95 166 V 186", 10, 0) + P.r(60, 184, 70, 12, 6, 0);
+  });
+  sub("lamp", "Lampe", `${K} lampe luminaire maison`, 180, 200, [BODY, DETAIL], (P) =>
+    P.f("M 56 22 H 124 L 152 96 H 28 Z", 0) + P.s("M 90 96 V 168", 9, 1) + P.e(90, 178, 46, 12, 1) + P.c(90, 116, 11, 1));
+  sub("bulb", "Ampoule", `${K} ampoule lumière idée`, 150, 200, [BODY, DETAIL], (P) =>
+    P.f("M 75 14 A 54 54 0 0 1 103 118 L 100 140 H 50 L 47 118 A 54 54 0 0 1 75 14 Z", 0) + P.r(50, 144, 50, 12, 5, 1) + P.r(56, 162, 38, 12, 5, 1) + P.r(62, 180, 26, 10, 5, 1));
+  sub("plug", "Prise", `${K} prise électrique branchement`, 160, 190, [BODY, DETAIL], (P) =>
+    P.s("M 56 14 V 56 M 104 14 V 56", 11, 1) + P.f("M 30 56 H 130 V 100 A 50 50 0 0 1 30 100 Z", 0) + P.s("M 80 150 V 180", 11, 1));
+  sub("vacuum", "Aspirateur", `${K} aspirateur ménage maison`, 200, 180, [BODY, DETAIL], (P) =>
+    P.e(78, 112, 60, 48, 0) + P.c(78, 112, 22, 1) + P.s("M 128 96 C 168 84 178 40 158 24", 11, 1) + P.f("M 140 14 H 178 L 170 40 H 148 Z", 1));
+  sub("iron", "Fer à repasser", `${K} fer à repasser linge`, 200, 160, [BODY, DETAIL], (P) =>
+    P.f("M 18 128 C 18 88 66 62 130 62 H 172 V 128 Z", 0) + P.s("M 60 62 C 74 26 150 26 160 58", 13, 1) + P.r(14, 128, 168, 16, 8, 1));
+
+  /* ── Mobilier & maison ── */
+  sub("house", "Maison", `${K} maison logement toit`, 200, 180, [BODY, DETAIL, SCREEN], (P) =>
+    P.f("M 100 14 L 190 88 H 166 V 168 H 34 V 88 H 10 Z", 0) + P.r(78, 112, 44, 56, 4, 1) + P.r(48, 104, 26, 26, 3, 2) + P.r(126, 104, 26, 26, 3, 2));
+  sub("door", "Porte", `${K} porte entrée maison`, 140, 200, [BODY, DETAIL], (P) =>
+    P.r(20, 10, 100, 180, 8, 0) + P.r(34, 26, 72, 60, 4, 1) + P.r(34, 100, 72, 60, 4, 1) + P.c(100, 118, 7, 1));
+  sub("window", "Fenêtre", `${K} fenêtre vitre maison`, 180, 190, [BODY, SCREEN], (P) =>
+    P.r(16, 14, 148, 162, 10, 0) + P.r(30, 28, 54, 62, 4, 1) + P.r(96, 28, 54, 62, 4, 1) + P.r(30, 100, 54, 62, 4, 1) + P.r(96, 100, 54, 62, 4, 1));
+  sub("chair", "Chaise", `${K} chaise siège meuble`, 170, 200, [BODY, DETAIL], (P) =>
+    P.r(44, 14, 82, 96, 10, 0) + P.r(28, 110, 114, 18, 8, 1) + P.s("M 42 128 L 36 188 M 128 128 L 134 188", 11, 1));
+  sub("sofa", "Canapé", `${K} canapé sofa salon meuble`, 220, 160, [BODY, DETAIL], (P) =>
+    P.r(24, 38, 172, 58, 14, 1) + P.r(10, 66, 200, 56, 16, 0) + P.r(10, 60, 26, 60, 13, 1) + P.r(184, 60, 26, 60, 13, 1) + P.s("M 40 122 V 142 M 180 122 V 142", 10, 0));
+  sub("bed", "Lit", `${K} lit chambre meuble dormir`, 220, 160, [BODY, DETAIL], (P) =>
+    P.r(14, 32, 34, 92, 10, 0) + P.r(172, 62, 34, 62, 10, 0) + P.r(34, 82, 152, 42, 10, 1) + P.r(46, 62, 52, 26, 8, 0));
+  sub("table", "Table", `${K} table meuble bureau`, 200, 160, [BODY, DETAIL], (P) =>
+    P.r(14, 46, 172, 22, 8, 0) + P.s("M 40 68 V 140 M 160 68 V 140", 13, 1));
+  sub("shelf", "Étagère", `${K} étagère rangement livres`, 190, 190, [BODY, DETAIL], (P) => {
+    let g = P.r(16, 14, 158, 162, 8, 0);
+    for (let k = 0; k < 3; k++) g += P.r(28, 46 + k * 44, 134, 10, 4, 1);
+    return g + P.r(40, 26, 12, 20, 3, 1) + P.r(58, 22, 12, 24, 3, 1);
+  });
+  sub("mirror", "Miroir", `${K} miroir salle de bain`, 150, 200, [BODY, SCREEN], (P) =>
+    P.r(20, 12, 110, 176, 55, 0) + P.r(32, 24, 86, 152, 43, 1));
+  sub("clock", "Horloge", `${K} horloge murale heure`, 190, 190, [BODY, SCREEN, DETAIL], (P) =>
+    P.c(95, 95, 82, 0) + P.c(95, 95, 64, 1) + P.s("M 95 95 V 52 M 95 95 L 126 112", 8, 2) + P.c(95, 95, 8, 2));
+  sub("trash", "Poubelle", `${K} poubelle déchets ménage`, 160, 200, [BODY, DETAIL], (P) =>
+    P.r(24, 34, 112, 16, 8, 1) + P.r(62, 18, 36, 14, 6, 1) + P.f("M 34 56 L 44 182 H 116 L 126 56 Z", 0) + P.s("M 66 78 V 160 M 94 78 V 160", 7, 1));
+  sub("plant", "Plante", `${K} plante pot maison vert`, 180, 200, [BODY, DETAIL], (P) =>
+    P.f("M 56 130 H 124 L 114 190 H 66 Z", 1) + P.e(90, 92, 26, 42, 0) + P.e(52, 108, 22, 34, 0) + P.e(128, 108, 22, 34, 0) + P.s("M 90 130 V 96", 6, 0));
+  sub("frame", "Cadre photo", `${K} cadre photo mur souvenir`, 180, 190, [BODY, SCREEN, DETAIL], (P) =>
+    P.r(14, 12, 152, 150, 8, 0) + P.r(30, 28, 120, 118, 4, 1) +
+    P.f("M 44 146 L 74 104 L 96 132 L 116 112 L 136 146 Z", 2) + P.c(118, 56, 11, 2) +
+    P.f("M 74 162 H 106 L 112 180 H 68 Z", 0));
+  sub("towel", "Serviette", `${K} serviette salle de bain linge`, 160, 200, [BODY, DETAIL], (P) =>
+    P.r(20, 30, 120, 152, 10, 0) + P.r(20, 62, 120, 22, 4, 1) + P.r(10, 14, 140, 14, 7, 1));
+  sub("candle", "Bougie", `${K} bougie cire lumière`, 130, 200, [BODY, DETAIL], (P) =>
+    P.f("M 65 20 C 82 44 82 62 65 66 C 48 62 48 44 65 20 Z", 1) + P.s("M 65 66 V 82", 5, 0) + P.r(36, 82, 58, 100, 10, 0) + P.e(65, 82, 29, 9, 0));
+
+  /* ── Cuisine & vaisselle ── */
+  sub("mug", "Tasse", `${K} tasse mug café boisson`, 190, 170, [BODY, DETAIL], (P) =>
+    P.r(24, 40, 108, 108, 16, 0) + P.s("M 140 66 A 26 26 0 0 1 140 118", 12, 1) + P.e(78, 44, 54, 12, 1));
+  sub("plate", "Assiette", `${K} assiette vaisselle repas couverts`, 220, 200, [BODY, DETAIL], (P) =>
+    P.c(112, 100, 78, 0) + P.c(112, 100, 54, 1) +
+    P.s("M 22 34 V 74 M 32 34 V 74 M 42 34 V 74", 5, 1) + P.f("M 18 74 H 46 C 46 92 36 96 34 98 L 32 168 H 30 L 28 98 C 26 96 18 92 18 74 Z", 1) +
+    P.f("M 200 34 C 212 48 212 76 202 88 L 200 168 H 197 L 196 88 C 186 76 186 48 200 34 Z", 1));
+  sub("pan", "Poêle", `${K} poêle cuisine cuisson`, 230, 150, [BODY, DETAIL], (P) =>
+    P.r(132, 74, 92, 18, 9, 1) + P.e(78, 84, 68, 46, 0) + P.e(78, 84, 50, 31, 1));
+  sub("pot", "Casserole", `${K} casserole marmite cuisine`, 200, 170, [BODY, DETAIL], (P) =>
+    P.f("M 34 54 H 150 L 138 148 H 46 Z", 0) + P.e(92, 54, 58, 14, 1) + P.r(148, 62, 46, 14, 7, 1) + P.c(92, 40, 9, 1));
+  sub("bottle", "Bouteille", `${K} bouteille boisson eau`, 120, 200, [BODY, DETAIL], (P) =>
+    P.r(46, 10, 28, 34, 6, 1) + P.f("M 46 44 C 46 68 26 76 26 108 V 178 A 12 12 0 0 0 38 190 H 82 A 12 12 0 0 0 94 178 V 108 C 94 76 74 68 74 44 Z", 0) + P.r(26, 116, 68, 34, 4, 1));
+  sub("cutlery", "Couverts", `${K} couverts fourchette couteau repas`, 160, 200, [BODY, DETAIL], (P) =>
+    P.s("M 44 20 V 66 M 60 20 V 66 M 76 20 V 66", 7, 1) + P.f("M 36 66 H 84 C 84 88 70 94 66 96 L 62 184 H 58 L 54 96 C 50 94 36 88 36 66 Z", 0) +
+    P.f("M 112 20 C 132 40 132 76 118 90 L 114 184 H 110 L 108 90 C 96 76 96 40 112 20 Z", 0));
+  sub("fridge2", "Bocal", `${K} bocal pot conserve cuisine`, 150, 200, [BODY, DETAIL], (P) =>
+    P.r(38, 14, 74, 24, 8, 1) + P.f("M 34 38 H 116 C 126 60 126 176 116 186 H 34 C 24 176 24 60 34 38 Z", 0) + P.r(40, 92, 70, 40, 5, 1));
+
+  /* ── Sac, mode & divers ── */
+  sub("backpack", "Sac à dos", `${K} sac à dos école voyage`, 170, 200, [BODY, DETAIL], (P) =>
+    P.s("M 60 56 C 60 22 110 22 110 56", 12, 1) + P.r(22, 52, 126, 136, 26, 0) + P.r(46, 104, 78, 44, 10, 1) + P.r(22, 88, 126, 12, 4, 1));
+  sub("wallet2", "Portefeuille", `${K} portefeuille argent carte`, 190, 160, [BODY, DETAIL], (P) =>
+    P.r(16, 30, 158, 104, 16, 0) + P.r(16, 62, 158, 28, 4, 1) + P.r(112, 74, 66, 36, 9, 1) + P.c(145, 92, 9, 0));
+  sub("glasses", "Lunettes", `${K} lunettes vue voir`, 220, 120, [BODY, SCREEN], (P) =>
+    P.c(60, 62, 38, 0) + P.c(160, 62, 38, 0) + P.c(60, 62, 27, 1) + P.c(160, 62, 27, 1) + P.s("M 98 56 Q 110 44 122 56 M 22 46 L 8 30 M 198 46 L 212 30", 8, 0));
+  sub("watch", "Montre", `${K} montre poignet heure`, 150, 200, [BODY, SCREEN, DETAIL], (P) =>
+    P.r(50, 12, 50, 40, 8, 0) + P.r(50, 148, 50, 40, 8, 0) + P.r(32, 46, 86, 108, 22, 0) + P.r(44, 58, 62, 84, 14, 1) + P.s("M 75 78 V 100 L 92 110", 6, 2));
+  sub("shoe", "Chaussure", `${K} chaussure basket sneaker`, 210, 140, [BODY, DETAIL], (P) =>
+    P.f("M 18 108 V 66 C 18 58 26 56 34 60 L 68 78 L 92 40 C 98 32 108 34 110 42 L 118 74 C 158 78 198 92 202 114 V 118 H 18 Z", 0) + P.r(14, 116, 192, 16, 8, 1));
+  sub("book", "Livre", `${K} livre lecture papier`, 190, 180, [BODY, DETAIL, SCREEN], (P) =>
+    P.r(20, 20, 150, 140, 8, 0) + P.r(20, 20, 26, 140, 8, 1) + P.r(60, 48, 92, 8, 4, 2) + P.r(60, 72, 92, 8, 4, 2) + P.r(60, 96, 66, 8, 4, 2));
+  sub("notebook", "Carnet", `${K} carnet cahier notes`, 170, 200, [BODY, DETAIL, SCREEN], (P) => {
+    let g = P.r(26, 14, 120, 172, 10, 0) + P.r(26, 14, 18, 172, 6, 1);
+    for (let k = 0; k < 4; k++) g += P.r(62, 56 + k * 30, 68, 8, 4, 2);
+    return g;
+  });
+  sub("pencil", "Crayon", `${K} crayon écrire dessiner`, 130, 200, [BODY, DETAIL], (P) =>
+    P.f("M 65 12 L 92 62 H 38 Z", 1) + P.r(38, 62, 54, 106, 4, 0) + P.f("M 38 168 H 92 L 65 192 Z", 1));
+  sub("scissors2", "Ciseaux", `${K} ciseaux couper bureau`, 180, 190, [BODY, DETAIL], (P) =>
+    P.c(46, 46, 24, 1) + P.c(46, 144, 24, 1) + P.s("M 64 60 L 162 148 M 64 130 L 162 42", 11, 0) + P.c(104, 95, 8, 1));
+  sub("key2", "Clé", `${K} clé serrure porte`, 200, 130, [BODY, DETAIL], (P) =>
+    P.c(52, 64, 38, 0) + P.c(52, 64, 15, 1) + P.r(88, 52, 100, 24, 8, 0) + P.r(150, 68, 12, 26, 5, 1) + P.r(172, 68, 12, 20, 5, 1));
+  sub("umbrella", "Parapluie", `${K} parapluie pluie abri`, 200, 200, [BODY, DETAIL], (P) =>
+    P.f("M 100 22 C 46 22 18 74 18 96 C 42 84 56 84 62 100 C 76 84 90 84 100 100 C 110 84 124 84 138 100 C 144 84 158 84 182 96 C 182 74 154 22 100 22 Z", 0) +
+    P.s("M 100 22 V 152 C 100 176 74 176 70 158", 9, 1));
+  sub("gift2", "Cadeau", `${K} cadeau paquet fête`, 190, 190, [BODY, DETAIL], (P) =>
+    P.r(24, 60, 142, 24, 6, 1) + P.r(34, 84, 122, 96, 8, 0) + P.r(80, 60, 30, 120, 4, 1) +
+    P.f("M 95 60 C 62 60 46 30 66 22 C 84 16 95 44 95 60 C 95 44 106 16 124 22 C 144 30 128 60 95 60 Z", 1));
+  sub("basket", "Panier", `${K} panier course achat`, 200, 170, [BODY, DETAIL], (P) =>
+    P.s("M 62 62 C 62 26 138 26 138 62", 11, 1) + P.f("M 22 66 H 178 L 160 156 H 40 Z", 0) + P.s("M 72 88 V 132 M 100 88 V 132 M 128 88 V 132", 7, 1));
+  sub("cart", "Chariot", `${K} chariot caddie course`, 210, 170, [BODY, DETAIL], (P) =>
+    P.s("M 14 24 H 42 L 62 110 H 156 L 176 52 H 52", 11, 0) + P.c(72, 140, 16, 1) + P.c(146, 140, 16, 1));
+
+  /* ── Extérieur & ville ── */
+  sub("car", "Voiture", `${K} voiture auto route`, 210, 150, [BODY, SCREEN, DETAIL], (P) =>
+    P.f("M 16 100 L 32 62 C 38 48 50 42 64 42 H 146 C 160 42 172 50 180 64 L 196 100 V 118 H 16 Z", 0) +
+    P.f("M 62 48 L 52 76 H 100 V 48 Z M 112 48 V 76 H 162 L 150 54 C 146 50 142 48 138 48 Z", 1) +
+    P.c(60, 118, 18, 2) + P.c(152, 118, 18, 2));
+  sub("bike", "Vélo", `${K} vélo bicyclette route`, 220, 150, [BODY, DETAIL], (P) =>
+    P.c(50, 100, 34, 1) + P.c(170, 100, 34, 1) + P.s("M 50 100 H 92 L 126 40 L 152 100 M 92 100 L 126 40 M 114 40 H 142 M 86 100 L 76 70 H 98", 8, 0));
+  sub("bus", "Bus", `${K} bus transport ville`, 200, 180, [BODY, SCREEN, DETAIL], (P) =>
+    P.r(18, 18, 164, 118, 14, 0) + P.r(34, 36, 132, 44, 6, 1) + P.r(34, 92, 44, 26, 4, 1) + P.c(56, 148, 16, 2) + P.c(144, 148, 16, 2));
+  sub("traffic", "Feu tricolore", `${K} feu tricolore route circulation`, 120, 200, [BODY, DETAIL], (P) =>
+    P.r(22, 10, 76, 140, 16, 0) + P.c(60, 42, 18, 1) + P.c(60, 80, 18, 1) + P.c(60, 118, 18, 1) + P.s("M 60 150 V 190", 11, 0));
+  sub("streetlamp", "Lampadaire", `${K} lampadaire rue éclairage`, 150, 200, [BODY, DETAIL], (P) =>
+    P.s("M 46 190 V 52 C 46 30 104 30 104 52 V 62", 11, 0) + P.f("M 78 62 H 130 L 120 92 H 88 Z", 1) + P.e(46, 190, 34, 9, 0));
+  sub("mailbox", "Boîte aux lettres", `${K} boîte aux lettres courrier`, 160, 200, [BODY, DETAIL], (P) =>
+    P.f("M 26 62 A 54 54 0 0 1 134 62 V 132 H 26 Z", 0) + P.r(48, 84, 64, 12, 5, 1) + P.s("M 80 132 V 188", 12, 1));
+  sub("bench", "Banc", `${K} banc parc ville assise`, 210, 160, [BODY, DETAIL], (P) =>
+    P.r(24, 34, 162, 14, 6, 0) + P.r(24, 58, 162, 14, 6, 0) + P.r(18, 86, 174, 18, 8, 0) + P.s("M 44 104 V 144 M 166 104 V 144", 12, 1));
+
+  /* ── Émission des deux formes ── */
+  for (const s of SUBS) {
+    // 2D — aplats recolorables
+    add("daily", `${s.id}2d`, s.label, `${s.kw} plat 2d icône`, s.w, s.h, s.draw(flatPainter()), undefined, s.slots);
+    // 3D — mêmes formes, dégradés dérivés + reflet + ombre de contact
+    const P3 = reliefPainter();
+    const body = s.draw(P3);
+    add("daily", `${s.id}3d`, `${s.label} 3D`, `${s.kw} relief 3d volume brillant`, s.w, s.h,
+      P3.defs() +
+      `<ellipse cx="${N(s.w / 2)}" cy="${N(s.h - 6)}" rx="${N(s.w * 0.38)}" ry="6" fill="__CDD__" opacity="0.22"/>` +
+      body,
+      undefined, s.slots);
   }
 })();
 
