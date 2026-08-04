@@ -3039,6 +3039,39 @@ tint("sport.basket0", "#fb923c"); tint("sport.tennis0", "#a3e635"); tint("sport.
 tint("sport.medal1", "#fbbf24"); tint("sport.flagp0", "#f87171");
 
 
+/* ── Couleurs unies toutes éditables ───────────────────────────────────────
+   Beaucoup d'éléments plats peignent une partie distincte avec LA couleur de
+   base mais à opacité réduite (les chevrons sous l'icône « Calques », la
+   deuxième vague, l'ombre d'un badge…). À l'écran ça se lit comme une seconde
+   teinte : on ne pouvait donc pas la choisir, elle suivait la principale.
+   Ces parties passent sur un emplacement de couleur DÉDIÉ, éditable
+   séparément (teinte unie ou dégradé). Par défaut l'emplacement reprend la
+   couleur principale : l'apparence de départ est strictement inchangée.
+   Les éléments en relief (hd/h3) ne sont pas touchés : chez eux l'opacité sert
+   à l'ombrage du volume, pas à une couleur à part. */
+(() => {
+  const TAG = /<(?:path|circle|ellipse|rect|line|polygon|polyline)\b[^>]*\/?>/g;
+  const OPA = /opacity="([0-9.]+)"/;
+  const BASE_TOKEN = /__C(?!\d)([A-Z0-9]*)__/g;
+  for (const e of items) {
+    if (/\.(hd|h3)/.test(e.id)) continue; // relief : ombrage volumétrique
+    let touched = false;
+    const body = e.body.replace(TAG, (tag) => {
+      const o = OPA.exec(tag);
+      if (!o || Number(o[1]) >= 0.9) return tag;
+      if (!BASE_TOKEN.test(tag)) { BASE_TOKEN.lastIndex = 0; return tag; }
+      BASE_TOKEN.lastIndex = 0;
+      touched = true;
+      return tag.replace(BASE_TOKEN, (_m, code: string) => `__C1~${code}__`);
+    });
+    if (!touched) continue;
+    e.body = body;
+    e.slots = e.slots?.length
+      ? [...e.slots, { label: `Couleur ${e.slots.length + 1}` }]
+      : [{ label: "Couleur principale" }, { label: "Couleur secondaire" }];
+  }
+})();
+
 /* ── Anti-débordement ──────────────────────────────────────────────────────
    Un tracé qui sort de la boîte déclarée est ROGNÉ au rendu (le viewBox coupe) :
    coutures de ballon qui dépassent, branche de sapin tronquée, bout de
