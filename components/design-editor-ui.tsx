@@ -27,7 +27,7 @@ import {
   TEMPLATES, templateDoc, type TextPreset,
 } from "@/lib/design-presets";
 import { ELEMENTS, ELEMENT_CATEGORIES, ELEMENT_INDEX, elementSlotDefaults, elementThumbSrc, normalizeSearch, type ElementDef } from "@/lib/design-elements";
-import { PHOTOS, PHOTO_CATEGORIES, photoSrc, type StockPhoto } from "@/lib/design-photos";
+import { PHOTO_CATEGORIES, loadPhotos, photoSrc, type StockPhoto } from "@/lib/design-photos";
 import { DocPreview } from "./design-render";
 
 export const ACCENT = "#a855f7";
@@ -769,12 +769,16 @@ export function LeftDock({ tab, setTab, ctl }: { tab: DockTab | null; setTab: (t
 function PhotosDock({ ctl }: { ctl: EditorCtl }) {
   const [query, setQuery] = useState("");
   const [cat, setCat] = useState<string>("nature");
+  const [all, setAll] = useState<StockPhoto[] | null>(null);
   const q = normalizeSearch(query.trim());
 
-  const items = useMemo(
-    () => (q ? PHOTOS.filter((p) => p.kw.includes(q) || normalizeSearch(p.label).includes(q)).slice(0, 150) : PHOTOS.filter((p) => p.cat === cat)),
-    [q, cat],
-  );
+  // Catalogue chargé à la demande (JSON statique), pas empaqueté dans le bundle.
+  useEffect(() => { let ok = true; loadPhotos().then((r) => { if (ok) setAll(r); }); return () => { ok = false; }; }, []);
+
+  const items = useMemo(() => {
+    const src = all ?? [];
+    return q ? src.filter((p) => p.kw.includes(q) || normalizeSearch(p.label).includes(q)).slice(0, 180) : src.filter((p) => p.cat === cat);
+  }, [all, q, cat]);
 
   return (
     <div>
@@ -807,7 +811,9 @@ function PhotosDock({ ctl }: { ctl: EditorCtl }) {
         </div>
       )}
 
-      {items.length === 0 ? (
+      {all === null ? (
+        <p className="flex items-center justify-center gap-2 px-1 py-6 text-[11px] text-muted"><Loader2 className="size-3.5 animate-spin" /> Chargement des photos…</p>
+      ) : items.length === 0 ? (
         <p className="px-1 py-4 text-center text-[11px] text-muted">Aucune photo pour « {query} ».</p>
       ) : (
         <div className="grid grid-cols-2 gap-1.5">
@@ -828,8 +834,8 @@ function PhotosDock({ ctl }: { ctl: EditorCtl }) {
       )}
 
       <p className="mt-2.5 px-0.5 text-[10px] leading-relaxed text-muted">
-        {PHOTOS.length} photos libres de droits (CC0 — domaine public) : utilisables
-        librement, y compris commercialement, sans attribution.
+        {all ? `${all.length} photos` : "Photos"} libres de droits (CC0 — domaine public) :
+        utilisables librement, y compris commercialement, sans attribution.
       </p>
     </div>
   );
