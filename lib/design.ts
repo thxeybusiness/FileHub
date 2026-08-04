@@ -852,8 +852,8 @@ function drawText(ctx: CanvasRenderingContext2D, l: TextLayer, sh: DevShadow | n
 async function drawElement(ctx: CanvasRenderingContext2D, l: ElementLayer, sh: DevShadow | null, scale = 1) {
   // Import différé pour éviter tout cycle au chargement (design-elements ne
   // consomme de ce module que des types).
-  const { elementSvgByRef } = await import("./design-elements");
-  const svg = elementSvgByRef(l.ref, l.fill, l.gradient, l.slots ?? []);
+  const { elementSvgFor } = await import("./design-catalog-svg");
+  const svg = elementSvgFor(l.ref, l.fill, l.gradient, l.slots ?? []);
   if (!svg) return;
   const img = await loadImage(`data:image/svg+xml;charset=utf-8,${encodeURIComponent(svg)}`);
   // Rendu ÉTIRÉ (comme le DOM) dans un intermédiaire en pixels d'export.

@@ -8,6 +8,11 @@
 // renommer ni réutiliser un id ; on ne fait qu'AJOUTER.
 
 import type { GradientFill } from "./design";
+import {
+  C, N, rng, polar, smoothClosed, starPts, polyPts, arrowHead, stroke, fillp, eo, holeC, op, opc,
+  fillWith, strokeWith,
+} from "./design-geom";
+
 
 export type ElementDef = {
   id: string;
@@ -89,69 +94,6 @@ const CAT_PALETTE: Record<string, string[]> = {
 
 /* ═══════════ Outils ═══════════ */
 
-const C = "__C__";
-const N = (n: number) => Math.round(n * 10) / 10;
-
-function rng(seed: number) {
-  let a = seed >>> 0;
-  return () => {
-    a |= 0; a = (a + 0x6d2b79f5) | 0;
-    let t = Math.imul(a ^ (a >>> 15), 1 | a);
-    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
-    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
-  };
-}
-
-function polar(cx: number, cy: number, r: number, deg: number): [number, number] {
-  const a = (deg * Math.PI) / 180;
-  return [cx + r * Math.cos(a), cy + r * Math.sin(a)];
-}
-
-function smoothClosed(pts: [number, number][]): string {
-  const n = pts.length;
-  let d = `M ${N(pts[0][0])} ${N(pts[0][1])}`;
-  for (let i = 0; i < n; i++) {
-    const p0 = pts[(i - 1 + n) % n], p1 = pts[i], p2 = pts[(i + 1) % n], p3 = pts[(i + 2) % n];
-    d += ` C ${N(p1[0] + (p2[0] - p0[0]) / 6)} ${N(p1[1] + (p2[1] - p0[1]) / 6)} ${N(p2[0] - (p3[0] - p1[0]) / 6)} ${N(p2[1] - (p3[1] - p1[1]) / 6)} ${N(p2[0])} ${N(p2[1])}`;
-  }
-  return d + " Z";
-}
-
-function starPts(cx: number, cy: number, points: number, rOut: number, rIn: number, rot = -90): string {
-  let d = "";
-  for (let i = 0; i < points * 2; i++) {
-    const [x, y] = polar(cx, cy, i % 2 === 0 ? rOut : rIn, rot + (i * 180) / points);
-    d += (i === 0 ? "M" : "L") + ` ${N(x)} ${N(y)} `;
-  }
-  return d + "Z";
-}
-
-function polyPts(cx: number, cy: number, sides: number, r: number, rot = -90): string {
-  let d = "";
-  for (let i = 0; i < sides; i++) {
-    const [x, y] = polar(cx, cy, r, rot + (i * 360) / sides);
-    d += (i === 0 ? "M" : "L") + ` ${N(x)} ${N(y)} `;
-  }
-  return d + "Z";
-}
-
-function arrowHead(x: number, y: number, angRad: number, size: number): string {
-  const p = (da: number) => `${N(x + size * Math.cos(angRad + da))} ${N(y + size * Math.sin(angRad + da))}`;
-  return `<path d="M ${p(0)} L ${p(2.6)} L ${p(-2.6)} Z" fill="${C}"/>`;
-}
-
-const stroke = (d: string, sw: number, extra = "") =>
-  `<path d="${d}" fill="none" stroke="${C}" stroke-width="${sw}" stroke-linecap="round" stroke-linejoin="round" ${extra}/>`;
-const fillp = (d: string, extra = "") => `<path d="${d}" fill="${C}" ${extra}/>`;
-// Tracé plein avec « trou » (évidement) : même couleur, découpe transparente
-// via fill-rule evenodd — respecte la règle d'or (une seule couleur).
-const eo = (d: string, extra = "") => `<path fill-rule="evenodd" d="${d}" fill="${C}" ${extra}/>`;
-// Sous-tracé circulaire inverse pour créer un trou dans un eo(...).
-const holeC = (cx: number, cy: number, r: number) => ` M ${N(cx - r)} ${N(cy)} a ${r} ${r} 0 1 0 ${N(2 * r)} 0 a ${r} ${r} 0 1 0 ${N(-2 * r)} 0 Z`;
-// Nuance interne : même couleur en opacité réduite.
-const op = (d: string, o: number, extra = "") => `<path d="${d}" fill="${C}" opacity="${o}" ${extra}/>`;
-const opc = (cx: number, cy: number, r: number, o: number) => `<circle cx="${N(cx)}" cy="${N(cy)}" r="${N(r)}" fill="${C}" opacity="${o}"/>`;
-
 /* ═══════════ Recherche ═══════════ */
 
 /** Minuscules, sans accents ni ligatures : « fleche »→« flèche », « coeur »→« cœur ». */
@@ -161,8 +103,18 @@ export function normalizeSearch(s: string): string {
 
 /* ═══════════ Fabrique ═══════════ */
 
-const items: ElementDef[] = [];
-const seen = new Set<string>();
+/* ── Construction PARESSEUSE du catalogue ──────────────────────────────────
+   Le catalogue compte des milliers d'éléments : les générer au chargement du
+   module figerait l'éditeur pendant ~0,7 s à chaque ouverture, même pour qui
+   ne touche jamais au panneau Éléments. La construction n'a donc lieu qu'à la
+   PREMIÈRE demande (ouverture du panneau, recherche, ou rendu d'un document
+   qui contient un élément), puis le résultat est conservé. */
+let _cache: ElementDef[] | null = null;
+let _index: Map<string, ElementDef> | null = null;
+
+function buildCatalog(): ElementDef[] {
+  const items: ElementDef[] = [];
+  const seen = new Set<string>();
 function add(cat: string, id: string, label: string, keywords: string, w: number, h: number, body: string, defaultColor?: string, slots?: { label: string; def?: string }[]) {
   const full = `${cat}.${id}`;
   if (seen.has(full)) throw new Error(`id d'élément dupliqué : ${full}`);
@@ -3262,6 +3214,703 @@ function tint(id: string, color: string) {
   }
 })();
 
+/* ═══════════ Vague de masse — familles paramétriques ═══════════
+   Chaque famille explore une matrice de paramètres (forme × style × densité ×
+   graine) : les variantes sont réellement distinctes, pas des copies. Les
+   règles établies s'appliquent partout — couleurs unies éditables (le
+   post-traitement promeut toute teinte secondaire en emplacement dédié),
+   rendu déterministe, et contrôle de débordement repassé sur tout le
+   catalogue après génération. */
+(() => {
+  const M = (cat: string, id: string, label: string, kw: string, w: number, h: number, body: string, slots?: { label: string; def?: string }[]) =>
+    add(cat, `m${id}`, label, kw, w, h, body, undefined, slots);
+  const TWO = [{ label: "Couleur principale" }, { label: "Couleur secondaire" }];
+  const c1 = (code = "") => `__C1~${code}__`;
+
+  /* ── 1. Motifs semés (type × densité × taille × décalage) — ~1440 ── */
+  {
+    const glyphs: [string, string, (x: number, y: number, s: number) => string][] = [
+      ["dot", "Pois", (x, y, s) => `<circle cx="${N(x)}" cy="${N(y)}" r="${N(s)}" fill="${C}"/>`],
+      ["ring", "Anneaux", (x, y, s) => `<circle cx="${N(x)}" cy="${N(y)}" r="${N(s)}" fill="none" stroke="${C}" stroke-width="${N(Math.max(1.5, s * 0.32))}"/>`],
+      ["sq", "Carrés", (x, y, s) => `<rect x="${N(x - s)}" y="${N(y - s)}" width="${N(s * 2)}" height="${N(s * 2)}" fill="${C}"/>`],
+      ["diam", "Losanges", (x, y, s) => fillp(`M ${N(x)} ${N(y - s)} L ${N(x + s)} ${N(y)} L ${N(x)} ${N(y + s)} L ${N(x - s)} ${N(y)} Z`)],
+      ["tri", "Triangles", (x, y, s) => fillp(`M ${N(x)} ${N(y - s)} L ${N(x + s)} ${N(y + s)} L ${N(x - s)} ${N(y + s)} Z`)],
+      ["star", "Étoiles", (x, y, s) => fillp(starPts(x, y, 5, s, s * 0.42))],
+      ["star4", "Éclats", (x, y, s) => fillp(starPts(x, y, 4, s, s * 0.34))],
+      ["plus", "Croix", (x, y, s) => fillp(`M ${N(x - s / 3)} ${N(y - s)} H ${N(x + s / 3)} V ${N(y - s / 3)} H ${N(x + s)} V ${N(y + s / 3)} H ${N(x + s / 3)} V ${N(y + s)} H ${N(x - s / 3)} V ${N(y + s / 3)} H ${N(x - s)} V ${N(y - s / 3)} H ${N(x - s / 3)} Z`)],
+      ["x", "Croisillons", (x, y, s) => stroke(`M ${N(x - s)} ${N(y - s)} L ${N(x + s)} ${N(y + s)} M ${N(x + s)} ${N(y - s)} L ${N(x - s)} ${N(y + s)}`, Math.max(1.5, s * 0.34))],
+      ["heart", "Cœurs", (x, y, s) => fillp(`M ${N(x)} ${N(y + s * 0.72)} C ${N(x - s)} ${N(y)} ${N(x - s * 0.58)} ${N(y - s * 0.82)} ${N(x)} ${N(y - s * 0.3)} C ${N(x + s * 0.58)} ${N(y - s * 0.82)} ${N(x + s)} ${N(y)} ${N(x)} ${N(y + s * 0.72)} Z`)],
+      ["hex", "Hexagones", (x, y, s) => fillp(polyPts(x, y, 6, s, -90))],
+      ["leaf", "Feuilles", (x, y, s) => fillp(`M ${N(x)} ${N(y + s)} C ${N(x - s)} ${N(y + s * 0.2)} ${N(x - s * 0.8)} ${N(y - s * 0.8)} ${N(x)} ${N(y - s)} C ${N(x + s * 0.8)} ${N(y - s * 0.8)} ${N(x + s)} ${N(y + s * 0.2)} ${N(x)} ${N(y + s)} Z`)],
+    ];
+    const GAPS = [26, 34, 44, 56];
+    const SIZES = [0.2, 0.3, 0.42];
+    const LAYOUTS: [string, string][] = [["g", "grille"], ["q", "quinconce"], ["r", "libre"], ["d", "diagonale"]];
+    let i = 0;
+    for (const [gid, glabel, fn] of glyphs)
+      for (let gi = 0; gi < GAPS.length; gi++)
+        for (let si = 0; si < SIZES.length; si++)
+          for (const [lid, llabel] of LAYOUTS) {
+            const gap = GAPS[gi], s = gap * SIZES[si];
+            const cols = Math.max(3, Math.round(230 / gap)), rows = Math.max(3, Math.round(170 / gap));
+            const r = rng(i * 31 + 7);
+            let g = "";
+            for (let a = 0; a < cols; a++) for (let b = 0; b < rows; b++) {
+              let x = 22 + a * gap, y = 22 + b * gap;
+              if (lid === "q") x += (b % 2) * (gap / 2);
+              if (lid === "d") { x += b * (gap / 3); if (x > 22 + cols * gap) x -= cols * gap; }
+              if (lid === "r") { x += (r() - 0.5) * gap * 0.5; y += (r() - 0.5) * gap * 0.5; }
+              g += fn(x, y, s);
+            }
+            M("deco", `pat${i++}`, `Motif ${glabel.toLowerCase()}`, `motif semis pattern fond ${glabel} ${llabel}`,
+              22 + cols * gap + 22, 22 + rows * gap + 22, g);
+          }
+  }
+
+  /* ── 2. Blobs organiques (points × irrégularité × style × graines) — ~1080 ── */
+  {
+    const blob = (seed: number, n: number, irr: number) => {
+      const r = rng(seed);
+      const pts: [number, number][] = [];
+      for (let k = 0; k < n; k++) pts.push(polar(100, 100, 54 + r() * irr, (k * 360) / n + (r() - 0.5) * 22));
+      return smoothClosed(pts);
+    };
+    let i = 0;
+    for (let n = 5; n <= 10; n++)
+      for (const irr of [14, 22, 30])
+        for (let seed = 0; seed < 20; seed++) {
+          const d = blob(seed * 97 + n * 13 + irr, n, irr);
+          M("blobs", `bl${i++}`, "Blob", "blob forme organique tache fluide", 200, 200, fillp(d));
+          M("blobs", `bl${i++}`, "Blob contour", "blob organique contour outline", 200, 200, stroke(d, 4 + (seed % 4) * 2));
+          M("blobs", `bl${i++}`, "Blob double", "blob organique double décalé", 200, 200,
+            `<g transform="translate(9 9) scale(0.94) translate(6 6)">${fillWith(d, c1())}</g>` + fillp(d), TWO);
+        }
+  }
+
+  /* ── 3. Étoiles & éclats (branches × creux × style) — ~800 ── */
+  {
+    let i = 0;
+    for (let pts = 3; pts <= 16; pts++)
+      for (const ratio of [0.3, 0.4, 0.5, 0.62, 0.74])
+        for (const style of ["f", "o", "r", "d"]) {
+          const d = starPts(100, 100, pts, 88, 88 * ratio);
+          const body =
+            style === "f" ? fillp(d)
+            : style === "o" ? stroke(d, 6)
+            : style === "r" ? fillp(starPts(100, 100, pts, 88, 88 * ratio)) + `<circle cx="100" cy="100" r="${N(88 * ratio * 0.62)}" fill="${c1()}"/>`
+            : fillWith(d) + fillWith(starPts(100, 100, pts, 88 * 0.58, 88 * ratio * 0.58), c1());
+          M("stars", `st${i++}`, `Étoile ${pts}`, `étoile star éclat ${pts} branches`, 200, 200, body, style === "f" || style === "o" ? undefined : TWO);
+        }
+  }
+
+  /* ── 4. Cadres & bordures (forme × trait × coins) — ~640 ── */
+  {
+    let i = 0;
+    const dashes = ["", "20 12", "8 8", "34 14", "3 10", "44 16 8 16"];
+    for (const [w, h] of [[220, 170], [200, 200], [170, 220], [240, 140]] as const)
+      for (const sw of [4, 7, 11, 16])
+        for (const rad of [0, 12, 28, 999])
+          for (const dash of dashes) {
+            const rr = rad === 999 ? Math.min(w, h) / 2 - sw : rad;
+            const inset = sw / 2 + 8;
+            M("frames", `fr${i++}`, "Cadre", `cadre bordure contour ${dash ? "pointillé" : "plein"}`, w, h,
+              `<rect x="${N(inset)}" y="${N(inset)}" width="${N(w - inset * 2)}" height="${N(h - inset * 2)}" rx="${N(rr)}" fill="none" stroke="${C}" stroke-width="${sw}"${dash ? ` stroke-dasharray="${dash}"` : ""}/>`);
+          }
+  }
+
+  /* ── 5. Flèches (corps × tête × courbure) — ~720 ── */
+  {
+    let i = 0;
+    for (const body of [6, 10, 16, 24])
+      for (const head of [18, 26, 34])
+        for (const bend of [-40, -20, 0, 20, 40])
+          for (const style of ["line", "solid", "dashed", "double"]) {
+            const y0 = 70;
+            const d = `M 18 ${y0} Q 110 ${N(y0 + bend)} ${N(200 - head)} ${y0}`;
+            const ang = Math.atan2(0 - bend * 0.35, 60);
+            const b =
+              style === "solid"
+                ? fillp(`M 12 ${N(y0 - body)} H ${N(120)} V ${N(y0 - body - 12)} L ${N(200)} ${y0} L ${N(120)} ${N(y0 + body + 12)} V ${N(y0 + body)} H 12 Z`)
+                : style === "dashed"
+                  ? stroke(d, Math.max(3, body / 2), `stroke-dasharray="${body * 2} ${body * 1.4}"`) + arrowHead(200 - head + 4, y0, ang, head)
+                  : style === "double"
+                    ? stroke(d, Math.max(3, body / 2)) + arrowHead(200 - head + 4, y0, ang, head) + arrowHead(14 + head / 2, y0, Math.PI - ang, head)
+                    : stroke(d, Math.max(3, body / 2)) + arrowHead(200 - head + 4, y0, ang, head);
+            M("arrows", `ar${i++}`, "Flèche", `flèche arrow direction ${style}`, 210, 140, b);
+          }
+  }
+
+  /* ── 6. Badges & sceaux (dents × creux × centre) — ~630 ── */
+  {
+    let i = 0;
+    for (let teeth = 8; teeth <= 34; teeth += 2)
+      for (const inner of [6, 12, 20])
+        for (const style of ["f", "o", "c", "ring", "dot"]) {
+          const d = starPts(100, 100, teeth, 90, 90 - inner);
+          const b =
+            style === "f" ? fillp(d)
+            : style === "o" ? stroke(d, 5)
+            : style === "c" ? fillp(d) + `<circle cx="100" cy="100" r="${N(90 - inner - 10)}" fill="${c1()}"/>`
+            : style === "ring" ? fillp(d) + `<circle cx="100" cy="100" r="${N(90 - inner - 8)}" fill="none" stroke="${c1()}" stroke-width="5"/>`
+            : fillp(d) + `<circle cx="100" cy="100" r="10" fill="${c1()}"/>`;
+          M("badges", `bd${i++}`, "Sceau", `badge sceau tampon promo ${teeth} dents`, 200, 200, b, style === "f" || style === "o" ? undefined : TWO);
+        }
+  }
+
+  /* ── 7. Bulles de dialogue (forme × queue × style) — ~480 ── */
+  {
+    let i = 0;
+    for (const rad of [10, 20, 34, 60])
+      for (const tail of [40, 90, 150, 190])
+        for (const [tw, th] of [[26, 30], [16, 44], [40, 22]] as const)
+          for (const style of ["f", "o", "df", "do"] as const)
+            for (const hh of [90, 120]) {
+              const bw = 220, by = 12;
+              const rect = `<rect x="10" y="${by}" width="${bw}" height="${hh}" rx="${N(rad)}" fill="none" stroke="${C}" stroke-width="7"/>`;
+              const rectF = `<rect x="10" y="${by}" width="${bw}" height="${hh}" rx="${N(rad)}" fill="${C}"/>`;
+              const tx = Math.min(Math.max(tail, 30), bw - 30);
+              const tailD = `M ${N(tx)} ${N(by + hh - 2)} L ${N(tx + tw * 0.4)} ${N(by + hh + th)} L ${N(tx + tw)} ${N(by + hh - 2)} Z`;
+              const b =
+                style === "f" ? rectF + fillp(tailD)
+                : style === "o" ? rect + stroke(`M ${N(tx)} ${N(by + hh)} L ${N(tx + tw * 0.4)} ${N(by + hh + th)} L ${N(tx + tw)} ${N(by + hh)}`, 7)
+                : style === "df" ? rectF + fillp(tailD) + `<rect x="26" y="${by + 16}" width="${bw - 32}" height="${N(hh * 0.3)}" rx="8" fill="${c1()}"/>`
+                : rect + stroke(`M ${N(tx)} ${N(by + hh)} L ${N(tx + tw * 0.4)} ${N(by + hh + th)} L ${N(tx + tw)} ${N(by + hh)}`, 7) + `<rect x="30" y="${by + 22}" width="${bw - 60}" height="10" rx="5" fill="${c1()}"/>`;
+              M("bubbles", `bu${i++}`, "Bulle", "bulle parole message chat dialogue", 240, by + hh + th + 14, b, style.startsWith("d") ? TWO : undefined);
+            }
+  }
+
+  /* ── 8. Rubans & banderoles — ~420 ── */
+  {
+    let i = 0;
+    for (const w of [140, 180, 220])
+      for (const hh of [26, 36, 48])
+        for (const endStyle of ["v", "flat", "fork", "round"])
+          for (const deco of ["none", "line", "band", "dots"])
+            for (const fold of [0, 1]) {
+              const cx = 130, cy = 70;
+              const x0 = cx - w / 2, x1 = cx + w / 2;
+              const end = (side: 1 | -1) => {
+                const ex = side === 1 ? x1 : x0, dx = side * 26;
+                return endStyle === "v" ? fillp(`M ${N(ex)} ${N(cy - hh)} L ${N(ex + dx)} ${N(cy)} L ${N(ex)} ${N(cy + hh)} Z`, `opacity="0.72"`)
+                  : endStyle === "flat" ? fillp(`M ${N(ex)} ${N(cy - hh)} L ${N(ex + dx)} ${N(cy - hh)} L ${N(ex + dx)} ${N(cy + hh)} L ${N(ex)} ${N(cy + hh)} Z`, `opacity="0.72"`)
+                  : endStyle === "fork" ? fillp(`M ${N(ex)} ${N(cy - hh)} L ${N(ex + dx)} ${N(cy - hh)} L ${N(ex + dx * 0.5)} ${N(cy)} L ${N(ex + dx)} ${N(cy + hh)} L ${N(ex)} ${N(cy + hh)} Z`, `opacity="0.72"`)
+                  : `<path d="M ${N(ex)} ${N(cy - hh)} A ${N(Math.abs(dx))} ${N(hh)} 0 0 ${side === 1 ? 1 : 0} ${N(ex)} ${N(cy + hh)} Z" fill="${C}" opacity="0.72"/>`;
+              };
+              const decoD = deco === "line" ? `<rect x="${N(x0 + 10)}" y="${N(cy - 3)}" width="${N(w - 20)}" height="6" fill="${c1()}"/>`
+                : deco === "band" ? `<rect x="${N(x0)}" y="${N(cy - hh * 0.45)}" width="${N(w)}" height="${N(hh * 0.9)}" fill="${c1()}"/>`
+                : deco === "dots" ? Array.from({ length: 5 }, (_, k) => `<circle cx="${N(x0 + 20 + k * ((w - 40) / 4))}" cy="${N(cy)}" r="5" fill="${c1()}"/>`).join("") : "";
+              const foldD = fold ? fillp(`M ${N(x0)} ${N(cy + hh)} L ${N(x0 - 14)} ${N(cy + hh + 16)} L ${N(x0)} ${N(cy + hh + 16)} Z`, `opacity="0.5"`) : "";
+              M("badges", `rb${i++}`, "Ruban", "ruban banderole bannière étiquette", 260, 150,
+                end(1) + end(-1) + `<rect x="${N(x0)}" y="${N(cy - hh)}" width="${N(w)}" height="${N(hh * 2)}" rx="4" fill="${C}"/>` + decoD + foldD,
+                deco === "none" ? undefined : TWO);
+            }
+  }
+
+  /* ── 9. Formes géométriques (polygones × styles) — ~900 ── */
+  {
+    let i = 0;
+    for (let sides = 3; sides <= 14; sides++)
+      for (const rot of [-90, -90 + 180 / sides])
+        for (const style of ["f", "o", "ring", "cut", "dbl"])
+          for (const rad of [0, 1]) {
+            const R = 86 - rad * 10;
+            const d = polyPts(100, 100, sides, R, rot);
+            const b =
+              style === "f" ? fillp(d)
+              : style === "o" ? stroke(d, 8 + rad * 4)
+              : style === "ring" ? eo(`${d} ${polyPts(100, 100, sides, R * 0.62, rot)}`)
+              : style === "cut" ? fillWith(d) + fillWith(polyPts(100, 100, sides, R * 0.55, rot + 180 / sides), c1())
+              : fillWith(d) + strokeWith(polyPts(100, 100, sides, R * 0.72, rot), 5, c1());
+            M("geo", `gp${i++}`, `Polygone ${sides}`, `forme géométrique polygone ${sides} côtés`, 200, 200, b,
+              style === "cut" || style === "dbl" ? TWO : undefined);
+          }
+  }
+
+  /* ── 10. Rosaces & mandalas (pétales × rayon × forme × centre) — ~960 ── */
+  {
+    let i = 0;
+    for (const petals of [5, 6, 7, 8, 9, 10, 12, 14, 16, 18])
+      for (const rMid of [40, 52, 64])
+        for (const [pw, ph] of [[8, 24], [14, 32], [20, 40], [6, 44]] as const)
+          for (const center of ["dot", "ring", "star", "none"] as const)
+            for (const second of [0, 1]) {
+              let g = "";
+              for (let k = 0; k < petals; k++)
+                g += `<ellipse cx="100" cy="${N(100 - rMid)}" rx="${pw}" ry="${ph}" fill="${C}" transform="rotate(${N((k * 360) / petals)} 100 100)"/>`;
+              if (second)
+                for (let k = 0; k < petals; k++)
+                  g += `<ellipse cx="100" cy="${N(100 - rMid * 0.62)}" rx="${N(pw * 0.7)}" ry="${N(ph * 0.6)}" fill="${c1()}" transform="rotate(${N((k * 360) / petals + 180 / petals)} 100 100)"/>`;
+              g += center === "dot" ? `<circle cx="100" cy="100" r="${N(12 + pw * 0.4)}" fill="${c1()}"/>`
+                : center === "ring" ? `<circle cx="100" cy="100" r="${N(14 + pw * 0.4)}" fill="none" stroke="${c1()}" stroke-width="5"/>`
+                : center === "star" ? fillWith(starPts(100, 100, 6, 18, 8), c1())
+                : "";
+              M("ornaments", `ro${i++}`, "Rosace", "rosace mandala ornement fleur symétrie", 200, 200, g,
+                center === "none" && !second ? undefined : TWO);
+            }
+  }
+
+  /* ── 11. Traits & séparateurs (type × amplitude × épaisseur) — ~660 ── */
+  {
+    let i = 0;
+    for (const type of ["wave", "zig", "line", "dash", "double", "beads"] as const)
+      for (const amp of [6, 12, 20, 30])
+        for (const sw of [3, 5, 8, 12])
+          for (const seg of [3, 5, 7]) {
+            const W = 260, y = 60;
+            let d = `M 14 ${y} `;
+            const step = (W - 28) / seg;
+            if (type === "wave") for (let k = 0; k < seg; k++) d += `q ${N(step / 2)} ${N(k % 2 ? amp : -amp)} ${N(step)} 0 `;
+            else if (type === "zig") for (let k = 1; k <= seg; k++) d += `L ${N(14 + k * step)} ${N(k % 2 ? y - amp : y + amp)} `;
+            else d = `M 14 ${y} H ${W - 14}`;
+            const b =
+              type === "dash" ? stroke(d, sw, `stroke-dasharray="${sw * 3} ${sw * 2}"`)
+              : type === "double" ? stroke(`M 14 ${y - amp / 2} H ${W - 14}`, sw) + stroke(`M 14 ${y + amp / 2} H ${W - 14}`, sw)
+              : type === "beads" ? stroke(d, Math.max(2, sw / 2)) + Array.from({ length: seg + 1 }, (_, k) => `<circle cx="${N(14 + k * step)}" cy="${y}" r="${N(sw * 0.9)}" fill="${C}"/>`).join("")
+              : stroke(d, sw);
+            M("strokes", `ln${i++}`, "Trait", `trait ligne séparateur ${type}`, W, y + amp + 40, b);
+          }
+  }
+
+  /* ── 12. Cercles, anneaux & arcs — ~700 ── */
+  {
+    let i = 0;
+    for (const sw of [3, 6, 10, 16, 24])
+      for (const dash of ["", "2 18", "14 10", "40 14", "1 12"])
+        for (const arc of [360, 300, 240, 180, 120, 90, 45])
+          for (const cap of ["round", "butt"] as const) {
+            const R = 86 - sw / 2;
+            if (arc === 360) {
+              M("circles", `ci${i++}`, "Anneau", `cercle anneau rond${dash ? " pointillé" : ""}`, 200, 200,
+                `<circle cx="100" cy="100" r="${N(R)}" fill="none" stroke="${C}" stroke-width="${sw}"${dash ? ` stroke-dasharray="${dash}" stroke-linecap="${cap}"` : ""}/>`);
+            } else {
+              const a0 = -90, a1 = -90 + arc;
+              const [x0, y0] = polar(100, 100, R, a0), [x1, y1] = polar(100, 100, R, a1);
+              M("circles", `ci${i++}`, "Arc", `cercle arc portion ${arc}°`, 200, 200,
+                `<path d="M ${N(x0)} ${N(y0)} A ${N(R)} ${N(R)} 0 ${arc > 180 ? 1 : 0} 1 ${N(x1)} ${N(y1)}" fill="none" stroke="${C}" stroke-width="${sw}" stroke-linecap="${cap}"${dash ? ` stroke-dasharray="${dash}"` : ""}/>`);
+            }
+          }
+  }
+})();
+
+/* ═══════════ Vague de masse — suite : volumes, nature, icônes ═══════════ */
+(() => {
+  const M = (cat: string, id: string, label: string, kw: string, w: number, h: number, body: string, slots?: { label: string; def?: string }[]) =>
+    add(cat, `m${id}`, label, kw, w, h, body, undefined, slots);
+  const TWO = [{ label: "Couleur principale" }, { label: "Couleur secondaire" }];
+  const c1 = (code = "") => `__C1~${code}__`;
+  let gid = 0;
+  const RG = () => { const id = `v${gid++}`; return [id, `<radialGradient id="${id}" cx="34%" cy="26%" r="76%"><stop offset="0" stop-color="__CLL__"/><stop offset="0.55" stop-color="__CM__"/><stop offset="1" stop-color="__CDD__"/></radialGradient>`] as const; };
+  const LGd = (a: string, b: string, x2 = 0.4, y2 = 1) => { const id = `v${gid++}`; return [id, `<linearGradient id="${id}" x1="0" y1="0" x2="${x2}" y2="${y2}"><stop offset="0" stop-color="${a}"/><stop offset="1" stop-color="${b}"/></linearGradient>`] as const; };
+  const shine = (cx: number, cy: number, rx: number, ry: number, o = 0.5) =>
+    `<ellipse cx="${N(cx)}" cy="${N(cy)}" rx="${N(rx)}" ry="${N(ry)}" fill="__CW__" opacity="${o}" transform="rotate(-28 ${N(cx)} ${N(cy)})"/>`;
+  const contact = (cx: number, cy: number, rx: number) => `<ellipse cx="${N(cx)}" cy="${N(cy)}" rx="${N(rx)}" ry="7" fill="__CDD__" opacity="0.22"/>`;
+
+  /* ── 13. Volumes 3D (sphères, cubes, cylindres, cônes, tores, prismes) — ~900 ── */
+  {
+    let i = 0;
+    for (const kind of ["orb", "cube", "cyl", "cone", "torus", "prism"] as const)
+      for (const size of [0.72, 0.85, 1])
+        for (const light of [[26, 20], [38, 28], [50, 22], [30, 40]] as const)
+          for (let seed = 0; seed < 13; seed++) {
+            const r = rng(i * 53 + 11);
+            const k = size * (0.9 + r() * 0.2);
+            let body = "";
+            if (kind === "orb") {
+              const [id, def] = RG();
+              const R = 78 * k;
+              body = `<defs>${def.replace('cx="34%" cy="26%"', `cx="${light[0]}%" cy="${light[1]}%"`)}</defs>` +
+                contact(100, 100 + R + 12, R * 0.78) + `<circle cx="100" cy="98" r="${N(R)}" fill="url(#${id})"/>` + shine(100 - R * 0.34, 98 - R * 0.42, R * 0.24, R * 0.16);
+            } else if (kind === "cube") {
+              const s = 50 * k, cx = 100, cy = 80;
+              const P = (dx: number, dy: number) => `${N(cx + dx)} ${N(cy + dy)}`;
+              body = contact(100, 100 + s * 1.2 + 12, s * 1.05) +
+                `<path d="M ${P(0, -s)} L ${P(s * 1.05, -s * 0.42)} L ${P(0, s * 0.18)} L ${P(-s * 1.05, -s * 0.42)} Z" fill="__CLL__"/>` +
+                `<path d="M ${P(-s * 1.05, -s * 0.42)} L ${P(0, s * 0.18)} L ${P(0, s * 1.14)} L ${P(-s * 1.05, s * 0.54)} Z" fill="__CM__"/>` +
+                `<path d="M ${P(s * 1.05, -s * 0.42)} L ${P(0, s * 0.18)} L ${P(0, s * 1.14)} L ${P(s * 1.05, s * 0.54)} Z" fill="__CDD__"/>`;
+            } else if (kind === "cyl") {
+              const [id, def] = LGd("__CLL__", "__CDD__", 1, 0);
+              const rx = 48 * k, hh = 46 * k, ry = rx * 0.34;
+              body = `<defs>${def}</defs>` + contact(100, 100 + hh + ry + 10, rx * 0.95) +
+                `<path d="M ${N(100 - rx)} ${N(100 - hh)} V ${N(100 + hh)} A ${N(rx)} ${N(ry)} 0 0 0 ${N(100 + rx)} ${N(100 + hh)} V ${N(100 - hh)} Z" fill="url(#${id})"/>` +
+                `<ellipse cx="100" cy="${N(100 - hh)}" rx="${N(rx)}" ry="${N(ry)}" fill="__CLL__"/>`;
+            } else if (kind === "cone") {
+              const [id, def] = LGd("__CLL__", "__CDD__", 1, 0);
+              const rx = 46 * k, hh = 60 * k, ry = rx * 0.32;
+              const cy2 = Math.min(100 + hh + ry + 8, 188);
+              body = `<defs>${def}</defs>` + contact(100, cy2, rx * 0.95) +
+                `<path d="M 100 ${N(100 - hh)} L ${N(100 + rx)} ${N(100 + hh)} A ${N(rx)} ${N(ry)} 0 0 1 ${N(100 - rx)} ${N(100 + hh)} Z" fill="url(#${id})"/>`;
+            } else if (kind === "torus") {
+              const [id, def] = LGd("__CLL__", "__CDD__", 0.4, 1);
+              const t = 16 * k + 6, R = 66 * k;
+              body = `<defs>${def}</defs>` + contact(100, 100 + R + 14, R) +
+                `<circle cx="100" cy="98" r="${N(R)}" fill="none" stroke="url(#${id})" stroke-width="${N(t)}"/>`;
+            } else {
+              const sides = 5 + (seed % 4);
+              const R = 80 * k;
+              let g = "";
+              for (let a = 0; a < sides; a++) {
+                const a1 = -90 + (a * 360) / sides, a2 = -90 + ((a + 1) * 360) / sides;
+                const [x1, y1] = polar(100, 100, R, a1), [x2, y2] = polar(100, 100, R, a2);
+                const lit = Math.cos((((a1 + a2) / 2 + 130) * Math.PI) / 180);
+                g += `<path d="M 100 100 L ${N(x1)} ${N(y1)} L ${N(x2)} ${N(y2)} Z" fill="${lit > 0.45 ? "__CLL__" : lit > -0.1 ? "__CM__" : "__CDD__"}"/>`;
+              }
+              body = g;
+            }
+            M("geo", `v3${i++}`, "Volume", `volume 3d relief ${kind} sphère cube cylindre`, 200, 200, body);
+          }
+  }
+
+  /* ── 14. Feuilles & végétaux — ~640 ── */
+  {
+    let i = 0;
+    for (const fat of [0.42, 0.56, 0.7, 0.86])
+      for (const bend of [-24, -10, 0, 10, 24])
+        for (const tip of [0.7, 1, 1.3])
+          for (const style of ["f", "o", "vein", "half"] as const)
+            for (const seed of [0, 1, 2]) {
+              const half = 86 * fat, topY = 16 * tip;
+              const d = `M 100 186 C ${N(100 - half)} 138 ${N(100 - half - bend)} ${N(58 + seed * 4)} 100 ${N(topY)} C ${N(100 + half - bend)} ${N(58 + seed * 4)} ${N(100 + half)} 138 100 186 Z`;
+              const b =
+                style === "f" ? fillp(d)
+                : style === "o" ? stroke(d, 5 + seed)
+                : style === "vein" ? fillWith(d) + strokeWith(`M 100 176 Q ${N(100 - bend / 2)} 100 100 ${N(topY + 14)}`, 4, c1()) +
+                    Array.from({ length: 4 }, (_, k) => strokeWith(`M 100 ${N(60 + k * 30)} L ${N(100 - half * 0.5)} ${N(44 + k * 30)}`, 3, c1())).join("")
+                : fillWith(d) + fillWith(`M 100 186 C ${N(100 + half - bend)} ${N(58 + seed * 4)} ${N(100 + half)} 138 100 186 Z`, c1());
+              M("nature", `lf${i++}`, "Feuille", "nature feuille leaf plante végétal", 200, 200, b,
+                style === "vein" || style === "half" ? TWO : undefined);
+            }
+  }
+
+  /* ── 15. Fleurs (pétales × forme × cœur) — ~720 ── */
+  {
+    let i = 0;
+    for (const petals of [4, 5, 6, 7, 8, 10, 12])
+      for (const [pw, ph] of [[18, 40], [26, 44], [12, 36], [32, 34]] as const)
+        for (const py of [50, 60])
+          for (const core of ["dot", "ring", "seeds"] as const)
+            for (const outline of [0, 1])
+              for (const seed of [0, 1]) {
+                let g = "";
+                for (let k = 0; k < petals; k++) {
+                  const rot = (k * 360) / petals + seed * (180 / petals);
+                  g += outline
+                    ? `<ellipse cx="100" cy="${py}" rx="${pw}" ry="${ph}" fill="none" stroke="${C}" stroke-width="5" transform="rotate(${N(rot)} 100 100)"/>`
+                    : `<ellipse cx="100" cy="${py}" rx="${pw}" ry="${ph}" fill="${C}" transform="rotate(${N(rot)} 100 100)"/>`;
+                }
+                g += core === "dot" ? `<circle cx="100" cy="100" r="${N(14 + pw * 0.3)}" fill="${c1()}"/>`
+                  : core === "ring" ? `<circle cx="100" cy="100" r="${N(16 + pw * 0.3)}" fill="none" stroke="${c1()}" stroke-width="6"/>`
+                  : Array.from({ length: 8 }, (_, k) => { const [x, y] = polar(100, 100, 12, k * 45); return `<circle cx="${N(x)}" cy="${N(y)}" r="4" fill="${c1()}"/>`; }).join("");
+                M("nature", `fl${i++}`, "Fleur", "nature fleur flower pétales floral", 200, 200, g, TWO);
+              }
+  }
+
+  /* ── 16. Systèmes d'icônes : glyphe × conteneur × style — ~1440 ── */
+  {
+    const GLY: [string, string, string][] = [
+      ["heart", "Cœur", "M 100 138 C 66 114 54 96 60 80 C 66 66 82 64 90 73 C 94 78 98 84 100 89 C 102 84 106 78 110 73 C 118 64 134 66 140 80 C 146 96 134 114 100 138 Z"],
+      ["star", "Étoile", starPts(100, 100, 5, 40, 17)],
+      ["check", "Coche", "M 74 100 L 92 118 L 128 80 L 138 90 L 92 138 L 64 110 Z"],
+      ["cross", "Croix", "M 100 88 L 128 60 L 140 72 L 112 100 L 140 128 L 128 140 L 100 112 L 72 140 L 60 128 L 88 100 L 60 72 L 72 60 Z"],
+      ["plus", "Plus", "M 90 64 H 110 V 90 H 136 V 110 H 110 V 136 H 90 V 110 H 64 V 90 H 90 Z"],
+      ["play", "Lecture", "M 84 70 L 138 100 L 84 130 Z"],
+      ["pause", "Pause", "M 78 68 H 92 V 132 H 78 Z M 108 68 H 122 V 132 H 108 Z"],
+      ["bolt", "Éclair", "M 112 58 L 78 106 H 98 L 90 142 L 126 96 H 104 Z"],
+      ["drop", "Goutte", "M 100 60 C 116 84 128 96 128 110 A 28 28 0 0 1 72 110 C 72 96 84 84 100 60 Z"],
+      ["home", "Accueil", "M 100 62 L 142 98 H 132 V 138 H 108 V 114 H 92 V 138 H 68 V 98 H 58 Z"],
+      ["user", "Profil", "M 100 74 a 18 18 0 1 1 0.1 0 Z M 68 138 C 68 116 132 116 132 138 Z"],
+      ["mail", "Courrier", "M 62 76 H 138 V 128 H 62 Z M 62 78 L 100 106 L 138 78"],
+      ["bell", "Cloche", "M 100 62 C 86 62 78 72 78 86 V 106 L 70 118 H 130 L 122 106 V 86 C 122 72 114 62 100 62 Z M 92 124 A 10 10 0 0 0 108 124 Z"],
+      ["gear", "Réglages", ""],
+      ["search", "Recherche", ""],
+      ["clock", "Horloge", ""],
+    ];
+    const CONT = ["none", "circle", "square", "rounded", "badge", "ring"] as const;
+    let i = 0;
+    for (const [gidx, glabel, d] of GLY)
+      for (const cont of CONT)
+        for (const filled of [0, 1])
+          for (const size of [0.86, 1])
+            for (const seed of [0, 1, 2]) {
+              // glyphes calculés
+              const glyph =
+                gidx === "gear"
+                  ? (() => { const teeth = 8 + seed * 2; let dd = "";
+                      for (let k = 0; k < teeth * 4; k++) { const seg = Math.floor(k / 4), ph = k % 4;
+                        const rr = ph < 2 ? 44 : 34;
+                        const ang = (seg * 360) / teeth + (ph === 0 ? -9 : ph === 1 ? 9 : ph === 2 ? 13 : 360 / teeth - 13);
+                        const [x, y] = polar(100, 100, rr, ang); dd += (k === 0 ? "M" : "L") + ` ${N(x)} ${N(y)} `; }
+                      return `<path fill-rule="evenodd" d="${dd} Z M 100 84 a 16 16 0 1 0 0.1 0 Z" fill="${c1()}"/>`; })()
+                  : gidx === "search"
+                    ? `<circle cx="92" cy="92" r="26" fill="none" stroke="${c1()}" stroke-width="9"/><path d="M 112 112 L 136 136" stroke="${c1()}" stroke-width="10" stroke-linecap="round" fill="none"/>`
+                    : gidx === "clock"
+                      ? `<circle cx="100" cy="100" r="40" fill="none" stroke="${c1()}" stroke-width="8"/><path d="M 100 76 V 102 L 118 112" stroke="${c1()}" stroke-width="7" stroke-linecap="round" fill="none"/>`
+                      : gidx === "mail"
+                        ? `<path d="M 62 76 H 138 V 128 H 62 Z" fill="none" stroke="${c1()}" stroke-width="8"/><path d="M 64 78 L 100 106 L 136 78" fill="none" stroke="${c1()}" stroke-width="8"/>`
+                        : `<path d="${d}" fill="${c1()}"/>`;
+              const s = size;
+              const inner = `<g transform="translate(${N(100 - 100 * s)} ${N(100 - 100 * s)}) scale(${s})">${glyph}</g>`;
+              const box =
+                cont === "circle" ? (filled ? `<circle cx="100" cy="100" r="92" fill="${C}"/>` : `<circle cx="100" cy="100" r="88" fill="none" stroke="${C}" stroke-width="8"/>`)
+                : cont === "square" ? (filled ? `<rect x="10" y="10" width="180" height="180" fill="${C}"/>` : `<rect x="14" y="14" width="172" height="172" fill="none" stroke="${C}" stroke-width="8"/>`)
+                : cont === "rounded" ? (filled ? `<rect x="10" y="10" width="180" height="180" rx="42" fill="${C}"/>` : `<rect x="14" y="14" width="172" height="172" rx="40" fill="none" stroke="${C}" stroke-width="8"/>`)
+                : cont === "badge" ? fillp(starPts(100, 100, 14, 92, 78))
+                : cont === "ring" ? `<circle cx="100" cy="100" r="88" fill="none" stroke="${C}" stroke-width="14"/>`
+                : "";
+              if (cont === "none" && filled === 0) continue; // doublon visuel
+              M("icons", `ic${i++}`, glabel, `icône ${glabel} symbole pictogramme ui`, 200, 200,
+                (cont === "none" ? "" : box) + inner, TWO);
+            }
+  }
+
+  /* ── 17. Confettis & particules — ~480 ── */
+  {
+    let i = 0;
+    for (const density of [14, 24, 36, 50])
+      for (const kind of ["mix", "dots", "rects", "stars", "lines"] as const)
+        for (const spread of ["full", "top", "corner", "burst"] as const)
+          for (let seed = 0; seed < 6; seed++) {
+            const r = rng(i * 41 + 13);
+            let g = "";
+            for (let k = 0; k < density; k++) {
+              let x = 12 + r() * 216, y = 12 + r() * 176;
+              if (spread === "top") y = 12 + r() * 90;
+              if (spread === "corner") { x = 12 + r() * 130; y = 12 + r() * 110; }
+              if (spread === "burst") { const a = r() * 360, rad = r() * 88; [x, y] = polar(120, 100, rad, a); }
+              const t = kind === "mix" ? Math.floor(r() * 3) : kind === "dots" ? 0 : kind === "rects" ? 1 : kind === "stars" ? 3 : 2;
+              const o = N(0.55 + r() * 0.45);
+              g += t === 0 ? `<circle cx="${N(x)}" cy="${N(y)}" r="${N(3 + r() * 5)}" fill="${C}" opacity="${o}"/>`
+                : t === 1 ? `<rect x="${N(x)}" y="${N(y)}" width="${N(6 + r() * 9)}" height="${N(4 + r() * 5)}" rx="1.5" fill="${C}" opacity="${o}" transform="rotate(${N(r() * 90)} ${N(x)} ${N(y)})"/>`
+                : t === 2 ? stroke(`M ${N(x)} ${N(y)} l ${N(8 + r() * 12)} ${N(-6 + r() * 12)}`, N(2 + r() * 3), `opacity="${o}"`)
+                : fillp(starPts(x, y, 4, N(5 + r() * 6), N(2 + r() * 2)), `opacity="${o}"`);
+            }
+            M("party", `cf${i++}`, "Confettis", "confettis particules fête paillettes", 240, 200, g);
+          }
+  }
+
+  /* ── 18. Vagues & ondes — ~480 ── */
+  {
+    let i = 0;
+    for (const rows of [1, 2, 3, 4])
+      for (const amp of [8, 14, 22, 30])
+        for (const sw of [4, 7, 11])
+          for (const period of [40, 56, 76])
+            for (const style of ["stroke", "fill"] as const) {
+              const W = 260;
+              let g = "";
+              for (let rr = 0; rr < rows; rr++) {
+                const y = 34 + rr * (amp + 26);
+                let d = `M 10 ${N(y)} `;
+                for (let k = 0; k * period < W - 20; k++) d += `q ${N(period / 2)} ${N(k % 2 ? amp : -amp)} ${N(period)} 0 `;
+                g += style === "stroke"
+                  ? stroke(d, sw, `opacity="${N(1 - rr * 0.16)}"`)
+                  : `<path d="${d} V ${N(y + amp + 22)} H 10 Z" fill="${C}" opacity="${N(0.9 - rr * 0.2)}"/>`;
+              }
+              M("deco", `wv${i++}`, "Vagues", "vagues ondes water motif séparateur", W, 34 + rows * (amp + 26) + amp + 34, g);
+            }
+  }
+
+  /* ── 19. Demi-teintes & dégradés de points — ~432 ── */
+  {
+    let i = 0;
+    for (const dir of ["h", "v", "r", "d"] as const)
+      for (const cols of [8, 11, 14])
+        for (const gap of [18, 24, 30])
+          for (const maxR of [4, 7, 10])
+            for (const shape of ["dot", "sq", "ring"] as const) {
+              const rows = Math.max(4, Math.round((cols * gap * 0.62) / gap));
+              let g = "";
+              for (let a = 0; a < cols; a++) for (let b = 0; b < rows; b++) {
+                const tx = a / (cols - 1), ty = b / (rows - 1);
+                const t = dir === "h" ? tx : dir === "v" ? ty : dir === "d" ? (tx + ty) / 2 : 1 - Math.hypot(tx - 0.5, ty - 0.5) * 1.6;
+                const rr = Math.max(0.6, maxR * Math.max(0, Math.min(1, t)));
+                const cx = 16 + a * gap, cy = 16 + b * gap;
+                g += shape === "dot" ? `<circle cx="${N(cx)}" cy="${N(cy)}" r="${N(rr)}" fill="${C}"/>`
+                  : shape === "sq" ? `<rect x="${N(cx - rr)}" y="${N(cy - rr)}" width="${N(rr * 2)}" height="${N(rr * 2)}" fill="${C}"/>`
+                  : `<circle cx="${N(cx)}" cy="${N(cy)}" r="${N(rr)}" fill="none" stroke="${C}" stroke-width="${N(Math.max(1, rr * 0.4))}"/>`;
+              }
+              M("deco", `ht${i++}`, "Demi-teinte", "demi-teinte halftone dégradé points motif", 16 + cols * gap + 16, 16 + rows * gap + 16, g);
+            }
+  }
+
+  /* ── 20. Grilles & damiers — ~360 ── */
+  {
+    let i = 0;
+    for (const cell of [16, 22, 30, 40])
+      for (const sw of [1.5, 3, 5])
+        for (const kind of ["grid", "check", "cross", "brick", "diag"] as const)
+          for (const cols of [6, 8, 10])
+            for (const rows of [4, 6]) {
+              const W = cols * cell, H = rows * cell;
+              let g = "";
+              if (kind === "grid") { for (let a = 0; a <= cols; a++) g += stroke(`M ${N(a * cell)} 0 V ${N(H)}`, sw); for (let b = 0; b <= rows; b++) g += stroke(`M 0 ${N(b * cell)} H ${N(W)}`, sw); }
+              else if (kind === "check") { for (let a = 0; a < cols; a++) for (let b = 0; b < rows; b++) if ((a + b) % 2 === 0) g += `<rect x="${N(a * cell)}" y="${N(b * cell)}" width="${N(cell)}" height="${N(cell)}" fill="${C}"/>`; }
+              else if (kind === "cross") { for (let a = 0; a <= cols; a++) for (let b = 0; b <= rows; b++) g += stroke(`M ${N(a * cell - 5)} ${N(b * cell)} H ${N(a * cell + 5)} M ${N(a * cell)} ${N(b * cell - 5)} V ${N(b * cell + 5)}`, sw); }
+              else if (kind === "brick") { for (let b = 0; b < rows; b++) for (let a = 0; a < cols; a++) g += `<rect x="${N(a * cell + (b % 2) * (cell / 2))}" y="${N(b * cell)}" width="${N(cell - 3)}" height="${N(cell - 3)}" rx="2" fill="none" stroke="${C}" stroke-width="${sw}"/>`; }
+              else { for (let a = -rows; a <= cols; a++) g += stroke(`M ${N(a * cell)} 0 L ${N((a + rows) * cell)} ${N(H)}`, sw); }
+              M("deco", `gr${i++}`, "Grille", `motif grille ${kind} quadrillage fond`, W + 4, H + 4,
+                `<g transform="translate(2 2)">${g}</g>`);
+            }
+  }
+
+  /* ── 21. Météo & astres — ~300 ── */
+  {
+    let i = 0;
+    for (const rays of [6, 8, 10, 12, 16, 20])
+      for (const rlen of [20, 30, 40])
+        for (const core of [30, 42, 54])
+          for (const style of ["line", "tri", "none"] as const)
+            for (const ring of [0, 1]) {
+              let g = "";
+              if (style !== "none")
+                for (let k = 0; k < rays; k++) {
+                  const a = (k * 360) / rays;
+                  const [x1, y1] = polar(100, 100, core + 8, a), [x2, y2] = polar(100, 100, core + 8 + rlen, a);
+                  g += style === "line" ? stroke(`M ${N(x1)} ${N(y1)} L ${N(x2)} ${N(y2)}`, 7)
+                    : fillp(`M ${N(polar(100, 100, core + 8, a - 5)[0])} ${N(polar(100, 100, core + 8, a - 5)[1])} L ${N(x2)} ${N(y2)} L ${N(polar(100, 100, core + 8, a + 5)[0])} ${N(polar(100, 100, core + 8, a + 5)[1])} Z`);
+                }
+              g += ring ? `<circle cx="100" cy="100" r="${N(core)}" fill="none" stroke="${C}" stroke-width="8"/>` : `<circle cx="100" cy="100" r="${N(core)}" fill="${C}"/>`;
+              M("weather", `sn${i++}`, "Soleil", "météo soleil astre rayons", 200, 200, g);
+            }
+  }
+
+  /* ── 22. Flocons de neige — ~288 ── */
+  {
+    let i = 0;
+    for (const arms of [6, 8, 12])
+      for (const branches of [0, 1, 2, 3])
+        for (const sw of [3, 5, 8])
+          for (const len of [70, 84])
+            for (const tipStyle of ["none", "dot", "bar"] as const) {
+              let g = "";
+              for (let k = 0; k < arms; k++) {
+                const a = (k * 360) / arms;
+                const [x2, y2] = polar(100, 100, len, a);
+                g += stroke(`M 100 100 L ${N(x2)} ${N(y2)}`, sw);
+                for (let bnum = 1; bnum <= branches; bnum++) {
+                  const br = (len * bnum) / (branches + 1);
+                  const [bx, by] = polar(100, 100, br, a);
+                  const [t1x, t1y] = polar(bx, by, len * 0.22, a - 42), [t2x, t2y] = polar(bx, by, len * 0.22, a + 42);
+                  g += stroke(`M ${N(t1x)} ${N(t1y)} L ${N(bx)} ${N(by)} L ${N(t2x)} ${N(t2y)}`, Math.max(2, sw - 1));
+                }
+                if (tipStyle === "dot") g += `<circle cx="${N(x2)}" cy="${N(y2)}" r="${N(sw)}" fill="${C}"/>`;
+                if (tipStyle === "bar") { const [p1x, p1y] = polar(x2, y2, sw * 2, a - 90), [p2x, p2y] = polar(x2, y2, sw * 2, a + 90); g += stroke(`M ${N(p1x)} ${N(p1y)} L ${N(p2x)} ${N(p2y)}`, sw); }
+              }
+              M("weather", `sf${i++}`, "Flocon", "météo flocon neige hiver cristal", 200, 200, g);
+            }
+  }
+})();
+
+/* ═══════════ Vague de masse — compléments ═══════════ */
+(() => {
+  const M = (cat: string, id: string, label: string, kw: string, w: number, h: number, body: string, slots?: { label: string; def?: string }[]) =>
+    add(cat, `m${id}`, label, kw, w, h, body, undefined, slots);
+  const TWO = [{ label: "Couleur principale" }, { label: "Couleur secondaire" }];
+  const c1 = (code = "") => `__C1~${code}__`;
+
+  /* ── Étiquettes & pastilles de prix — ~360 ── */
+  {
+    let i = 0;
+    for (const shape of ["tag", "pill", "burst", "shield", "circle"] as const)
+      for (const w of [120, 160, 200])
+        for (const hh of [60, 84, 110])
+          for (const style of ["f", "o", "band", "hole"] as const)
+            for (const seed of [0, 1]) {
+              const cx = 120, cy = 70 + seed * 4;
+              let d = "";
+              if (shape === "tag") d = `M ${N(cx - w / 2)} ${N(cy - hh / 2)} H ${N(cx + w / 2 - 22)} L ${N(cx + w / 2)} ${N(cy)} L ${N(cx + w / 2 - 22)} ${N(cy + hh / 2)} H ${N(cx - w / 2)} Z`;
+              else if (shape === "pill") d = `M ${N(cx - w / 2 + hh / 2)} ${N(cy - hh / 2)} H ${N(cx + w / 2 - hh / 2)} A ${N(hh / 2)} ${N(hh / 2)} 0 0 1 ${N(cx + w / 2 - hh / 2)} ${N(cy + hh / 2)} H ${N(cx - w / 2 + hh / 2)} A ${N(hh / 2)} ${N(hh / 2)} 0 0 1 ${N(cx - w / 2 + hh / 2)} ${N(cy - hh / 2)} Z`;
+              else if (shape === "burst") d = starPts(cx, cy, 12, Math.max(w, hh) / 2, Math.max(w, hh) / 2 - 12);
+              else if (shape === "shield") d = `M ${N(cx - w / 2)} ${N(cy - hh / 2)} H ${N(cx + w / 2)} V ${N(cy)} C ${N(cx + w / 2)} ${N(cy + hh / 2)} ${N(cx)} ${N(cy + hh / 2 + 10)} ${N(cx)} ${N(cy + hh / 2 + 10)} C ${N(cx)} ${N(cy + hh / 2 + 10)} ${N(cx - w / 2)} ${N(cy + hh / 2)} ${N(cx - w / 2)} ${N(cy)} Z`;
+              else d = `M ${N(cx - hh / 2)} ${N(cy)} a ${N(hh / 2)} ${N(hh / 2)} 0 1 0 ${N(hh)} 0 a ${N(hh / 2)} ${N(hh / 2)} 0 1 0 ${N(-hh)} 0 Z`;
+              const b = style === "f" ? fillp(d)
+                : style === "o" ? stroke(d, 7)
+                : style === "band" ? fillp(d) + `<rect x="${N(cx - w / 2)}" y="${N(cy - 8)}" width="${N(w)}" height="16" fill="${c1()}"/>`
+                : eo(`${d}${holeC(cx - w / 2 + 18, cy, 8)}`);
+              M("badges", `tg${i++}`, "Étiquette", `étiquette badge prix promo label ${shape}`, 240, 150, b, style === "band" ? TWO : undefined);
+            }
+  }
+
+  /* ── Coins & angles décoratifs — ~288 ── */
+  {
+    let i = 0;
+    for (const len of [40, 60, 80])
+      for (const sw of [4, 7, 11, 16])
+        for (const style of ["L", "double", "curve", "dots"] as const)
+          for (const corners of [1, 2, 4])
+            for (const seed of [0, 1]) {
+              const W = 200, H = 160, m = 16 + seed * 4;
+              const corner = (cx: number, cy: number, sx: number, sy: number) =>
+                style === "L" ? stroke(`M ${N(cx)} ${N(cy + sy * len)} V ${N(cy)} H ${N(cx + sx * len)}`, sw)
+                : style === "double" ? stroke(`M ${N(cx)} ${N(cy + sy * len)} V ${N(cy)} H ${N(cx + sx * len)}`, sw) + stroke(`M ${N(cx + sx * 10)} ${N(cy + sy * len)} V ${N(cy + sy * 10)} H ${N(cx + sx * len)}`, Math.max(2, sw / 2))
+                : style === "curve" ? stroke(`M ${N(cx)} ${N(cy + sy * len)} Q ${N(cx)} ${N(cy)} ${N(cx + sx * len)} ${N(cy)}`, sw)
+                : Array.from({ length: 4 }, (_, k) => `<circle cx="${N(cx + sx * k * (len / 3))}" cy="${N(cy)}" r="${N(sw * 0.7)}" fill="${C}"/><circle cx="${N(cx)}" cy="${N(cy + sy * k * (len / 3))}" r="${N(sw * 0.7)}" fill="${C}"/>`).join("");
+              let g = corner(m, m, 1, 1);
+              if (corners >= 2) g += corner(W - m, m, -1, 1);
+              if (corners === 4) g += corner(m, H - m, 1, -1) + corner(W - m, H - m, -1, -1);
+              M("frames", `cn${i++}`, "Coins", "coins angles crochets cadre décoratif", W, H, g);
+            }
+  }
+
+  /* ── Spirales & volutes — ~240 ── */
+  {
+    let i = 0;
+    for (const turns of [1.5, 2.5, 3.5, 4.5])
+      for (const sw of [3, 5, 8, 12])
+        for (const grow of [8, 12, 18])
+          for (const dir of [1, -1])
+            for (const seed of [0, 1, 2, 3, 4]) {
+              const steps = Math.round(turns * 28);
+              let d = "";
+              for (let k = 0; k <= steps; k++) {
+                const t = k / steps, a = dir * t * turns * 360 - 90;
+                const rad = 6 + t * grow * turns * (1 + seed * 0.05);
+                const [x, y] = polar(100, 100, Math.min(rad, 92), a);
+                d += (k === 0 ? "M" : "L") + ` ${N(x)} ${N(y)} `;
+              }
+              M("ornaments", `sp${i++}`, "Spirale", "spirale volute ornement courbe", 200, 200, stroke(d, sw));
+            }
+  }
+
+  /* ── Éclats / explosions comic — ~240 ── */
+  {
+    let i = 0;
+    for (const spikes of [8, 10, 12, 16, 20])
+      for (const jag of [0.5, 0.66, 0.8])
+        for (const style of ["f", "o", "dbl"] as const)
+          for (let seed = 0; seed < 8; seed++) {
+            const r = rng(i * 37 + 5);
+            let d = "";
+            for (let k = 0; k < spikes * 2; k++) {
+              const a = (k * 180) / spikes - 90;
+              const rad = (k % 2 === 0 ? 92 : 92 * jag) * (0.88 + r() * 0.24);
+              const [x, y] = polar(100, 100, rad, a);
+              d += (k === 0 ? "M" : "L") + ` ${N(x)} ${N(y)} `;
+            }
+            d += "Z";
+            M("stars", `ex${i++}`, "Explosion", "explosion éclat comic bd étoile", 200, 200,
+              style === "f" ? fillp(d) : style === "o" ? stroke(d, 6) : fillp(d) + `<circle cx="100" cy="100" r="${N(92 * jag * 0.6)}" fill="${c1()}"/>`,
+              style === "dbl" ? TWO : undefined);
+          }
+  }
+
+  /* ── Gouttes & bulles liquides — ~216 ── */
+  {
+    let i = 0;
+    for (const stretch of [0.8, 1, 1.25])
+      for (const round of [0.6, 0.8, 1])
+        for (const style of ["f", "o", "shine"] as const)
+          for (let seed = 0; seed < 8; seed++) {
+            const r = rng(i * 29 + 3);
+            const H = 150 * stretch, Rw = 56 * round * (0.9 + r() * 0.2);
+            const d = `M 100 ${N(190 - H)} C ${N(100 + Rw)} ${N(190 - H * 0.42)} ${N(100 + Rw * 1.05)} 190 100 190 C ${N(100 - Rw * 1.05)} 190 ${N(100 - Rw)} ${N(190 - H * 0.42)} 100 ${N(190 - H)} Z`;
+            M("nature", `dr${i++}`, "Goutte", "goutte eau liquide bulle", 200, 200,
+              style === "f" ? fillp(d) : style === "o" ? stroke(d, 6)
+              : fillp(d) + `<ellipse cx="${N(100 - Rw * 0.34)}" cy="${N(190 - H * 0.42)}" rx="${N(Rw * 0.16)}" ry="${N(H * 0.14)}" fill="${c1()}" opacity="0.85" transform="rotate(-20 ${N(100 - Rw * 0.34)} ${N(190 - H * 0.42)})"/>`,
+              style === "shine" ? TWO : undefined);
+          }
+  }
+})();
+
 /* ── Distribution des couleurs : chaque élément SANS teinte explicite reçoit
    une couleur de la palette de sa catégorie (index → couleur), pour un
    catalogue varié et coloré. Déterministe (ordre stable) → aucun décalage
@@ -3337,6 +3986,100 @@ tint("sport.medal1", "#fbbf24"); tint("sport.flagp0", "#f87171");
   }
 })();
 
+/* ── Motifs pavés : découpe explicite ──────────────────────────────────────
+   Ces motifs (grilles diagonales, rayures, vagues à répétition) débordent PAR
+   NATURE : ils sont conçus pour remplir leur boîte et être rognés. On les
+   découpe donc explicitement au format déclaré, pour que le rognage soit net
+   et voulu plutôt que subi. */
+  const OVERFLOW_CLIP = new Set<string>([
+  "deco.mgr114",
+  "deco.mgr115",
+  "deco.mgr116",
+  "deco.mgr117",
+  "deco.mgr118",
+  "deco.mgr119",
+  "deco.mgr144",
+  "deco.mgr145",
+  "deco.mgr146",
+  "deco.mgr147",
+  "deco.mgr148",
+  "deco.mgr149",
+  "deco.mgr174",
+  "deco.mgr175",
+  "deco.mgr176",
+  "deco.mgr177",
+  "deco.mgr178",
+  "deco.mgr179",
+  "deco.mgr204",
+  "deco.mgr205",
+  "deco.mgr206",
+  "deco.mgr207",
+  "deco.mgr208",
+  "deco.mgr209",
+  "deco.mgr234",
+  "deco.mgr235",
+  "deco.mgr236",
+  "deco.mgr237",
+  "deco.mgr238",
+  "deco.mgr239",
+  "deco.mgr24",
+  "deco.mgr25",
+  "deco.mgr26",
+  "deco.mgr264",
+  "deco.mgr265",
+  "deco.mgr266",
+  "deco.mgr267",
+  "deco.mgr268",
+  "deco.mgr269",
+  "deco.mgr27",
+  "deco.mgr28",
+  "deco.mgr29",
+  "deco.mgr294",
+  "deco.mgr295",
+  "deco.mgr296",
+  "deco.mgr297",
+  "deco.mgr298",
+  "deco.mgr299",
+  "deco.mgr324",
+  "deco.mgr325",
+  "deco.mgr326",
+  "deco.mgr327",
+  "deco.mgr328",
+  "deco.mgr329",
+  "deco.mgr354",
+  "deco.mgr355",
+  "deco.mgr356",
+  "deco.mgr357",
+  "deco.mgr358",
+  "deco.mgr359",
+  "deco.mgr54",
+  "deco.mgr55",
+  "deco.mgr56",
+  "deco.mgr57",
+  "deco.mgr58",
+  "deco.mgr59",
+  "deco.mgr84",
+  "deco.mgr85",
+  "deco.mgr86",
+  "deco.mgr87",
+  "deco.mgr88",
+  "deco.mgr89",
+  "deco.stripes0",
+  "deco.stripes1",
+  "deco.stripes2",
+  "deco.stripes3",
+  "deco.stripes4",
+  "deco.stripes5"
+  ]);
+  {
+    let n = 0;
+    for (const e of items) {
+      if (!OVERFLOW_CLIP.has(e.id)) continue;
+      const cid = `oc${n++}`;
+      e.body = `<defs><clipPath id="${cid}"><rect x="0" y="0" width="${e.w}" height="${e.h}"/></clipPath></defs><g clip-path="url(#${cid})">${e.body}</g>`;
+    }
+  }
+
 /* ── Anti-débordement ──────────────────────────────────────────────────────
    Un tracé qui sort de la boîte déclarée est ROGNÉ au rendu (le viewBox coupe) :
    coutures de ballon qui dépassent, branche de sapin tronquée, bout de
@@ -3346,6 +4089,956 @@ tint("sport.medal1", "#fbbf24"); tint("sport.flagp0", "#f87171");
    (rayures diagonales en fond) ne sont pas touchés.
    [gauche, haut, droite, bas] */
 const OVERFLOW_PAD: Record<string, [number, number, number, number]> = {
+  "arrows.mar103": [3, 0, 0, 0],
+  "arrows.mar107": [3, 0, 0, 0],
+  "arrows.mar111": [3, 0, 0, 0],
+  "arrows.mar115": [3, 0, 0, 0],
+  "arrows.mar119": [3, 0, 0, 0],
+  "arrows.mar163": [3, 0, 0, 0],
+  "arrows.mar167": [3, 0, 0, 0],
+  "arrows.mar171": [3, 0, 0, 0],
+  "arrows.mar175": [3, 0, 0, 0],
+  "arrows.mar179": [3, 0, 0, 0],
+  "arrows.mar223": [3, 0, 0, 0],
+  "arrows.mar227": [3, 0, 0, 0],
+  "arrows.mar231": [3, 0, 0, 0],
+  "arrows.mar235": [3, 0, 0, 0],
+  "arrows.mar239": [3, 0, 0, 0],
+  "arrows.mar43": [3, 0, 0, 0],
+  "arrows.mar47": [3, 0, 0, 0],
+  "arrows.mar51": [3, 0, 0, 0],
+  "arrows.mar55": [3, 0, 0, 0],
+  "arrows.mar59": [3, 0, 0, 0],
+  "badges.mrb192": [6, 0, 6, 0],
+  "badges.mrb193": [6, 0, 6, 0],
+  "badges.mrb194": [6, 0, 6, 0],
+  "badges.mrb195": [6, 0, 6, 0],
+  "badges.mrb196": [6, 0, 6, 0],
+  "badges.mrb197": [6, 0, 6, 0],
+  "badges.mrb198": [6, 0, 6, 0],
+  "badges.mrb199": [6, 0, 6, 0],
+  "badges.mrb200": [6, 0, 6, 0],
+  "badges.mrb201": [6, 0, 6, 0],
+  "badges.mrb202": [6, 0, 6, 0],
+  "badges.mrb203": [6, 0, 6, 0],
+  "badges.mrb204": [6, 0, 6, 0],
+  "badges.mrb205": [6, 0, 6, 0],
+  "badges.mrb206": [6, 0, 6, 0],
+  "badges.mrb207": [6, 0, 6, 0],
+  "badges.mrb208": [6, 0, 6, 0],
+  "badges.mrb209": [6, 0, 6, 0],
+  "badges.mrb210": [6, 0, 6, 0],
+  "badges.mrb211": [6, 0, 6, 0],
+  "badges.mrb212": [6, 0, 6, 0],
+  "badges.mrb213": [6, 0, 6, 0],
+  "badges.mrb214": [6, 0, 6, 0],
+  "badges.mrb215": [6, 0, 6, 0],
+  "badges.mrb216": [6, 0, 6, 0],
+  "badges.mrb217": [6, 0, 6, 0],
+  "badges.mrb218": [6, 0, 6, 0],
+  "badges.mrb219": [6, 0, 6, 0],
+  "badges.mrb220": [6, 0, 6, 0],
+  "badges.mrb221": [6, 0, 6, 0],
+  "badges.mrb222": [6, 0, 6, 0],
+  "badges.mrb223": [6, 0, 6, 0],
+  "badges.mrb224": [6, 0, 6, 0],
+  "badges.mrb225": [6, 0, 6, 0],
+  "badges.mrb226": [6, 0, 6, 0],
+  "badges.mrb227": [6, 0, 6, 0],
+  "badges.mrb228": [6, 0, 6, 0],
+  "badges.mrb229": [6, 0, 6, 0],
+  "badges.mrb230": [6, 0, 6, 0],
+  "badges.mrb231": [6, 0, 6, 0],
+  "badges.mrb232": [6, 0, 6, 0],
+  "badges.mrb233": [6, 0, 6, 0],
+  "badges.mrb234": [6, 0, 6, 0],
+  "badges.mrb235": [6, 0, 6, 0],
+  "badges.mrb236": [6, 0, 6, 0],
+  "badges.mrb237": [6, 0, 6, 0],
+  "badges.mrb238": [6, 0, 6, 0],
+  "badges.mrb239": [6, 0, 6, 0],
+  "badges.mrb240": [6, 0, 6, 0],
+  "badges.mrb241": [6, 0, 6, 0],
+  "badges.mrb242": [6, 0, 6, 0],
+  "badges.mrb243": [6, 0, 6, 0],
+  "badges.mrb244": [6, 0, 6, 0],
+  "badges.mrb245": [6, 0, 6, 0],
+  "badges.mrb246": [6, 0, 6, 0],
+  "badges.mrb247": [6, 0, 6, 0],
+  "badges.mrb248": [6, 0, 6, 0],
+  "badges.mrb249": [6, 0, 6, 0],
+  "badges.mrb250": [6, 0, 6, 0],
+  "badges.mrb251": [6, 0, 6, 0],
+  "badges.mrb252": [6, 0, 6, 0],
+  "badges.mrb253": [6, 0, 6, 0],
+  "badges.mrb254": [6, 0, 6, 0],
+  "badges.mrb255": [6, 0, 6, 0],
+  "badges.mrb256": [6, 0, 6, 0],
+  "badges.mrb257": [6, 0, 6, 0],
+  "badges.mrb258": [6, 0, 6, 0],
+  "badges.mrb259": [6, 0, 6, 0],
+  "badges.mrb260": [6, 0, 6, 0],
+  "badges.mrb261": [6, 0, 6, 0],
+  "badges.mrb262": [6, 0, 6, 0],
+  "badges.mrb263": [6, 0, 6, 0],
+  "badges.mrb264": [6, 0, 6, 0],
+  "badges.mrb265": [6, 0, 6, 0],
+  "badges.mrb266": [6, 0, 6, 0],
+  "badges.mrb267": [6, 0, 6, 0],
+  "badges.mrb268": [6, 0, 6, 0],
+  "badges.mrb269": [6, 0, 6, 0],
+  "badges.mrb270": [6, 0, 6, 0],
+  "badges.mrb271": [6, 0, 6, 0],
+  "badges.mrb272": [6, 0, 6, 0],
+  "badges.mrb273": [6, 0, 6, 0],
+  "badges.mrb274": [6, 0, 6, 0],
+  "badges.mrb275": [6, 0, 6, 0],
+  "badges.mrb276": [6, 0, 6, 0],
+  "badges.mrb277": [6, 0, 6, 0],
+  "badges.mrb278": [6, 0, 6, 0],
+  "badges.mrb279": [6, 0, 6, 0],
+  "badges.mrb280": [6, 0, 6, 0],
+  "badges.mrb281": [6, 0, 6, 0],
+  "badges.mrb282": [6, 0, 6, 0],
+  "badges.mrb283": [6, 0, 6, 0],
+  "badges.mrb284": [6, 0, 6, 0],
+  "badges.mrb285": [6, 0, 6, 0],
+  "badges.mrb286": [6, 0, 6, 0],
+  "badges.mrb287": [6, 0, 6, 0],
+  "badges.mtg168": [0, 10, 0, 0],
+  "badges.mtg169": [0, 6, 0, 4],
+  "badges.mtg170": [0, 10, 0, 0],
+  "badges.mtg171": [0, 6, 0, 4],
+  "badges.mtg172": [0, 10, 0, 0],
+  "badges.mtg173": [0, 6, 0, 4],
+  "badges.mtg174": [0, 10, 0, 0],
+  "badges.mtg175": [0, 6, 0, 4],
+  "badges.mtg176": [0, 10, 0, 0],
+  "badges.mtg177": [0, 6, 0, 4],
+  "badges.mtg178": [0, 10, 0, 0],
+  "badges.mtg179": [0, 6, 0, 4],
+  "badges.mtg180": [0, 10, 0, 0],
+  "badges.mtg181": [0, 6, 0, 4],
+  "badges.mtg182": [0, 10, 0, 0],
+  "badges.mtg183": [0, 6, 0, 4],
+  "badges.mtg184": [0, 10, 0, 0],
+  "badges.mtg185": [0, 6, 0, 4],
+  "badges.mtg186": [0, 10, 0, 0],
+  "badges.mtg187": [0, 6, 0, 4],
+  "badges.mtg188": [0, 10, 0, 0],
+  "badges.mtg189": [0, 6, 0, 4],
+  "badges.mtg190": [0, 10, 0, 0],
+  "badges.mtg191": [0, 6, 0, 4],
+  "badges.mtg192": [0, 30, 0, 20],
+  "badges.mtg193": [0, 26, 0, 24],
+  "badges.mtg194": [0, 30, 0, 20],
+  "badges.mtg195": [0, 26, 0, 24],
+  "badges.mtg196": [0, 30, 0, 20],
+  "badges.mtg197": [0, 26, 0, 24],
+  "badges.mtg198": [0, 30, 0, 20],
+  "badges.mtg199": [0, 26, 0, 24],
+  "badges.mtg200": [0, 30, 0, 20],
+  "badges.mtg201": [0, 26, 0, 24],
+  "badges.mtg202": [0, 30, 0, 20],
+  "badges.mtg203": [0, 26, 0, 24],
+  "badges.mtg204": [0, 30, 0, 20],
+  "badges.mtg205": [0, 26, 0, 24],
+  "badges.mtg206": [0, 30, 0, 20],
+  "badges.mtg207": [0, 26, 0, 24],
+  "badges.mtg208": [0, 30, 0, 20],
+  "badges.mtg209": [0, 26, 0, 24],
+  "badges.mtg210": [0, 30, 0, 20],
+  "badges.mtg211": [0, 26, 0, 24],
+  "badges.mtg212": [0, 30, 0, 20],
+  "badges.mtg213": [0, 26, 0, 24],
+  "badges.mtg214": [0, 30, 0, 20],
+  "badges.mtg215": [0, 26, 0, 24],
+  "deco.mgr102": [3, 3, 3, 3],
+  "deco.mgr103": [3, 3, 3, 3],
+  "deco.mgr104": [3, 3, 3, 3],
+  "deco.mgr105": [3, 3, 3, 3],
+  "deco.mgr106": [3, 3, 3, 3],
+  "deco.mgr107": [3, 3, 3, 3],
+  "deco.mgr108": [0, 0, 6, 0],
+  "deco.mgr109": [0, 0, 6, 0],
+  "deco.mgr110": [0, 0, 6, 0],
+  "deco.mgr111": [0, 0, 6, 0],
+  "deco.mgr112": [0, 0, 6, 0],
+  "deco.mgr113": [0, 0, 6, 0],
+  "deco.mgr12": [3, 3, 3, 3],
+  "deco.mgr13": [3, 3, 3, 3],
+  "deco.mgr132": [3, 3, 3, 3],
+  "deco.mgr133": [3, 3, 3, 3],
+  "deco.mgr134": [3, 3, 3, 3],
+  "deco.mgr135": [3, 3, 3, 3],
+  "deco.mgr136": [3, 3, 3, 3],
+  "deco.mgr137": [3, 3, 3, 3],
+  "deco.mgr138": [0, 0, 6, 0],
+  "deco.mgr139": [0, 0, 6, 0],
+  "deco.mgr14": [3, 3, 3, 3],
+  "deco.mgr140": [0, 0, 6, 0],
+  "deco.mgr141": [0, 0, 6, 0],
+  "deco.mgr142": [0, 0, 6, 0],
+  "deco.mgr143": [0, 0, 6, 0],
+  "deco.mgr15": [3, 3, 3, 3],
+  "deco.mgr16": [3, 3, 3, 3],
+  "deco.mgr162": [3, 3, 3, 3],
+  "deco.mgr163": [3, 3, 3, 3],
+  "deco.mgr164": [3, 3, 3, 3],
+  "deco.mgr165": [3, 3, 3, 3],
+  "deco.mgr166": [3, 3, 3, 3],
+  "deco.mgr167": [3, 3, 3, 3],
+  "deco.mgr168": [0, 0, 6, 0],
+  "deco.mgr169": [0, 0, 6, 0],
+  "deco.mgr17": [3, 3, 3, 3],
+  "deco.mgr170": [0, 0, 6, 0],
+  "deco.mgr171": [0, 0, 6, 0],
+  "deco.mgr172": [0, 0, 6, 0],
+  "deco.mgr173": [0, 0, 6, 0],
+  "deco.mgr18": [0, 0, 3, 0],
+  "deco.mgr19": [0, 0, 3, 0],
+  "deco.mgr192": [3, 3, 3, 3],
+  "deco.mgr193": [3, 3, 3, 3],
+  "deco.mgr194": [3, 3, 3, 3],
+  "deco.mgr195": [3, 3, 3, 3],
+  "deco.mgr196": [3, 3, 3, 3],
+  "deco.mgr197": [3, 3, 3, 3],
+  "deco.mgr198": [0, 0, 10, 0],
+  "deco.mgr199": [0, 0, 10, 0],
+  "deco.mgr20": [0, 0, 3, 0],
+  "deco.mgr200": [0, 0, 10, 0],
+  "deco.mgr201": [0, 0, 10, 0],
+  "deco.mgr202": [0, 0, 10, 0],
+  "deco.mgr203": [0, 0, 10, 0],
+  "deco.mgr21": [0, 0, 3, 0],
+  "deco.mgr22": [0, 0, 3, 0],
+  "deco.mgr222": [3, 3, 3, 3],
+  "deco.mgr223": [3, 3, 3, 3],
+  "deco.mgr224": [3, 3, 3, 3],
+  "deco.mgr225": [3, 3, 3, 3],
+  "deco.mgr226": [3, 3, 3, 3],
+  "deco.mgr227": [3, 3, 3, 3],
+  "deco.mgr228": [0, 0, 10, 0],
+  "deco.mgr229": [0, 0, 10, 0],
+  "deco.mgr23": [0, 0, 3, 0],
+  "deco.mgr230": [0, 0, 10, 0],
+  "deco.mgr231": [0, 0, 10, 0],
+  "deco.mgr232": [0, 0, 10, 0],
+  "deco.mgr233": [0, 0, 10, 0],
+  "deco.mgr252": [3, 3, 3, 3],
+  "deco.mgr253": [3, 3, 3, 3],
+  "deco.mgr254": [3, 3, 3, 3],
+  "deco.mgr255": [3, 3, 3, 3],
+  "deco.mgr256": [3, 3, 3, 3],
+  "deco.mgr257": [3, 3, 3, 3],
+  "deco.mgr258": [0, 0, 10, 0],
+  "deco.mgr259": [0, 0, 10, 0],
+  "deco.mgr260": [0, 0, 10, 0],
+  "deco.mgr261": [0, 0, 10, 0],
+  "deco.mgr262": [0, 0, 10, 0],
+  "deco.mgr263": [0, 0, 10, 0],
+  "deco.mgr282": [3, 3, 3, 3],
+  "deco.mgr283": [3, 3, 3, 3],
+  "deco.mgr284": [3, 3, 3, 3],
+  "deco.mgr285": [3, 3, 3, 3],
+  "deco.mgr286": [3, 3, 3, 3],
+  "deco.mgr287": [3, 3, 3, 3],
+  "deco.mgr288": [0, 0, 15, 0],
+  "deco.mgr289": [0, 0, 15, 0],
+  "deco.mgr290": [0, 0, 15, 0],
+  "deco.mgr291": [0, 0, 15, 0],
+  "deco.mgr292": [0, 0, 15, 0],
+  "deco.mgr293": [0, 0, 15, 0],
+  "deco.mgr312": [3, 3, 3, 3],
+  "deco.mgr313": [3, 3, 3, 3],
+  "deco.mgr314": [3, 3, 3, 3],
+  "deco.mgr315": [3, 3, 3, 3],
+  "deco.mgr316": [3, 3, 3, 3],
+  "deco.mgr317": [3, 3, 3, 3],
+  "deco.mgr318": [0, 0, 15, 0],
+  "deco.mgr319": [0, 0, 15, 0],
+  "deco.mgr320": [0, 0, 15, 0],
+  "deco.mgr321": [0, 0, 15, 0],
+  "deco.mgr322": [0, 0, 15, 0],
+  "deco.mgr323": [0, 0, 15, 0],
+  "deco.mgr342": [3, 3, 3, 3],
+  "deco.mgr343": [3, 3, 3, 3],
+  "deco.mgr344": [3, 3, 3, 3],
+  "deco.mgr345": [3, 3, 3, 3],
+  "deco.mgr346": [3, 3, 3, 3],
+  "deco.mgr347": [3, 3, 3, 3],
+  "deco.mgr348": [0, 0, 15, 0],
+  "deco.mgr349": [0, 0, 15, 0],
+  "deco.mgr350": [0, 0, 15, 0],
+  "deco.mgr351": [0, 0, 15, 0],
+  "deco.mgr352": [0, 0, 15, 0],
+  "deco.mgr353": [0, 0, 15, 0],
+  "deco.mgr42": [3, 3, 3, 3],
+  "deco.mgr43": [3, 3, 3, 3],
+  "deco.mgr44": [3, 3, 3, 3],
+  "deco.mgr45": [3, 3, 3, 3],
+  "deco.mgr46": [3, 3, 3, 3],
+  "deco.mgr47": [3, 3, 3, 3],
+  "deco.mgr48": [0, 0, 3, 0],
+  "deco.mgr49": [0, 0, 3, 0],
+  "deco.mgr50": [0, 0, 3, 0],
+  "deco.mgr51": [0, 0, 3, 0],
+  "deco.mgr52": [0, 0, 3, 0],
+  "deco.mgr53": [0, 0, 3, 0],
+  "deco.mgr72": [3, 3, 3, 3],
+  "deco.mgr73": [3, 3, 3, 3],
+  "deco.mgr74": [3, 3, 3, 3],
+  "deco.mgr75": [3, 3, 3, 3],
+  "deco.mgr76": [3, 3, 3, 3],
+  "deco.mgr77": [3, 3, 3, 3],
+  "deco.mgr78": [0, 0, 3, 0],
+  "deco.mgr79": [0, 0, 3, 0],
+  "deco.mgr80": [0, 0, 3, 0],
+  "deco.mgr81": [0, 0, 3, 0],
+  "deco.mgr82": [0, 0, 3, 0],
+  "deco.mgr83": [0, 0, 3, 0],
+  "deco.mpat126": [0, 1, 0, 0],
+  "deco.mpat130": [0, 5, 0, 0],
+  "deco.mpat134": [0, 1, 0, 0],
+  "deco.mpat140": [2, 2, 0, 0],
+  "deco.mpat141": [2, 2, 0, 0],
+  "deco.mpat142": [14, 0, 0, 0],
+  "deco.mpat143": [2, 2, 0, 0],
+  "deco.mpat166": [0, 1, 0, 0],
+  "deco.mpat178": [8, 5, 0, 0],
+  "deco.mpat186": [4, 0, 0, 0],
+  "deco.mpat188": [2, 2, 0, 0],
+  "deco.mpat189": [2, 2, 0, 0],
+  "deco.mpat190": [15, 7, 0, 0],
+  "deco.mpat191": [2, 2, 0, 0],
+  "deco.mpat214": [1, 0, 0, 0],
+  "deco.mpat222": [0, 2, 0, 0],
+  "deco.mpat226": [6, 0, 0, 0],
+  "deco.mpat234": [0, 4, 0, 0],
+  "deco.mpat236": [2, 2, 0, 0],
+  "deco.mpat237": [2, 2, 0, 0],
+  "deco.mpat238": [14, 5, 0, 0],
+  "deco.mpat239": [2, 2, 0, 0],
+  "deco.mpat262": [0, 1, 0, 0],
+  "deco.mpat274": [6, 5, 0, 0],
+  "deco.mpat282": [4, 6, 0, 0],
+  "deco.mpat284": [1, 2, 0, 0],
+  "deco.mpat285": [1, 2, 0, 0],
+  "deco.mpat286": [14, 7, 0, 0],
+  "deco.mpat287": [1, 2, 0, 0],
+  "deco.mpat30": [3, 0, 0, 0],
+  "deco.mpat310": [0, 1, 0, 0],
+  "deco.mpat318": [0, 3, 0, 0],
+  "deco.mpat322": [8, 0, 0, 0],
+  "deco.mpat330": [0, 4, 0, 0],
+  "deco.mpat332": [2, 2, 0, 0],
+  "deco.mpat333": [2, 2, 0, 0],
+  "deco.mpat334": [14, 15, 0, 0],
+  "deco.mpat335": [2, 2, 0, 0],
+  "deco.mpat34": [7, 5, 0, 0],
+  "deco.mpat358": [0, 1, 0, 0],
+  "deco.mpat366": [2, 0, 0, 0],
+  "deco.mpat370": [1, 4, 0, 0],
+  "deco.mpat378": [9, 0, 0, 0],
+  "deco.mpat380": [2, 2, 0, 0],
+  "deco.mpat381": [2, 2, 0, 0],
+  "deco.mpat382": [14, 13, 0, 0],
+  "deco.mpat383": [2, 2, 0, 0],
+  "deco.mpat418": [6, 4, 0, 0],
+  "deco.mpat42": [3, 8, 0, 0],
+  "deco.mpat422": [2, 3, 0, 0],
+  "deco.mpat426": [0, 8, 0, 0],
+  "deco.mpat428": [2, 2, 0, 0],
+  "deco.mpat429": [2, 2, 0, 0],
+  "deco.mpat431": [2, 2, 0, 0],
+  "deco.mpat44": [2, 2, 0, 0],
+  "deco.mpat45": [2, 2, 0, 0],
+  "deco.mpat46": [12, 11, 0, 0],
+  "deco.mpat47": [2, 2, 0, 0],
+  "deco.mpat478": [7, 1, 0, 0],
+  "deco.mpat502": [0, 1, 0, 0],
+  "deco.mpat514": [0, 8, 0, 0],
+  "deco.mpat522": [0, 6, 0, 0],
+  "deco.mpat524": [0, 2, 0, 0],
+  "deco.mpat525": [0, 2, 0, 0],
+  "deco.mpat526": [10, 11, 0, 0],
+  "deco.mpat527": [0, 2, 0, 0],
+  "deco.mpat566": [0, 3, 0, 0],
+  "deco.mpat570": [2, 0, 0, 0],
+  "deco.mpat572": [0, 2, 0, 0],
+  "deco.mpat573": [0, 2, 0, 0],
+  "deco.mpat574": [6, 10, 0, 0],
+  "deco.mpat575": [0, 2, 0, 0],
+  "deco.mpat82": [3, 7, 0, 0],
+  "deco.mpat90": [4, 8, 0, 0],
+  "deco.mpat92": [2, 2, 0, 0],
+  "deco.mpat93": [2, 2, 0, 0],
+  "deco.mpat94": [0, 15, 0, 0],
+  "deco.mpat95": [2, 2, 0, 0],
+  "deco.mwv10": [0, 0, 54, 0],
+  "deco.mwv100": [0, 0, 54, 0],
+  "deco.mwv101": [0, 0, 54, 0],
+  "deco.mwv104": [0, 0, 30, 0],
+  "deco.mwv105": [0, 0, 30, 0],
+  "deco.mwv106": [0, 0, 54, 0],
+  "deco.mwv107": [0, 0, 54, 0],
+  "deco.mwv11": [0, 0, 54, 0],
+  "deco.mwv110": [0, 0, 30, 0],
+  "deco.mwv111": [0, 0, 30, 0],
+  "deco.mwv112": [0, 0, 54, 0],
+  "deco.mwv113": [0, 0, 54, 0],
+  "deco.mwv116": [0, 0, 30, 0],
+  "deco.mwv117": [0, 0, 30, 0],
+  "deco.mwv118": [0, 0, 54, 0],
+  "deco.mwv119": [0, 0, 54, 0],
+  "deco.mwv122": [0, 0, 30, 0],
+  "deco.mwv123": [0, 0, 30, 0],
+  "deco.mwv124": [0, 0, 54, 0],
+  "deco.mwv125": [0, 0, 54, 0],
+  "deco.mwv128": [0, 0, 30, 0],
+  "deco.mwv129": [0, 0, 30, 0],
+  "deco.mwv130": [0, 0, 54, 0],
+  "deco.mwv131": [0, 0, 54, 0],
+  "deco.mwv134": [0, 0, 30, 0],
+  "deco.mwv135": [0, 0, 30, 0],
+  "deco.mwv136": [0, 0, 54, 0],
+  "deco.mwv137": [0, 0, 54, 0],
+  "deco.mwv14": [0, 0, 30, 0],
+  "deco.mwv140": [0, 0, 30, 0],
+  "deco.mwv141": [0, 0, 30, 0],
+  "deco.mwv142": [0, 0, 54, 0],
+  "deco.mwv143": [0, 0, 54, 0],
+  "deco.mwv146": [0, 0, 30, 0],
+  "deco.mwv147": [0, 0, 30, 0],
+  "deco.mwv148": [0, 0, 54, 0],
+  "deco.mwv149": [0, 0, 54, 0],
+  "deco.mwv15": [0, 0, 30, 0],
+  "deco.mwv152": [0, 0, 30, 0],
+  "deco.mwv153": [0, 0, 30, 0],
+  "deco.mwv154": [0, 0, 54, 0],
+  "deco.mwv155": [0, 0, 54, 0],
+  "deco.mwv158": [0, 0, 30, 0],
+  "deco.mwv159": [0, 0, 30, 0],
+  "deco.mwv16": [0, 0, 54, 0],
+  "deco.mwv160": [0, 0, 54, 0],
+  "deco.mwv161": [0, 0, 54, 0],
+  "deco.mwv164": [0, 0, 30, 0],
+  "deco.mwv165": [0, 0, 30, 0],
+  "deco.mwv166": [0, 0, 54, 0],
+  "deco.mwv167": [0, 0, 54, 0],
+  "deco.mwv17": [0, 0, 54, 0],
+  "deco.mwv170": [0, 0, 30, 0],
+  "deco.mwv171": [0, 0, 30, 0],
+  "deco.mwv172": [0, 0, 54, 0],
+  "deco.mwv173": [0, 0, 54, 0],
+  "deco.mwv176": [0, 0, 30, 0],
+  "deco.mwv177": [0, 0, 30, 0],
+  "deco.mwv178": [0, 0, 54, 0],
+  "deco.mwv179": [0, 0, 54, 0],
+  "deco.mwv182": [0, 0, 30, 0],
+  "deco.mwv183": [0, 0, 30, 0],
+  "deco.mwv184": [0, 0, 54, 0],
+  "deco.mwv185": [0, 0, 54, 0],
+  "deco.mwv188": [0, 0, 30, 0],
+  "deco.mwv189": [0, 0, 30, 0],
+  "deco.mwv190": [0, 0, 54, 0],
+  "deco.mwv191": [0, 0, 54, 0],
+  "deco.mwv194": [0, 0, 30, 0],
+  "deco.mwv195": [0, 0, 30, 0],
+  "deco.mwv196": [0, 0, 54, 0],
+  "deco.mwv197": [0, 0, 54, 0],
+  "deco.mwv2": [0, 0, 30, 0],
+  "deco.mwv20": [0, 0, 30, 0],
+  "deco.mwv200": [0, 0, 30, 0],
+  "deco.mwv201": [0, 0, 30, 0],
+  "deco.mwv202": [0, 0, 54, 0],
+  "deco.mwv203": [0, 0, 54, 0],
+  "deco.mwv206": [0, 0, 30, 0],
+  "deco.mwv207": [0, 0, 30, 0],
+  "deco.mwv208": [0, 0, 54, 0],
+  "deco.mwv209": [0, 0, 54, 0],
+  "deco.mwv21": [0, 0, 30, 0],
+  "deco.mwv212": [0, 0, 30, 0],
+  "deco.mwv213": [0, 0, 30, 0],
+  "deco.mwv214": [0, 0, 54, 0],
+  "deco.mwv215": [0, 0, 54, 0],
+  "deco.mwv218": [0, 0, 30, 0],
+  "deco.mwv219": [0, 0, 30, 0],
+  "deco.mwv22": [0, 0, 54, 0],
+  "deco.mwv220": [0, 0, 54, 0],
+  "deco.mwv221": [0, 0, 54, 0],
+  "deco.mwv224": [0, 0, 30, 0],
+  "deco.mwv225": [0, 0, 30, 0],
+  "deco.mwv226": [0, 0, 54, 0],
+  "deco.mwv227": [0, 0, 54, 0],
+  "deco.mwv23": [0, 0, 54, 0],
+  "deco.mwv230": [0, 0, 30, 0],
+  "deco.mwv231": [0, 0, 30, 0],
+  "deco.mwv232": [0, 0, 54, 0],
+  "deco.mwv233": [0, 0, 54, 0],
+  "deco.mwv236": [0, 0, 30, 0],
+  "deco.mwv237": [0, 0, 30, 0],
+  "deco.mwv238": [0, 0, 54, 0],
+  "deco.mwv239": [0, 0, 54, 0],
+  "deco.mwv242": [0, 0, 30, 0],
+  "deco.mwv243": [0, 0, 30, 0],
+  "deco.mwv244": [0, 0, 54, 0],
+  "deco.mwv245": [0, 0, 54, 0],
+  "deco.mwv248": [0, 0, 30, 0],
+  "deco.mwv249": [0, 0, 30, 0],
+  "deco.mwv250": [0, 0, 54, 0],
+  "deco.mwv251": [0, 0, 54, 0],
+  "deco.mwv254": [0, 0, 30, 0],
+  "deco.mwv255": [0, 0, 30, 0],
+  "deco.mwv256": [0, 0, 54, 0],
+  "deco.mwv257": [0, 0, 54, 0],
+  "deco.mwv26": [0, 0, 30, 0],
+  "deco.mwv260": [0, 0, 30, 0],
+  "deco.mwv261": [0, 0, 30, 0],
+  "deco.mwv262": [0, 0, 54, 0],
+  "deco.mwv263": [0, 0, 54, 0],
+  "deco.mwv266": [0, 0, 30, 0],
+  "deco.mwv267": [0, 0, 30, 0],
+  "deco.mwv268": [0, 0, 54, 0],
+  "deco.mwv269": [0, 0, 54, 0],
+  "deco.mwv27": [0, 0, 30, 0],
+  "deco.mwv272": [0, 0, 30, 0],
+  "deco.mwv273": [0, 0, 30, 0],
+  "deco.mwv274": [0, 0, 54, 0],
+  "deco.mwv275": [0, 0, 54, 0],
+  "deco.mwv278": [0, 0, 30, 0],
+  "deco.mwv279": [0, 0, 30, 0],
+  "deco.mwv28": [0, 0, 54, 0],
+  "deco.mwv280": [0, 0, 54, 0],
+  "deco.mwv281": [0, 0, 54, 0],
+  "deco.mwv284": [0, 0, 30, 0],
+  "deco.mwv285": [0, 0, 30, 0],
+  "deco.mwv286": [0, 0, 54, 0],
+  "deco.mwv287": [0, 0, 54, 0],
+  "deco.mwv29": [0, 0, 54, 0],
+  "deco.mwv3": [0, 0, 30, 0],
+  "deco.mwv32": [0, 0, 30, 0],
+  "deco.mwv33": [0, 0, 30, 0],
+  "deco.mwv34": [0, 0, 54, 0],
+  "deco.mwv35": [0, 0, 54, 0],
+  "deco.mwv38": [0, 0, 30, 0],
+  "deco.mwv39": [0, 0, 30, 0],
+  "deco.mwv4": [0, 0, 54, 0],
+  "deco.mwv40": [0, 0, 54, 0],
+  "deco.mwv41": [0, 0, 54, 0],
+  "deco.mwv44": [0, 0, 30, 0],
+  "deco.mwv45": [0, 0, 30, 0],
+  "deco.mwv46": [0, 0, 54, 0],
+  "deco.mwv47": [0, 0, 54, 0],
+  "deco.mwv5": [0, 0, 54, 0],
+  "deco.mwv50": [0, 0, 30, 0],
+  "deco.mwv51": [0, 0, 30, 0],
+  "deco.mwv52": [0, 0, 54, 0],
+  "deco.mwv53": [0, 0, 54, 0],
+  "deco.mwv56": [0, 0, 30, 0],
+  "deco.mwv57": [0, 0, 30, 0],
+  "deco.mwv58": [0, 0, 54, 0],
+  "deco.mwv59": [0, 0, 54, 0],
+  "deco.mwv62": [0, 0, 30, 0],
+  "deco.mwv63": [0, 0, 30, 0],
+  "deco.mwv64": [0, 0, 54, 0],
+  "deco.mwv65": [0, 0, 54, 0],
+  "deco.mwv68": [0, 0, 30, 0],
+  "deco.mwv69": [0, 0, 30, 0],
+  "deco.mwv70": [0, 0, 54, 0],
+  "deco.mwv71": [0, 0, 54, 0],
+  "deco.mwv74": [0, 0, 30, 0],
+  "deco.mwv75": [0, 0, 30, 0],
+  "deco.mwv76": [0, 0, 54, 0],
+  "deco.mwv77": [0, 0, 54, 0],
+  "deco.mwv8": [0, 0, 30, 0],
+  "deco.mwv80": [0, 0, 30, 0],
+  "deco.mwv81": [0, 0, 30, 0],
+  "deco.mwv82": [0, 0, 54, 0],
+  "deco.mwv83": [0, 0, 54, 0],
+  "deco.mwv86": [0, 0, 30, 0],
+  "deco.mwv87": [0, 0, 30, 0],
+  "deco.mwv88": [0, 0, 54, 0],
+  "deco.mwv89": [0, 0, 54, 0],
+  "deco.mwv9": [0, 0, 30, 0],
+  "deco.mwv92": [0, 0, 30, 0],
+  "deco.mwv93": [0, 0, 30, 0],
+  "deco.mwv94": [0, 0, 54, 0],
+  "deco.mwv95": [0, 0, 54, 0],
+  "deco.mwv98": [0, 0, 30, 0],
+  "deco.mwv99": [0, 0, 30, 0],
+  "geo.mv3105": [0, 0, 0, 2],
+  "geo.mv3110": [0, 0, 0, 3],
+  "geo.mv3116": [0, 0, 0, 3],
+  "geo.mv3120": [0, 0, 0, 3],
+  "geo.mv3124": [0, 0, 0, 4],
+  "geo.mv3125": [0, 0, 0, 1],
+  "geo.mv3130": [0, 0, 0, 3],
+  "geo.mv3134": [0, 0, 0, 5],
+  "geo.mv3135": [0, 0, 0, 2],
+  "geo.mv3138": [0, 0, 0, 3],
+  "geo.mv3139": [0, 0, 0, 4],
+  "geo.mv3140": [0, 0, 0, 4],
+  "geo.mv3142": [0, 0, 0, 5],
+  "geo.mv3145": [0, 0, 0, 2],
+  "geo.mv3149": [0, 0, 0, 2],
+  "ornaments.mro176": [1, 4, 1, 4],
+  "ornaments.mro177": [1, 4, 1, 4],
+  "ornaments.mro178": [1, 4, 1, 4],
+  "ornaments.mro179": [1, 4, 1, 4],
+  "ornaments.mro180": [1, 4, 1, 4],
+  "ornaments.mro181": [1, 4, 1, 4],
+  "ornaments.mro182": [1, 4, 1, 4],
+  "ornaments.mro183": [1, 4, 1, 4],
+  "ornaments.mro184": [0, 8, 0, 8],
+  "ornaments.mro185": [0, 8, 0, 8],
+  "ornaments.mro186": [0, 8, 0, 8],
+  "ornaments.mro187": [0, 8, 0, 8],
+  "ornaments.mro188": [0, 8, 0, 8],
+  "ornaments.mro189": [0, 8, 0, 8],
+  "ornaments.mro190": [0, 8, 0, 8],
+  "ornaments.mro191": [0, 8, 0, 8],
+  "ornaments.mro272": [6, 4, 6, 3],
+  "ornaments.mro273": [6, 4, 6, 3],
+  "ornaments.mro274": [6, 4, 6, 3],
+  "ornaments.mro275": [6, 4, 6, 3],
+  "ornaments.mro276": [6, 4, 6, 3],
+  "ornaments.mro277": [6, 4, 6, 3],
+  "ornaments.mro278": [6, 4, 6, 3],
+  "ornaments.mro279": [6, 4, 6, 3],
+  "ornaments.mro280": [7, 8, 7, 0],
+  "ornaments.mro281": [7, 8, 7, 0],
+  "ornaments.mro282": [7, 8, 7, 0],
+  "ornaments.mro283": [7, 8, 7, 0],
+  "ornaments.mro284": [7, 8, 7, 0],
+  "ornaments.mro285": [7, 8, 7, 0],
+  "ornaments.mro286": [7, 8, 7, 0],
+  "ornaments.mro287": [7, 8, 7, 0],
+  "ornaments.mro368": [4, 4, 4, 4],
+  "ornaments.mro369": [4, 4, 4, 4],
+  "ornaments.mro370": [4, 4, 4, 4],
+  "ornaments.mro371": [4, 4, 4, 4],
+  "ornaments.mro372": [4, 4, 4, 4],
+  "ornaments.mro373": [4, 4, 4, 4],
+  "ornaments.mro374": [4, 4, 4, 4],
+  "ornaments.mro375": [4, 4, 4, 4],
+  "ornaments.mro376": [8, 8, 8, 8],
+  "ornaments.mro377": [8, 8, 8, 8],
+  "ornaments.mro378": [8, 8, 8, 8],
+  "ornaments.mro379": [8, 8, 8, 8],
+  "ornaments.mro380": [8, 8, 8, 8],
+  "ornaments.mro381": [8, 8, 8, 8],
+  "ornaments.mro382": [8, 8, 8, 8],
+  "ornaments.mro383": [8, 8, 8, 8],
+  "ornaments.mro464": [6, 4, 6, 5],
+  "ornaments.mro465": [6, 4, 6, 5],
+  "ornaments.mro466": [6, 4, 6, 5],
+  "ornaments.mro467": [6, 4, 6, 5],
+  "ornaments.mro468": [6, 4, 6, 5],
+  "ornaments.mro469": [6, 4, 6, 5],
+  "ornaments.mro470": [6, 4, 6, 5],
+  "ornaments.mro471": [6, 4, 6, 5],
+  "ornaments.mro472": [8, 8, 8, 4],
+  "ornaments.mro473": [8, 8, 8, 4],
+  "ornaments.mro474": [8, 8, 8, 4],
+  "ornaments.mro475": [8, 8, 8, 4],
+  "ornaments.mro476": [8, 8, 8, 4],
+  "ornaments.mro477": [8, 8, 8, 4],
+  "ornaments.mro478": [8, 8, 8, 4],
+  "ornaments.mro479": [8, 8, 8, 4],
+  "ornaments.mro560": [6, 4, 6, 4],
+  "ornaments.mro561": [6, 4, 6, 4],
+  "ornaments.mro562": [6, 4, 6, 4],
+  "ornaments.mro563": [6, 4, 6, 4],
+  "ornaments.mro564": [6, 4, 6, 4],
+  "ornaments.mro565": [6, 4, 6, 4],
+  "ornaments.mro566": [6, 4, 6, 4],
+  "ornaments.mro567": [6, 4, 6, 4],
+  "ornaments.mro568": [5, 8, 5, 8],
+  "ornaments.mro569": [5, 8, 5, 8],
+  "ornaments.mro570": [5, 8, 5, 8],
+  "ornaments.mro571": [5, 8, 5, 8],
+  "ornaments.mro572": [5, 8, 5, 8],
+  "ornaments.mro573": [5, 8, 5, 8],
+  "ornaments.mro574": [5, 8, 5, 8],
+  "ornaments.mro575": [5, 8, 5, 8],
+  "ornaments.mro656": [4, 4, 4, 4],
+  "ornaments.mro657": [4, 4, 4, 4],
+  "ornaments.mro658": [4, 4, 4, 4],
+  "ornaments.mro659": [4, 4, 4, 4],
+  "ornaments.mro660": [4, 4, 4, 4],
+  "ornaments.mro661": [4, 4, 4, 4],
+  "ornaments.mro662": [4, 4, 4, 4],
+  "ornaments.mro663": [4, 4, 4, 4],
+  "ornaments.mro664": [8, 8, 8, 8],
+  "ornaments.mro665": [8, 8, 8, 8],
+  "ornaments.mro666": [8, 8, 8, 8],
+  "ornaments.mro667": [8, 8, 8, 8],
+  "ornaments.mro668": [8, 8, 8, 8],
+  "ornaments.mro669": [8, 8, 8, 8],
+  "ornaments.mro670": [8, 8, 8, 8],
+  "ornaments.mro671": [8, 8, 8, 8],
+  "ornaments.mro752": [6, 4, 6, 4],
+  "ornaments.mro753": [6, 4, 6, 4],
+  "ornaments.mro754": [6, 4, 6, 4],
+  "ornaments.mro755": [6, 4, 6, 4],
+  "ornaments.mro756": [6, 4, 6, 4],
+  "ornaments.mro757": [6, 4, 6, 4],
+  "ornaments.mro758": [6, 4, 6, 4],
+  "ornaments.mro759": [6, 4, 6, 4],
+  "ornaments.mro760": [7, 8, 7, 8],
+  "ornaments.mro761": [7, 8, 7, 8],
+  "ornaments.mro762": [7, 8, 7, 8],
+  "ornaments.mro763": [7, 8, 7, 8],
+  "ornaments.mro764": [7, 8, 7, 8],
+  "ornaments.mro765": [7, 8, 7, 8],
+  "ornaments.mro766": [7, 8, 7, 8],
+  "ornaments.mro767": [7, 8, 7, 8],
+  "ornaments.mro80": [6, 4, 6, 0],
+  "ornaments.mro81": [6, 4, 6, 0],
+  "ornaments.mro82": [6, 4, 6, 0],
+  "ornaments.mro83": [6, 4, 6, 0],
+  "ornaments.mro84": [6, 4, 6, 0],
+  "ornaments.mro848": [4, 4, 4, 4],
+  "ornaments.mro849": [4, 4, 4, 4],
+  "ornaments.mro85": [6, 4, 6, 0],
+  "ornaments.mro850": [4, 4, 4, 4],
+  "ornaments.mro851": [4, 4, 4, 4],
+  "ornaments.mro852": [4, 4, 4, 4],
+  "ornaments.mro853": [4, 4, 4, 4],
+  "ornaments.mro854": [4, 4, 4, 4],
+  "ornaments.mro855": [4, 4, 4, 4],
+  "ornaments.mro856": [8, 8, 8, 8],
+  "ornaments.mro857": [8, 8, 8, 8],
+  "ornaments.mro858": [8, 8, 8, 8],
+  "ornaments.mro859": [8, 8, 8, 8],
+  "ornaments.mro86": [6, 4, 6, 0],
+  "ornaments.mro860": [8, 8, 8, 8],
+  "ornaments.mro861": [8, 8, 8, 8],
+  "ornaments.mro862": [8, 8, 8, 8],
+  "ornaments.mro863": [8, 8, 8, 8],
+  "ornaments.mro87": [6, 4, 6, 0],
+  "ornaments.mro88": [5, 8, 5, 0],
+  "ornaments.mro89": [5, 8, 5, 0],
+  "ornaments.mro90": [5, 8, 5, 0],
+  "ornaments.mro91": [5, 8, 5, 0],
+  "ornaments.mro92": [5, 8, 5, 0],
+  "ornaments.mro93": [5, 8, 5, 0],
+  "ornaments.mro94": [5, 8, 5, 0],
+  "ornaments.mro944": [6, 5, 6, 5],
+  "ornaments.mro945": [6, 5, 6, 5],
+  "ornaments.mro946": [6, 5, 6, 5],
+  "ornaments.mro947": [6, 5, 6, 5],
+  "ornaments.mro948": [6, 5, 6, 5],
+  "ornaments.mro949": [6, 5, 6, 5],
+  "ornaments.mro95": [5, 8, 5, 0],
+  "ornaments.mro950": [6, 5, 6, 5],
+  "ornaments.mro951": [6, 5, 6, 5],
+  "ornaments.mro952": [8, 8, 8, 8],
+  "ornaments.mro953": [8, 8, 8, 8],
+  "ornaments.mro954": [8, 8, 8, 8],
+  "ornaments.mro955": [8, 8, 8, 8],
+  "ornaments.mro956": [8, 8, 8, 8],
+  "ornaments.mro957": [8, 8, 8, 8],
+  "ornaments.mro958": [8, 8, 8, 8],
+  "ornaments.mro959": [8, 8, 8, 8],
+  "party.mcf122": [0, 0, 1, 0],
+  "party.mcf126": [0, 0, 4, 0],
+  "party.mcf131": [0, 0, 6, 0],
+  "party.mcf179": [0, 0, 1, 0],
+  "party.mcf2": [0, 0, 3, 0],
+  "party.mcf217": [0, 0, 5, 0],
+  "party.mcf224": [0, 0, 4, 0],
+  "party.mcf241": [0, 0, 6, 0],
+  "party.mcf290": [0, 0, 0, 2],
+  "party.mcf291": [0, 0, 0, 1],
+  "party.mcf340": [0, 0, 5, 0],
+  "party.mcf342": [0, 0, 3, 0],
+  "party.mcf344": [0, 0, 4, 0],
+  "party.mcf345": [0, 0, 6, 0],
+  "party.mcf346": [0, 0, 5, 0],
+  "party.mcf365": [0, 0, 1, 0],
+  "party.mcf367": [0, 0, 2, 0],
+  "party.mcf368": [0, 0, 4, 0],
+  "party.mcf371": [0, 0, 1, 0],
+  "party.mcf410": [0, 0, 1, 0],
+  "party.mcf459": [0, 0, 7, 0],
+  "party.mcf460": [0, 0, 3, 0],
+  "party.mcf464": [0, 0, 1, 0],
+  "party.mcf52": [0, 0, 0, 4],
+  "party.mcf7": [0, 0, 2, 0],
+  "party.mcf9": [0, 0, 2, 0],
+  "party.mcf99": [0, 0, 4, 0],
+  "stars.mex0": [0, 0, 0, 1],
+  "stars.mex1": [0, 0, 0, 1],
+  "stars.mex10": [3, 0, 0, 0],
+  "stars.mex100": [0, 1, 0, 0],
+  "stars.mex101": [0, 3, 0, 0],
+  "stars.mex105": [0, 2, 0, 0],
+  "stars.mex108": [0, 3, 0, 0],
+  "stars.mex110": [0, 1, 0, 0],
+  "stars.mex115": [0, 0, 0, 2],
+  "stars.mex116": [0, 1, 0, 0],
+  "stars.mex118": [0, 2, 0, 0],
+  "stars.mex119": [0, 1, 0, 0],
+  "stars.mex129": [0, 0, 0, 3],
+  "stars.mex13": [0, 0, 2, 0],
+  "stars.mex145": [0, 0, 0, 2],
+  "stars.mex146": [0, 0, 1, 0],
+  "stars.mex148": [0, 0, 3, 0],
+  "stars.mex150": [0, 0, 3, 0],
+  "stars.mex151": [0, 0, 0, 1],
+  "stars.mex154": [1, 0, 0, 0],
+  "stars.mex155": [1, 0, 2, 0],
+  "stars.mex157": [0, 0, 1, 1],
+  "stars.mex158": [3, 0, 0, 0],
+  "stars.mex159": [0, 2, 0, 0],
+  "stars.mex160": [1, 0, 0, 0],
+  "stars.mex165": [0, 0, 0, 1],
+  "stars.mex167": [0, 0, 0, 1],
+  "stars.mex169": [0, 0, 2, 0],
+  "stars.mex17": [0, 2, 0, 0],
+  "stars.mex173": [0, 2, 0, 0],
+  "stars.mex174": [0, 2, 0, 0],
+  "stars.mex175": [0, 0, 2, 0],
+  "stars.mex176": [0, 0, 1, 0],
+  "stars.mex180": [0, 0, 3, 0],
+  "stars.mex181": [0, 2, 0, 0],
+  "stars.mex183": [0, 0, 0, 4],
+  "stars.mex185": [0, 3, 2, 0],
+  "stars.mex188": [2, 0, 0, 0],
+  "stars.mex19": [0, 0, 0, 1],
+  "stars.mex190": [3, 0, 0, 1],
+  "stars.mex192": [2, 0, 1, 0],
+  "stars.mex195": [3, 0, 3, 0],
+  "stars.mex197": [0, 0, 1, 0],
+  "stars.mex198": [0, 3, 1, 0],
+  "stars.mex2": [0, 0, 2, 0],
+  "stars.mex201": [1, 0, 0, 0],
+  "stars.mex202": [1, 0, 0, 0],
+  "stars.mex203": [1, 0, 0, 0],
+  "stars.mex206": [3, 0, 0, 3],
+  "stars.mex207": [0, 0, 3, 0],
+  "stars.mex21": [0, 0, 0, 3],
+  "stars.mex210": [0, 0, 3, 0],
+  "stars.mex212": [0, 0, 2, 0],
+  "stars.mex213": [0, 0, 0, 3],
+  "stars.mex214": [0, 0, 0, 2],
+  "stars.mex216": [0, 0, 0, 4],
+  "stars.mex219": [2, 3, 0, 0],
+  "stars.mex220": [3, 0, 0, 0],
+  "stars.mex221": [0, 0, 0, 2],
+  "stars.mex225": [0, 0, 3, 0],
+  "stars.mex226": [1, 0, 0, 1],
+  "stars.mex227": [3, 0, 0, 0],
+  "stars.mex228": [0, 0, 1, 0],
+  "stars.mex231": [0, 0, 0, 3],
+  "stars.mex232": [0, 2, 0, 0],
+  "stars.mex234": [0, 0, 2, 0],
+  "stars.mex236": [1, 0, 0, 0],
+  "stars.mex237": [0, 0, 0, 1],
+  "stars.mex238": [1, 0, 4, 3],
+  "stars.mex24": [1, 0, 0, 0],
+  "stars.mex241": [1, 0, 0, 0],
+  "stars.mex242": [1, 0, 0, 0],
+  "stars.mex244": [0, 2, 0, 0],
+  "stars.mex245": [2, 0, 0, 0],
+  "stars.mex246": [2, 0, 0, 0],
+  "stars.mex247": [0, 0, 1, 0],
+  "stars.mex249": [1, 0, 0, 0],
+  "stars.mex255": [2, 1, 0, 0],
+  "stars.mex256": [0, 0, 0, 2],
+  "stars.mex257": [2, 0, 3, 0],
+  "stars.mex260": [3, 0, 1, 0],
+  "stars.mex262": [2, 0, 0, 1],
+  "stars.mex266": [0, 0, 0, 3],
+  "stars.mex270": [0, 2, 0, 0],
+  "stars.mex275": [0, 2, 0, 0],
+  "stars.mex278": [0, 1, 0, 0],
+  "stars.mex279": [2, 3, 0, 0],
+  "stars.mex285": [0, 0, 1, 0],
+  "stars.mex286": [0, 0, 1, 0],
+  "stars.mex288": [0, 0, 2, 0],
+  "stars.mex29": [0, 2, 0, 0],
+  "stars.mex294": [0, 0, 1, 0],
+  "stars.mex297": [3, 0, 0, 0],
+  "stars.mex298": [1, 0, 0, 0],
+  "stars.mex3": [0, 3, 2, 0],
+  "stars.mex305": [0, 0, 1, 0],
+  "stars.mex306": [0, 0, 2, 0],
+  "stars.mex309": [0, 0, 0, 2],
+  "stars.mex310": [0, 0, 0, 2],
+  "stars.mex312": [0, 3, 0, 0],
+  "stars.mex315": [0, 0, 3, 0],
+  "stars.mex318": [2, 0, 0, 0],
+  "stars.mex323": [0, 0, 2, 0],
+  "stars.mex326": [0, 0, 0, 1],
+  "stars.mex327": [0, 0, 1, 0],
+  "stars.mex328": [0, 0, 3, 0],
+  "stars.mex332": [0, 0, 3, 0],
+  "stars.mex333": [3, 1, 0, 0],
+  "stars.mex337": [0, 0, 3, 0],
+  "stars.mex338": [0, 0, 3, 0],
+  "stars.mex34": [0, 2, 0, 0],
+  "stars.mex343": [0, 0, 3, 2],
+  "stars.mex346": [0, 2, 3, 0],
+  "stars.mex349": [0, 0, 1, 0],
+  "stars.mex35": [0, 0, 0, 1],
+  "stars.mex350": [0, 0, 0, 3],
+  "stars.mex352": [0, 0, 0, 2],
+  "stars.mex353": [0, 3, 0, 0],
+  "stars.mex354": [0, 0, 0, 2],
+  "stars.mex355": [2, 0, 0, 0],
+  "stars.mex4": [3, 0, 0, 0],
+  "stars.mex40": [0, 0, 2, 0],
+  "stars.mex41": [0, 0, 0, 1],
+  "stars.mex44": [0, 0, 2, 0],
+  "stars.mex45": [0, 0, 2, 0],
+  "stars.mex47": [0, 0, 2, 0],
+  "stars.mex5": [2, 0, 0, 3],
+  "stars.mex51": [2, 0, 0, 0],
+  "stars.mex53": [0, 3, 0, 0],
+  "stars.mex55": [1, 0, 0, 0],
+  "stars.mex57": [3, 0, 0, 2],
+  "stars.mex58": [3, 0, 0, 0],
+  "stars.mex59": [2, 0, 0, 0],
+  "stars.mex64": [3, 0, 0, 0],
+  "stars.mex66": [0, 1, 0, 0],
+  "stars.mex67": [1, 0, 0, 0],
+  "stars.mex69": [2, 0, 0, 0],
+  "stars.mex71": [0, 3, 1, 0],
+  "stars.mex80": [0, 3, 0, 0],
+  "stars.mex82": [0, 0, 0, 1],
+  "stars.mex86": [0, 2, 0, 0],
+  "stars.mex88": [0, 0, 0, 1],
+  "stars.mex90": [0, 1, 0, 0],
+  "stars.mex94": [0, 0, 0, 2],
+  "stars.mex96": [0, 3, 0, 0],
+  "stars.mex99": [0, 0, 0, 2],
+  "weather.msn102": [2, 2, 2, 2],
+  "weather.msn103": [2, 2, 2, 2],
+  "weather.msn104": [2, 2, 2, 2],
+  "weather.msn105": [2, 2, 2, 2],
+  "weather.msn156": [2, 0, 2, 0],
+  "weather.msn157": [2, 0, 2, 0],
+  "weather.msn158": [2, 0, 2, 0],
+  "weather.msn159": [2, 0, 2, 0],
+  "weather.msn210": [2, 2, 2, 2],
+  "weather.msn211": [2, 2, 2, 2],
+  "weather.msn212": [2, 2, 2, 2],
+  "weather.msn213": [2, 2, 2, 2],
+  "weather.msn264": [2, 2, 2, 2],
+  "weather.msn265": [2, 2, 2, 2],
+  "weather.msn266": [2, 2, 2, 2],
+  "weather.msn267": [2, 2, 2, 2],
+  "weather.msn318": [2, 2, 2, 2],
+  "weather.msn319": [2, 2, 2, 2],
+  "weather.msn320": [2, 2, 2, 2],
+  "weather.msn321": [2, 2, 2, 2],
+  "weather.msn48": [2, 0, 2, 0],
+  "weather.msn49": [2, 0, 2, 0],
+  "weather.msn50": [2, 0, 2, 0],
+  "weather.msn51": [2, 0, 2, 0],
   "animals.lion0": [7, 7, 7, 7],
   "animals.lion2": [7, 7, 7, 7],
   "animals.peacock1": [4, 0, 4, 0],
@@ -3446,8 +5139,21 @@ for (const e of items) {
   e.h += t + b;
 }
 
-export const ELEMENTS: ElementDef[] = items;
-export const ELEMENT_INDEX: Map<string, ElementDef> = new Map(items.map((e) => [e.id, e]));
+  return items;
+}
+
+/** Catalogue complet (construit à la première demande). */
+export function getElements(): ElementDef[] {
+  if (!_cache) _cache = buildCatalog();
+  return _cache;
+}
+
+/** Élément par id stable — utilisé au rendu et à l'export. */
+export function elementById(id: string): ElementDef | undefined {
+  if (!_index) _index = new Map(getElements().map((e) => [e.id, e]));
+  return _index.get(id);
+}
+
 
 /* ═══════════ Construction du SVG final (couleur / dégradé du calque) ═══════════ */
 
@@ -3559,7 +5265,7 @@ export function elementSvg(
 }
 
 export function elementSvgByRef(ref: string, fill: string, gradient: GradientFill | null, extraSlots: SlotPaint[] = []): string | null {
-  const def = ELEMENT_INDEX.get(ref);
+  const def = elementById(ref);
   return def ? elementSvg(def, fill, gradient, extraSlots) : null;
 }
 

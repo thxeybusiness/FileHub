@@ -10,7 +10,7 @@ import {
   shapePath, filterCss, shadowCss, backgroundCss,
   linearGradientPoints, radialGradientRadius,
 } from "@/lib/design";
-import { elementSvgByRef } from "@/lib/design-elements";
+import { elementSvgFor } from "@/lib/design-catalog-svg";
 
 /* ── Contenu visuel d'un calque (remplit 100 % de sa boîte) ── */
 export function LayerVisual({ layer: l }: { layer: Layer }) {
@@ -20,7 +20,7 @@ export function LayerVisual({ layer: l }: { layer: Layer }) {
   // le dégradé) du calque, étiré dans sa boîte — même règle que l'export.
   const elementSrc = useMemo(() => {
     if (l.type !== "element") return null;
-    const svg = elementSvgByRef(l.ref, l.fill, l.gradient, l.slots ?? []);
+    const svg = elementSvgFor(l.ref, l.fill, l.gradient, l.slots ?? []);
     return svg ? `data:image/svg+xml;charset=utf-8,${encodeURIComponent(svg)}` : null;
   }, [l.type === "element" ? l.ref : "", l.type === "element" ? l.fill : "", l.type === "element" ? JSON.stringify(l.gradient) : "", l.type === "element" ? JSON.stringify(l.slots ?? []) : ""]); // eslint-disable-line react-hooks/exhaustive-deps
 

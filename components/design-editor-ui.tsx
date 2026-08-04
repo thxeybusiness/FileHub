@@ -26,7 +26,8 @@ import {
   EMOJI_GROUPS, BG_SOLIDS, GRADIENT_PRESETS, FILTER_PRESETS, TEXT_PRESETS,
   TEMPLATES, templateDoc, type TextPreset,
 } from "@/lib/design-presets";
-import { ELEMENTS, ELEMENT_CATEGORIES, ELEMENT_INDEX, elementSlotDefaults, elementThumbSrc, normalizeSearch, type ElementDef } from "@/lib/design-elements";
+import { elementSlotDefaults, elementThumbSrc, normalizeSearch, type ElementDef } from "@/lib/design-elements";
+import { ELEMENT_CATEGORIES, catalogElementById, categoryCount, categoryPage, searchElements, catalogTotal } from "@/lib/design-catalog";
 import { PHOTO_CATEGORIES, loadPhotos, photoSrc, type StockPhoto } from "@/lib/design-photos";
 import { DocPreview } from "./design-render";
 
@@ -372,13 +373,13 @@ export function ColorPopover({ label, value, onChange, onClose, gradient, onGrad
    couleur par emplacement : chacune se change indépendamment, en teinte unie
    ou en dégradé. Les éléments monochromes n'en exposent qu'une. */
 export function elementSlotLabels(l: ElementLayer): string[] {
-  const def = ELEMENT_INDEX.get(l.ref);
+  const def = catalogElementById(l.ref);
   if (!def?.slots?.length) return ["Couleur"];
   return def.slots.map((s) => s.label);
 }
 
 export function ElementColorChips({ l, ctl, disabled, compact }: { l: ElementLayer; ctl: EditorCtl; disabled?: boolean; compact?: boolean }) {
-  const def = ELEMENT_INDEX.get(l.ref);
+  const def = catalogElementById(l.ref);
   const labels = elementSlotLabels(l);
   const defaults = def ? elementSlotDefaults(def) : [{ fill: l.fill, gradient: null }];
   // Emplacements secondaires : valeur du calque, sinon couleur de départ.
@@ -841,22 +842,33 @@ function PhotosDock({ ctl }: { ctl: EditorCtl }) {
   );
 }
 
+const PAGE = 120; // vignettes rendues par page dans le panneau Éléments
+
 function ElementsDock({ ctl }: { ctl: EditorCtl }) {
   const [query, setQuery] = useState("");
   const [cat, setCat] = useState<string>("shapes");
+  const [shown, setShown] = useState(PAGE);
   const q = normalizeSearch(query.trim());
 
-  // Recherche : parcourt TOUTES les catégories (formes recolorables incluses),
-  // insensible aux accents.
-  const results = useMemo(() => {
-    if (!q) return null;
-    return {
-      shapes: SHAPE_KINDS.filter((s) => normalizeSearch(s.label).includes(q)),
-      els: ELEMENTS.filter((e) => e.keywords.includes(q)).slice(0, 120),
-    };
-  }, [q]);
+  // Le catalogue compte des milliers d'éléments : il est construit à la
+  // PREMIÈRE ouverture du panneau (pas au chargement de l'éditeur), puis
+  // conservé. On garde l'état null le temps de la construction pour ne pas
+  // bloquer l'affichage du panneau.
+  // Le catalogue compte des centaines de milliers d'éléments : on ne le
+  // matérialise JAMAIS. On demande seulement la page affichée, et le compte
+  // total est calculé (pas énuméré). `ready` déclenche la première demande hors
+  // du rendu, pour ne pas bloquer l'ouverture du panneau.
+  const [ready, setReady] = useState(false);
+  useEffect(() => { const t = setTimeout(() => setReady(true), 0); return () => clearTimeout(t); }, []);
 
-  const catItems = useMemo(() => (q ? [] : ELEMENTS.filter((e) => e.cat === cat)), [q, cat]);
+  const results = useMemo(() => {
+    if (!q || !ready) return null;
+    return { shapes: SHAPE_KINDS.filter((s) => normalizeSearch(s.label).includes(q)), els: searchElements(q, 180) };
+  }, [q, ready]);
+
+  const catTotal = useMemo(() => (q || !ready ? 0 : categoryCount(cat)), [q, cat, ready]);
+  const catItems = useMemo(() => (q || !ready ? [] : categoryPage(cat, 0, shown)), [q, cat, shown, ready]);
+  useEffect(() => { setShown(PAGE); }, [cat, q]);
 
   return (
     <div>
@@ -938,8 +950,20 @@ function ElementsDock({ ctl }: { ctl: EditorCtl }) {
               </div>
               <p className="text-[10.5px] leading-relaxed text-muted">Ces formes sont recolorables (remplissage, dégradé, contour) après insertion.</p>
             </div>
+          ) : !ready ? (
+            <p className="flex items-center justify-center gap-2 py-6 text-[11px] text-muted"><Loader2 className="size-3.5 animate-spin" /> Chargement des éléments…</p>
           ) : (
-            <ElementGrid els={catItems} onPick={ctl.addElement} />
+            <>
+              <ElementGrid els={catItems} onPick={ctl.addElement} />
+              {catTotal > catItems.length && (
+                <button
+                  onClick={() => setShown((n) => n + PAGE)}
+                  className="mt-2 w-full rounded-lg border border-white/10 bg-white/5 py-2 text-[11px] font-medium text-white/80 transition hover:border-purple-400/40 hover:bg-white/10"
+                >
+                  Afficher plus ({catItems.length.toLocaleString("fr-FR")} sur {catTotal.toLocaleString("fr-FR")})
+                </button>
+              )}
+            </>
           )}
         </>
       )}
