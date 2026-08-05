@@ -24,7 +24,10 @@ export type ElementFamily = {
   kw: string;                      // mots-clés normalisés (recherche)
   count: number;                   // taille de l'espace de paramètres
   slots?: { label: string; def?: string }[];
-  make: (i: number) => { w: number; h: number; body: string };
+  /** `slots` est redéfinissable par élément : dans une même famille, le symbole
+      d'une icône posée sur un fond plein doit partir d'une couleur contrastée,
+      celui d'une icône sans fond non. */
+  make: (i: number) => { w: number; h: number; body: string; slots?: { label: string; def?: string }[] };
 };
 
 const TWO = [{ label: "Couleur principale" }, { label: "Couleur secondaire" }];
@@ -42,7 +45,7 @@ const FAMILIES: ElementFamily[] = [];
 function fam(
   id: string, cat: string, label: string, kw: string,
   dims: number[],
-  make: (a: number[], i: number) => { w: number; h: number; body: string },
+  make: (a: number[], i: number) => { w: number; h: number; body: string; slots?: { label: string; def?: string }[] },
   slots?: { label: string; def?: string }[],
 ) {
   FAMILIES.push({ id, cat, label, kw: normalizeSearch(`${label} ${kw}`), count: size(dims), slots, make: (i) => make(axes(i, dims), i) });
@@ -111,8 +114,17 @@ fam("blob", "blobs", "Blob", "blob forme organique fluide tache goutte",
     const pts: [number, number][] = [];
     for (let k = 0; k < n; k++) pts.push(polar(100, 100, 52 + r() * irr, (k * 360) / n + (r() - 0.5) * 22));
     const d = smoothClosed(pts);
-    return { w: 200, h: 200, body: st === 0 ? fillWith(d) : st === 1 ? strokeWith(d, 4 + (seed % 5) * 2) : fillp(d) + strokeWith(d, 3, c1()) };
-  }, TWO);
+    // 3ᵉ style : relief. La nuance sombre dérive de la couleur choisie, donc le
+    // volume se voit dès la vignette et se recolore avec la forme — un liseré
+    // dans un second emplacement restait invisible, les deux emplacements
+    // partant de la même teinte.
+    if (st !== 2) return { w: 200, h: 200, body: st === 0 ? fillWith(d) : strokeWith(d, 4 + (seed % 5) * 2) };
+    // Le relief décale une copie vers le bas-droite : la boîte s'agrandit
+    // d'autant, sinon l'ombre sortirait du cadre sur les blobs les plus larges.
+    const off = 9 + (seed % 4) * 2;
+    const body = `<g transform="translate(${N(off)} ${N(off)})">${fillWith(d, "__CDD__")}</g>${fillWith(d)}`;
+    return { w: 200 + off, h: 200 + off, body };
+  });
 
 /* ══════ Rosaces & mandalas ══════ */
 fam("rose", "ornaments", "Rosace", "rosace mandala ornement symétrie fleur",
@@ -230,11 +242,18 @@ fam("leaf", "nature", "Feuille", "nature feuille leaf plante végétal botanique
         : CONT[ci] === "cercle" ? (filled ? `<circle cx="100" cy="100" r="92" fill="${C}"/>` : `<circle cx="100" cy="100" r="${N(92 - sw / 2)}" fill="none" stroke="${C}" stroke-width="${sw}"/>`)
         : CONT[ci] === "carré" ? (filled ? `<rect x="8" y="8" width="184" height="184" fill="${C}"/>` : `<rect x="${N(8 + sw / 2)}" y="${N(8 + sw / 2)}" width="${N(184 - sw)}" height="${N(184 - sw)}" fill="none" stroke="${C}" stroke-width="${sw}"/>`)
         : CONT[ci] === "arrondi" ? (filled ? `<rect x="8" y="8" width="184" height="184" rx="44" fill="${C}"/>` : `<rect x="${N(8 + sw / 2)}" y="${N(8 + sw / 2)}" width="${N(184 - sw)}" height="${N(184 - sw)}" rx="42" fill="none" stroke="${C}" stroke-width="${sw}"/>`)
-        : CONT[ci] === "badge" ? fillp(starPts(100, 100, 14, 92, 78))
-        : CONT[ci] === "anneau" ? `<circle cx="100" cy="100" r="${N(92 - sw)}" fill="none" stroke="${C}" stroke-width="${N(sw * 1.6)}"/>`
+        : CONT[ci] === "badge" ? (filled ? fillp(starPts(100, 100, 20, 92, 74)) + `<circle cx="100" cy="100" r="66" fill="__CDD__"/>` : fillp(starPts(100, 100, 14, 92, 78)))
+        : CONT[ci] === "anneau" ? (filled ? `<circle cx="100" cy="100" r="${N(92 - sw)}" fill="none" stroke="${C}" stroke-width="${N(sw)}"/><circle cx="100" cy="100" r="${N(70 - sw)}" fill="none" stroke="${C}" stroke-width="${N(sw * 0.7)}"/>` : `<circle cx="100" cy="100" r="${N(92 - sw)}" fill="none" stroke="${C}" stroke-width="${N(sw * 1.6)}"/>`)
         : CONT[ci] === "losange" ? (filled ? fillp("M 100 6 L 194 100 L 100 194 L 6 100 Z") : stroke("M 100 10 L 190 100 L 100 190 L 10 100 Z", sw))
         : (filled ? fillp(polyPts(100, 100, 6, 92)) : stroke(polyPts(100, 100, 6, 90), sw));
-      return { w: 200, h: 200, body: box + inner };
+      // Sur un fond PLEIN, le symbole doit contraster : son emplacement partant
+      // sinon de la teinte du fond, le glyphe disparaissait et toutes les
+      // icônes pleines rendaient le même disque uni.
+      const solide = CONT[ci] === "badge" || (filled && ["cercle", "carré", "arrondi", "losange", "hexagone"].includes(CONT[ci]));
+      return {
+        w: 200, h: 200, body: box + inner,
+        slots: solide ? [{ label: "Couleur principale" }, { label: "Couleur du symbole", def: "#f8fafc" }] : undefined,
+      };
     }, TWO);
 }
 
@@ -272,7 +291,7 @@ fam("bubble", "bubbles", "Bulle", "bulle parole message chat dialogue",
   ([radi, ti, twi, si, hi]) => {
     const rad = 8 + radi * 10, hh = 80 + hi * 22, bw = 220;
     const tw = 14 + twi * 8, th = 22 + twi * 6;
-    const tx = Math.min(Math.max(24 + ti * 24, 26), bw - 30 - tw);
+    const tx = N(26 + (ti / 7) * (bw - 56 - tw));   // réparti, jamais buté
     const by = 12;
     const tail = `M ${N(tx)} ${N(by + hh - 2)} L ${N(tx + tw * 0.4)} ${N(by + hh + th)} L ${N(tx + tw)} ${N(by + hh - 2)} Z`;
     const rectF = `<rect x="10" y="${by}" width="${bw}" height="${N(hh)}" rx="${N(Math.min(rad, hh / 2))}" fill="${C}"/>`;
@@ -309,26 +328,32 @@ fam("vol", "geo", "Volume", "volume 3d relief sphère cube cylindre cône",
     const KINDS = ["sphère", "cube", "cylindre", "cône", "tore", "prisme", "pyramide", "pilule"];
     const k = 0.68 + si * 0.09;
     const r = rng(i * 7919 + 13);
+    // L'axe « graine » ne servait qu'au prisme : les 30 valeurs rendaient le
+    // même solide. Il pilote maintenant l'élancement et l'épaisseur, donc
+    // chaque graine donne un volume réellement différent.
+    const el = 0.82 + r() * 0.36;   // élancement (hauteur)
+    const ep = 0.88 + r() * 0.26;   // épaisseur (largeur)
     const gx = 24 + li * 5, gy = 18 + li * 4;
     const RG = `<radialGradient id="q0" cx="${gx}%" cy="${gy}%" r="76%"><stop offset="0" stop-color="__CLL__"/><stop offset="0.55" stop-color="__CM__"/><stop offset="1" stop-color="__CDD__"/></radialGradient>`;
     const LG = `<linearGradient id="q1" x1="0" y1="0" x2="0.4" y2="1"><stop offset="0" stop-color="__CLL__"/><stop offset="1" stop-color="__CDD__"/></linearGradient>`;
     const shine = (cx: number, cy: number, rx: number, ry: number) => `<ellipse cx="${N(cx)}" cy="${N(cy)}" rx="${N(rx)}" ry="${N(ry)}" fill="__CW__" opacity="0.5" transform="rotate(-28 ${N(cx)} ${N(cy)})"/>`;
     const contact = (cy: number, rx: number) => `<ellipse cx="100" cy="${N(cy)}" rx="${N(rx)}" ry="7" fill="__CDD__" opacity="0.22"/>`;
     let body = "";
-    if (KINDS[ki] === "sphère") { const R = 74 * k; body = `<defs>${RG}</defs>` + contact(100 + R + 12, R * 0.78) + `<circle cx="100" cy="96" r="${N(R)}" fill="url(#q0)"/>` + shine(100 - R * 0.34, 96 - R * 0.42, R * 0.24, R * 0.16); }
-    else if (KINDS[ki] === "cube") { const s = 48 * k, cx = 100, cy = 78; const P = (dx: number, dy: number) => `${N(cx + dx)} ${N(cy + dy)}`;
+    if (KINDS[ki] === "sphère") { const R = 74 * k, rx = R * ep, ry = R * (1.9 - ep);
+      body = `<defs>${RG}</defs>` + contact(96 + ry + 12, rx * 0.78) + `<ellipse cx="100" cy="96" rx="${N(rx)}" ry="${N(ry)}" fill="url(#q0)"/>` + shine(100 - rx * 0.34, 96 - ry * 0.42, rx * 0.24, ry * 0.16); }
+    else if (KINDS[ki] === "cube") { const s = 48 * k * ep, cx = 100, cy = 78; const P = (dx: number, dy: number) => `${N(cx + dx)} ${N(cy + dy * el)}`;
       body = contact(cy + s * 1.2 + 12, s * 1.05) + `<path d="M ${P(0, -s)} L ${P(s * 1.05, -s * 0.42)} L ${P(0, s * 0.18)} L ${P(-s * 1.05, -s * 0.42)} Z" fill="__CLL__"/><path d="M ${P(-s * 1.05, -s * 0.42)} L ${P(0, s * 0.18)} L ${P(0, s * 1.14)} L ${P(-s * 1.05, s * 0.54)} Z" fill="__CM__"/><path d="M ${P(s * 1.05, -s * 0.42)} L ${P(0, s * 0.18)} L ${P(0, s * 1.14)} L ${P(s * 1.05, s * 0.54)} Z" fill="__CDD__"/>`; }
-    else if (KINDS[ki] === "cylindre") { const rx = 44 * k, hh = 44 * k, ry = rx * 0.34;
+    else if (KINDS[ki] === "cylindre") { const rx = 44 * k * ep, hh = 44 * k * el, ry = rx * 0.34;
       body = `<defs>${LG}</defs>` + contact(100 + hh + ry + 10, rx * 0.95) + `<path d="M ${N(100 - rx)} ${N(100 - hh)} V ${N(100 + hh)} A ${N(rx)} ${N(ry)} 0 0 0 ${N(100 + rx)} ${N(100 + hh)} V ${N(100 - hh)} Z" fill="url(#q1)"/><ellipse cx="100" cy="${N(100 - hh)}" rx="${N(rx)}" ry="${N(ry)}" fill="__CLL__"/>`; }
-    else if (KINDS[ki] === "cône") { const rx = 44 * k, hh = 56 * k, ry = rx * 0.32;
+    else if (KINDS[ki] === "cône") { const rx = 44 * k * ep, hh = Math.min(56 * k * el, 74), ry = rx * 0.32;
       body = `<defs>${LG}</defs>` + contact(Math.min(100 + hh + ry + 8, 186), rx * 0.95) + `<path d="M 100 ${N(100 - hh)} L ${N(100 + rx)} ${N(100 + hh)} A ${N(rx)} ${N(ry)} 0 0 1 ${N(100 - rx)} ${N(100 + hh)} Z" fill="url(#q1)"/>`; }
-    else if (KINDS[ki] === "tore") { const t = 14 * k + 6, R = 60 * k;
+    else if (KINDS[ki] === "tore") { const t = (14 * k + 6) * ep, R = 60 * k * (1.9 - ep) * 0.52 + 30 * k;
       body = `<defs>${LG}</defs>` + contact(100 + R + 14, R) + `<circle cx="100" cy="96" r="${N(R)}" fill="none" stroke="url(#q1)" stroke-width="${N(t)}"/>`; }
-    else if (KINDS[ki] === "pyramide") { const s = 46 * k, hh = 54 * k;
+    else if (KINDS[ki] === "pyramide") { const s = 46 * k * ep, hh = Math.min(54 * k * el, 72);
       body = contact(100 + hh + 12, s) + `<path d="M 100 ${N(100 - hh)} L ${N(100 - s)} ${N(100 + hh)} L 100 ${N(100 + hh + s * 0.28)} Z" fill="__CL__"/><path d="M 100 ${N(100 - hh)} L ${N(100 + s)} ${N(100 + hh)} L 100 ${N(100 + hh + s * 0.28)} Z" fill="__CDD__"/>`; }
-    else if (KINDS[ki] === "pilule") { const w = 120 * k, h2 = 60 * k;
+    else if (KINDS[ki] === "pilule") { const w = Math.min(120 * k * el, 184), h2 = 60 * k * ep;
       body = `<defs>${LG}</defs>` + contact(100 + h2 / 2 + 12, w * 0.44) + `<rect x="${N(100 - w / 2)}" y="${N(100 - h2 / 2)}" width="${N(w)}" height="${N(h2)}" rx="${N(h2 / 2)}" fill="url(#q1)"/>` + `<rect x="${N(100 - w / 2 + 8)}" y="${N(100 - h2 / 2 + 5)}" width="${N(w - 16)}" height="${N(h2 * 0.34)}" rx="${N(h2 * 0.17)}" fill="__CW__" opacity="0.32"/>`; }
-    else { const sides = 5 + (seed % 5), R = 80 * k; let g = "";
+    else { const sides = 3 + (seed % 10), R = 80 * k * ep; let g = "";
       for (let a = 0; a < sides; a++) { const a1 = -90 + (a * 360) / sides, a2 = -90 + ((a + 1) * 360) / sides;
         const [x1, y1] = polar(100, 100, R, a1), [x2, y2] = polar(100, 100, R, a2);
         const lit = Math.cos((((a1 + a2) / 2 + 130) * Math.PI) / 180);
@@ -349,7 +374,7 @@ fam("wave", "deco", "Vagues", "vague onde water motif séparateur ondulation",
       const y = 30 + amp + r0 * (amp * 2 + 22);
       let d = `M 8 ${N(y)} `;
       for (let k = 0; k * period < W - 16; k++) d += `q ${N(period / 2)} ${N(k % 2 ? amp : -amp)} ${N(period)} 0 `;
-      g += sti === 2 ? `<path d="${d} V ${N(y + amp + 24)} H 8 Z" fill="${C}" opacity="${N(0.9 - r0 * 0.18)}"/>`
+      g += sti === 2 ? `<path d="${d} V ${N(y + amp + 24)} H 8 Z" fill="${C}" opacity="${N(0.9 - r0 * 0.18)}"/>` + stroke(d, sw)
         : stroke(d, sw, sti === 1 ? `opacity="${N(1 - r0 * 0.16)}"` : "");
     }
     const H = 30 + amp + (rows - 1) * (amp * 2 + 22) + amp + 34;
@@ -365,7 +390,7 @@ fam("grid", "deco", "Grille", "grille quadrillage damier motif fond",
     const KIND = ["grille", "damier", "croix", "briques", "diagonale", "points"];
     let g = "";
     if (KIND[ki] === "grille") { for (let a = 0; a <= cols; a++) g += stroke(`M ${N(a * cell)} 0 V ${N(H)}`, sw); for (let b = 0; b <= rows; b++) g += stroke(`M 0 ${N(b * cell)} H ${N(W)}`, sw); }
-    else if (KIND[ki] === "damier") { for (let a = 0; a < cols; a++) for (let b = 0; b < rows; b++) if ((a + b) % 2 === 0) g += `<rect x="${N(a * cell)}" y="${N(b * cell)}" width="${N(cell)}" height="${N(cell)}" fill="${C}"/>`; }
+    else if (KIND[ki] === "damier") { for (let a = 0; a < cols; a++) for (let b = 0; b < rows; b++) if ((a + b) % 2 === 0) g += `<rect x="${N(a * cell + sw / 2)}" y="${N(b * cell + sw / 2)}" width="${N(cell - sw)}" height="${N(cell - sw)}" fill="${C}"/>`; }
     else if (KIND[ki] === "croix") { for (let a = 0; a <= cols; a++) for (let b = 0; b <= rows; b++) g += stroke(`M ${N(a * cell - 4)} ${N(b * cell)} H ${N(a * cell + 4)} M ${N(a * cell)} ${N(b * cell - 4)} V ${N(b * cell + 4)}`, sw); }
     else if (KIND[ki] === "briques") { for (let b = 0; b < rows; b++) for (let a = 0; a < cols; a++) g += `<rect x="${N(a * cell + (b % 2) * (cell / 2))}" y="${N(b * cell)}" width="${N(cell - 2)}" height="${N(cell - 2)}" rx="1.5" fill="none" stroke="${C}" stroke-width="${sw}"/>`; }
     else if (KIND[ki] === "diagonale") { for (let a = -rows; a <= cols; a++) g += stroke(`M ${N(a * cell)} 0 L ${N((a + rows) * cell)} ${N(H)}`, sw); }
@@ -461,7 +486,7 @@ fam("drop", "nature", "Goutte", "goutte eau liquide larme bulle",
   ([si, ri, sti, seed]) => {
     const stretch = 0.7 + si * 0.14, round = 0.55 + ri * 0.1;
     const r = rng(seed * 977 + 5);
-    const H = Math.min(140 * stretch, 172), Rw = Math.min(54 * round * (0.9 + r() * 0.2), 92);
+    const H = 96 + si * 15, Rw = Math.min(54 * round * (0.9 + r() * 0.2), 92);
     const d = `M 100 ${N(186 - H)} C ${N(100 + Rw)} ${N(186 - H * 0.42)} ${N(100 + Rw * 1.05)} 186 100 186 C ${N(100 - Rw * 1.05)} 186 ${N(100 - Rw)} ${N(186 - H * 0.42)} 100 ${N(186 - H)} Z`;
     const body = sti === 0 ? fillp(d) : sti === 1 ? stroke(d, 5)
       : sti === 2 ? fillp(d) + `<ellipse cx="${N(100 - Rw * 0.34)}" cy="${N(186 - H * 0.42)}" rx="${N(Rw * 0.15)}" ry="${N(H * 0.13)}" fill="${c1()}" transform="rotate(-20 ${N(100 - Rw * 0.34)} ${N(186 - H * 0.42)})"/>`
@@ -521,7 +546,7 @@ fam("tag", "badges", "Étiquette", "étiquette badge prix promo label",
   ([shi, wi, hi, sti, seed]) => {
     const SHAPE = ["languette", "pilule", "éclat", "bouclier", "cercle", "rectangle"];
     const cx = 120, cy = 74;
-    let w = 100 + wi * 26, hh = 50 + hi * 16;
+    let w = 100 + wi * 26, hh = (50 + hi * 16) * [0.84, 1, 1.16][seed];
     // l'éclat est circulaire : son rayon doit tenir dans la demi-hauteur
     if (shi === 2) { const rmax = 68; w = Math.min(w, rmax * 2); hh = Math.min(hh, rmax * 2); }
     let d = "";
@@ -529,13 +554,12 @@ fam("tag", "badges", "Étiquette", "étiquette badge prix promo label",
     else if (SHAPE[shi] === "pilule") d = `M ${N(cx - w / 2 + hh / 2)} ${N(cy - hh / 2)} H ${N(cx + w / 2 - hh / 2)} A ${N(hh / 2)} ${N(hh / 2)} 0 0 1 ${N(cx + w / 2 - hh / 2)} ${N(cy + hh / 2)} H ${N(cx - w / 2 + hh / 2)} A ${N(hh / 2)} ${N(hh / 2)} 0 0 1 ${N(cx - w / 2 + hh / 2)} ${N(cy - hh / 2)} Z`;
     else if (SHAPE[shi] === "éclat") d = starPts(cx, cy, 12, Math.max(w, hh) / 2, Math.max(w, hh) / 2 - 11);
     else if (SHAPE[shi] === "bouclier") d = `M ${N(cx - w / 2)} ${N(cy - hh / 2)} H ${N(cx + w / 2)} V ${N(cy)} C ${N(cx + w / 2)} ${N(cy + hh / 2)} ${N(cx)} ${N(cy + hh / 2 + 8)} ${N(cx)} ${N(cy + hh / 2 + 8)} C ${N(cx)} ${N(cy + hh / 2 + 8)} ${N(cx - w / 2)} ${N(cy + hh / 2)} ${N(cx - w / 2)} ${N(cy)} Z`;
-    else if (SHAPE[shi] === "cercle") d = `M ${N(cx - hh / 2)} ${N(cy)} a ${N(hh / 2)} ${N(hh / 2)} 0 1 0 ${N(hh)} 0 a ${N(hh / 2)} ${N(hh / 2)} 0 1 0 ${N(-hh)} 0 Z`;
+    else if (SHAPE[shi] === "cercle") { const rx = Math.min(w, 150) / 2; d = `M ${N(cx - rx)} ${N(cy)} a ${N(rx)} ${N(hh / 2)} 0 1 0 ${N(rx * 2)} 0 a ${N(rx)} ${N(hh / 2)} 0 1 0 ${N(-rx * 2)} 0 Z`; }
     else d = `M ${N(cx - w / 2)} ${N(cy - hh / 2)} H ${N(cx + w / 2)} V ${N(cy + hh / 2)} H ${N(cx - w / 2)} Z`;
     const body = sti === 0 ? fillp(d) : sti === 1 ? stroke(d, 6)
       : sti === 2 ? fillp(d) + `<rect x="${N(cx - w / 2)}" y="${N(cy - 7)}" width="${N(w)}" height="14" fill="${c1()}"/>`
       : sti === 3 ? eo(`${d}${holeC(cx - w / 2 + 16, cy, 7)}`)
       : fillp(d) + `<circle cx="${N(cx - w / 2 + 18)}" cy="${N(cy)}" r="7" fill="${c1()}"/>`;
-    void seed;
     return { w: 240, h: 160, body };
   }, TWO);
 
@@ -574,7 +598,7 @@ fam("ribbon", "badges", "Ruban", "ruban banderole bannière étiquette",
   [6, 6, 5, 5, 3],
   ([wi, hi, ei, di, fi]) => {
     const hh = 20 + hi * 6, cx = 130, cy = 74;
-    const w = Math.min(120 + wi * 22, 200); // + embouts de 24 px : reste dans 260
+    const w = 108 + wi * 18;                // + embouts de 24 px : reste dans 260
     const END = ["pointe", "plat", "fourche", "arrondi", "aucun"];
     const DECO = ["aucun", "ligne", "bande", "points", "bord"];
     const x0 = cx - w / 2, x1 = cx + w / 2;
@@ -607,10 +631,16 @@ fam("line", "strokes", "Trait", "trait ligne séparateur souligné divider",
     if (TYPE[ti] === "vague") for (let k = 0; k < seg; k++) d += `q ${N(step / 2)} ${N(k % 2 ? amp : -amp)} ${N(step)} 0 `;
     else if (TYPE[ti] === "zigzag") for (let k = 1; k <= seg; k++) d += `L ${N(12 + k * step)} ${N(k % 2 ? y - amp : y + amp)} `;
     else d = `M 12 ${y} H ${W - 12}`;
-    const body = TYPE[ti] === "tirets" ? stroke(d, sw, `stroke-dasharray="${N(sw * 3)} ${N(sw * 2)}"`)
-      : TYPE[ti] === "pointillé" ? stroke(d, sw, `stroke-dasharray="0.1 ${N(sw * 2.4)}"`)
-      : TYPE[ti] === "double" ? stroke(`M 12 ${N(y - amp / 2)} H ${W - 12}`, sw) + stroke(`M 12 ${N(y + amp / 2)} H ${W - 12}`, sw)
-      : TYPE[ti] === "perles" ? stroke(d, Math.max(1.5, sw / 2)) + Array.from({ length: seg + 1 }, (_, k) => `<circle cx="${N(12 + k * step)}" cy="${y}" r="${N(sw)}" fill="${C}"/>`).join("")
+    // Sur les types rectilignes, « amplitude » et « segments » ne touchaient pas
+    // au dessin : les mêmes traits revenaient trente fois. L'amplitude devient
+    // la taille des embouts, les segments la cadence des tirets et des points.
+    const cap = (h: number) => stroke(`M 12 ${N(y - h)} V ${N(y + h)} M ${W - 12} ${N(y - h)} V ${N(y + h)}`, Math.max(2, sw * 0.8));
+    const dash = (on: number) => { const p = (W - 24) / seg; return `stroke-dasharray="${N(p * on)} ${N(p * (1 - on))}"`; };
+    const body = TYPE[ti] === "tirets" ? stroke(d, sw, dash(0.6)) + cap(amp * 0.5)
+      : TYPE[ti] === "pointillé" ? stroke(d, sw, `stroke-dasharray="0.1 ${N((W - 24) / (seg * 4))}"`) + cap(amp * 0.4)
+      : TYPE[ti] === "double" ? stroke(`M 12 ${N(y - amp / 2)} H ${W - 12}`, sw) + stroke(`M 12 ${N(y + amp / 2)} H ${W - 12}`, sw, dash(0.7))
+      : TYPE[ti] === "perles" ? stroke(d, Math.max(1.5, sw / 2)) + Array.from({ length: seg + 1 }, (_, k) => `<circle cx="${N(12 + k * step)}" cy="${y}" r="${N(Math.min(sw * (0.6 + amp / 60), 11))}" fill="${C}"/>`).join("")
+      : TYPE[ti] === "ligne" ? stroke(d, sw) + cap(amp * 0.6)
       : stroke(d, sw);
     return { w: W, h: N(y + amp + 40), body };
   });
@@ -712,13 +742,38 @@ const DARK = "#2b2440", LEAF = "#4ade80", FLAME = "#fbbf24";
  * taille (3), soit 60 déclinaisons. L'identifiant `cat.pfx-slug~i` ne dépend
  * que du slug : ajouter un sujet plus tard ne déplace aucun dessin existant.
  */
+/**
+ * Liseré INTÉRIEUR, en nuance sombre de la couleur principale. Tracé au double
+ * de son épaisseur puis découpé par la silhouette : la moitié extérieure est
+ * retirée, donc rien ne sort de la boîte quelle que soit la forme.
+ */
+function rim(d: string, vi: number): string {
+  if (vi === 0) return "";
+  const line = (w: number, paint: string, dash = "") =>
+    `<path d="${d}" fill="none" stroke="${paint}" stroke-width="${N(w * 2)}"${dash} stroke-linejoin="round"/>`;
+  const inner = vi === 1 ? line(3, "__CDD__")
+    : vi === 2 ? line(7, "__CDD__")
+    // bande claire d'abord, arête sombre par-dessus : l'ordre fait le biseau
+    : vi === 3 ? line(9, "__CLL__") + line(3, "__CDD__")
+    : line(4, "__CDD__", ` stroke-dasharray="14 12"`);
+  return `<g clip-path="url(#sj)">${inner}</g>`;
+}
+
 function subjects(cat: string, pfx: string, kwBase: string, list: Subject[]) {
   for (const [slug, label, kw, shape, detail, second] of list) {
     const slots = [{ label: "Couleur principale" }, { label: "Couleur secondaire", def: second ?? SECOND }];
+    // Un sujet dont ni la silhouette ni les détails ne dépendent de l'axe
+    // « détail » rendrait cinq fois le même dessin. On le repère ici, une fois,
+    // et on lui donne à la place une variation de bord — un vrai second axe,
+    // toujours enfermé dans la forme.
+    const t0 = shape(0) + (detail ? detail(0) : "");
+    let vivant = false;
+    for (let v = 1; v < 5 && !vivant; v++) vivant = shape(v) + (detail ? detail(v) : "") !== t0;
     fam(`${pfx}-${slug}`, cat, label, `${kw} ${kwBase}`, [4, 5, 3],
       ([lv, vi, si]) => {
         const k = 0.82 + si * 0.09;
-        const g = volume(shape(vi), lv, "sj") + (detail ? detail(vi) : "");
+        const d = shape(vi);
+        const g = volume(d, lv, "sj") + (vivant ? "" : rim(d, vi)) + (detail ? detail(vi) : "");
         return {
           w: 200, h: 200,
           body: si === 2 ? g : `<g transform="translate(${N(100 - 100 * k)} ${N(100 - 100 * k)}) scale(${N(k)})">${g}</g>`,
@@ -1440,8 +1495,8 @@ export function familyItem(f: ElementFamily, i: number): ElementDef {
   const id = `${f.cat}.${f.id}~${i}`;
   const hit = cache.get(id);
   if (hit) return hit;
-  const { w, h, body } = f.make(i);
-  const def: ElementDef = { id, label: f.label, cat: f.cat, w, h, body, keywords: f.kw, slots: f.slots };
+  const { w, h, body, slots } = f.make(i);
+  const def: ElementDef = { id, label: f.label, cat: f.cat, w, h, body, keywords: f.kw, slots: slots ?? f.slots };
   if (cache.size > CACHE_MAX) cache.clear();
   cache.set(id, def);
   return def;
