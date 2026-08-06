@@ -12,7 +12,7 @@ import {
   AlignLeft, AlignCenter, AlignRight, AlignStartVertical, AlignCenterVertical,
   AlignEndVertical, AlignStartHorizontal, AlignCenterHorizontal, AlignEndHorizontal,
   FlipHorizontal2, FlipVertical2, BringToFront, SendToBack, ArrowUp, ArrowDown,
-  Shapes, Smile, PaintBucket, LayoutTemplate, Upload, Droplet, Pipette,
+  Shapes, PaintBucket, LayoutTemplate, Upload, Droplet, Pipette,
   CaseUpper, Layers as LayersIcon, SlidersHorizontal, Sparkles, LayoutGrid,
   Keyboard, ClipboardCopy, Columns3, Rows3, Search, Crop, Check, RotateCcw, Frame,
 } from "lucide-react";
@@ -910,13 +910,12 @@ function ShadowQuickToggle({ ctl }: { ctl: EditorCtl }) {
 
 /* ═══════════════ Dock gauche ═══════════════ */
 
-export type DockTab = "elements" | "photos" | "text" | "emoji" | "bg" | "templates" | "upload";
+export type DockTab = "elements" | "photos" | "text" | "bg" | "templates" | "upload";
 
 const DOCK_TABS: { id: DockTab; label: string; icon: typeof Shapes }[] = [
   { id: "elements", label: "Éléments", icon: Shapes },
   { id: "photos", label: "Photos", icon: ImageIcon },
   { id: "text", label: "Texte", icon: Type },
-  { id: "emoji", label: "Emoji", icon: Smile },
   { id: "bg", label: "Fond", icon: PaintBucket },
   { id: "templates", label: "Modèles", icon: LayoutTemplate },
   { id: "upload", label: "Importer", icon: Upload },
@@ -956,7 +955,6 @@ export function LeftDock({ tab, setTab, ctl }: { tab: DockTab | null; setTab: (t
             {tab === "elements" && <ElementsDock ctl={ctl} />}
             {tab === "photos" && <PhotosDock ctl={ctl} />}
             {tab === "text" && <TextDock ctl={ctl} />}
-            {tab === "emoji" && <EmojiDock ctl={ctl} />}
             {tab === "bg" && <BgDock ctl={ctl} />}
             {tab === "templates" && <TemplatesDock ctl={ctl} />}
             {tab === "upload" && <UploadDock ctl={ctl} />}
@@ -1067,7 +1065,10 @@ function ElementsDock({ ctl }: { ctl: EditorCtl }) {
 
   const results = useMemo(() => {
     if (!q || !ready) return null;
-    return { shapes: SHAPE_KINDS.filter((s) => normalizeSearch(s.label).includes(q)), els: searchElements(q, 180) };
+    // Les emojis n'ont pas d'intitulé un par un : la recherche les atteint par
+    // le nom de leur groupe (« cœurs », « nature », « sport »…).
+    const emojis = EMOJI_GROUPS.filter((g) => normalizeSearch(g.label).includes(q)).flatMap((g) => g.emojis);
+    return { shapes: SHAPE_KINDS.filter((s) => normalizeSearch(s.label).includes(q)), els: searchElements(q, 180), emojis };
   }, [q, ready]);
 
   const catTotal = useMemo(() => (q || !ready ? 0 : categoryCount(cat)), [q, cat, ready]);
@@ -1082,7 +1083,7 @@ function ElementsDock({ ctl }: { ctl: EditorCtl }) {
         <input
           value={query}
           onChange={(e) => setQuery(e.target.value)}
-          placeholder="Rechercher (flèche, blob, badge…)"
+          placeholder="Rechercher (flèche, badge, emoji…)"
           className="w-full rounded-lg border border-white/10 bg-white/5 py-1.5 pl-8 pr-7 text-xs text-white outline-none placeholder:text-white/30 focus:border-purple-400/50"
         />
         {query && (
@@ -1113,7 +1114,13 @@ function ElementsDock({ ctl }: { ctl: EditorCtl }) {
               <ElementGrid els={results.els} onPick={ctl.addElement} />
             </div>
           )}
-          {results.shapes.length === 0 && results.els.length === 0 && (
+          {results.emojis.length > 0 && (
+            <div>
+              <p className="mb-1.5 text-[10.5px] font-semibold uppercase tracking-wide text-muted">Emoji</p>
+              <EmojiGrid emojis={results.emojis} onPick={ctl.addEmoji} />
+            </div>
+          )}
+          {results.shapes.length === 0 && results.els.length === 0 && results.emojis.length === 0 && (
             <p className="px-1 py-6 text-center text-xs text-muted">Aucun résultat pour « {query} ».</p>
           )}
         </div>
@@ -1122,6 +1129,7 @@ function ElementsDock({ ctl }: { ctl: EditorCtl }) {
           {/* Catégories */}
           <div className="no-scrollbar -mx-1 mb-2.5 flex gap-1 overflow-x-auto px-1 pb-0.5">
             <CatChip label="Formes" active={cat === "shapes"} onClick={() => setCat("shapes")} />
+            <CatChip label="Emoji" active={cat === "emoji"} onClick={() => setCat("emoji")} />
             {ELEMENT_CATEGORIES.map((c) => (
               <CatChip key={c.id} label={c.label} active={cat === c.id} onClick={() => setCat(c.id)} />
             ))}
@@ -1154,6 +1162,8 @@ function ElementsDock({ ctl }: { ctl: EditorCtl }) {
               </div>
               <p className="text-[10.5px] leading-relaxed text-muted">Ces formes sont recolorables (remplissage, dégradé, contour) après insertion.</p>
             </div>
+          ) : cat === "emoji" ? (
+            <EmojiDock ctl={ctl} />
           ) : !ready ? (
             <p className="flex items-center justify-center gap-2 py-6 text-[11px] text-muted"><Loader2 className="size-3.5 animate-spin" /> Chargement des éléments…</p>
           ) : (
@@ -1242,13 +1252,19 @@ function EmojiDock({ ctl }: { ctl: EditorCtl }) {
           </button>
         ))}
       </div>
-      <div className="grid grid-cols-6 gap-0.5">
-        {EMOJI_GROUPS[group].emojis.map((e) => (
-          <button key={e} onClick={() => ctl.addEmoji(e)} className="grid aspect-square place-items-center rounded-lg text-[22px] transition hover:bg-white/10">
-            {e}
-          </button>
-        ))}
-      </div>
+      <EmojiGrid emojis={EMOJI_GROUPS[group].emojis} onPick={ctl.addEmoji} />
+    </div>
+  );
+}
+
+function EmojiGrid({ emojis, onPick }: { emojis: string[]; onPick: (e: string) => void }) {
+  return (
+    <div className="grid grid-cols-6 gap-0.5">
+      {emojis.map((e) => (
+        <button key={e} onClick={() => onPick(e)} className="grid aspect-square place-items-center rounded-lg text-[22px] transition hover:bg-white/10">
+          {e}
+        </button>
+      ))}
     </div>
   );
 }
