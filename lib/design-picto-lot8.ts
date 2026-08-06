@@ -50,7 +50,7 @@ const SPORTS2: Picto[] = [
   ["cordeasauter", "Corde à sauter", "cardio saut sport",
     "M 46 40 V 90 C 46 160 154 160 154 90 V 40 M 32 20 H 60 V 46 H 32 Z M 140 20 H 168 V 46 H 140 Z M 46 20 V 4 M 154 20 V 4"],
   ["tapisyoga", "Tapis de yoga", "détente posture sport",
-    "M 20 60 H 160 V 140 H 20 Z M 160 60 a 26 40 0 1 1 0.1 0 Z M 44 88 H 136 M 44 112 H 136"],
+    "M 20 60 H 160 V 140 H 20 Z M 160 60 a 26 40 0 1 1 -0.1 0 Z M 44 88 H 136 M 44 112 H 136"],
   ["velostat", "Vélo d'appartement", "cardio salle sport",
     "M 40 190 H 160 M 100 190 V 60 M 100 60 H 60 M 100 60 L 150 40 M 100 120 a 30 30 0 1 1 -0.1 0 Z M 60 60 V 30 M 40 30 H 80"],
   ["chronosport", "Chronomètre", "temps performance sport",
@@ -175,7 +175,7 @@ const LABORATOIRE: Picto[] = [
 
 const TEXTILE: Picto[] = [
   ["aiguille2", "Aiguille et fil", "couture reprise",
-    "M 40 190 L 160 30 M 160 30 L 176 12 M 152 20 a 12 20 0 1 1 0.1 0 Z M 40 190 C 20 170 40 140 66 152 C 88 162 76 190 56 182"],
+    "M 40 190 L 160 30 M 160 30 L 176 12 M 152 20 a 12 20 0 1 1 -0.1 0 Z M 40 190 C 20 170 40 140 66 152 C 88 162 76 190 56 182"],
   ["bobine", "Bobine de fil", "couture fil",
     "M 40 20 H 160 V 44 H 40 Z M 40 156 H 160 V 180 H 40 Z M 62 44 H 138 V 156 H 62 Z M 62 66 H 138 M 62 90 H 138 M 62 114 H 138 M 62 138 H 138"],
   ["bouton2", "Bouton", "couture vêtement",

@@ -102,7 +102,7 @@ const QUINCAILLERIE: Picto[] = [
   ["serrure2", "Serrure", "clé porte sécurité",
     "M 40 20 H 160 V 180 H 40 Z M 100 66 a 26 26 0 1 1 -0.1 0 Z M 100 92 L 88 146 H 112 Z"],
   ["chaine", "Chaîne", "maillon lien métal",
-    "M 44 20 a 24 32 0 1 1 0.1 0 Z M 44 76 a 24 32 0 1 1 0.1 0 Z M 44 132 a 24 32 0 1 1 0.1 0 Z M 130 46 a 24 32 0 1 1 0.1 0 Z M 130 102 a 24 32 0 1 1 0.1 0 Z M 68 60 H 106 M 68 116 H 106"],
+    "M 44 20 a 24 32 0 1 1 -0.1 0 Z M 44 76 a 24 32 0 1 1 -0.1 0 Z M 44 132 a 24 32 0 1 1 -0.1 0 Z M 130 46 a 24 32 0 1 1 -0.1 0 Z M 130 102 a 24 32 0 1 1 -0.1 0 Z M 68 60 H 106 M 68 116 H 106"],
   ["cadenas2", "Cadenas", "verrou sécurité clé",
     "M 34 84 H 166 V 186 H 34 Z M 62 84 V 56 C 62 22 138 22 138 56 V 84 M 100 116 a 16 16 0 1 1 -0.1 0 Z M 100 148 V 160"],
   ["ressort", "Ressort", "mécanique élasticité",
@@ -257,7 +257,7 @@ const ELECTROMENAGER: Picto[] = [
   ["congelateur", "Congélateur", "froid conservation",
     "M 20 50 H 180 V 160 H 20 Z M 20 86 H 180 M 40 68 H 90 M 100 100 V 150 M 78 112 L 122 138 M 122 112 L 78 138 M 20 160 V 176 M 180 160 V 176"],
   ["cavevin", "Cave à vin", "conservation bouteille",
-    "M 30 14 H 170 V 186 H 30 Z M 30 70 H 170 M 30 126 H 170 M 60 40 a 14 20 0 1 1 0.1 0 Z M 100 40 a 14 20 0 1 1 0.1 0 Z M 140 40 a 14 20 0 1 1 0.1 0 Z M 60 96 a 14 20 0 1 1 0.1 0 Z M 100 96 a 14 20 0 1 1 0.1 0 Z"],
+    "M 30 14 H 170 V 186 H 30 Z M 30 70 H 170 M 30 126 H 170 M 60 40 a 14 20 0 1 1 -0.1 0 Z M 100 40 a 14 20 0 1 1 -0.1 0 Z M 140 40 a 14 20 0 1 1 -0.1 0 Z M 60 96 a 14 20 0 1 1 -0.1 0 Z M 100 96 a 14 20 0 1 1 -0.1 0 Z"],
 ];
 
 pictos("logistique", "logistique livraison colis stock", LOGISTIQUE);

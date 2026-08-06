@@ -227,7 +227,7 @@ const RESEAUX: Picto[] = [
   ["pare-feu", "Pare-feu", "sécurité réseau protection",
     "M 20 40 H 180 V 160 H 20 Z M 20 80 H 180 M 20 120 H 180 M 70 40 V 80 M 130 40 V 80 M 50 80 V 120 M 110 80 V 120 M 160 80 V 120 M 70 120 V 160 M 130 120 V 160"],
   ["vpn", "Tunnel sécurisé", "vpn chiffrement",
-    "M 30 100 a 40 60 0 1 1 0.1 0 Z M 170 100 a 40 60 0 1 1 0.1 0 Z M 30 40 H 170 M 30 160 H 170 M 100 76 a 18 18 0 1 1 -0.1 0 Z M 82 100 H 118 V 130 H 82 Z"],
+    "M 30 100 a 40 60 0 1 1 -0.1 0 Z M 170 100 a 40 60 0 1 1 -0.1 0 Z M 30 40 H 170 M 30 160 H 170 M 100 76 a 18 18 0 1 1 -0.1 0 Z M 82 100 H 118 V 130 H 82 Z"],
   ["cloudsync", "Synchronisation cloud", "nuage échange",
     "M 50 130 C 28 130 12 112 12 92 C 12 74 26 58 46 54 C 54 32 76 16 100 16 C 132 16 156 40 158 70 C 172 76 180 90 176 104 C 172 120 156 130 140 130 Z M 70 156 H 130 M 130 156 L 112 140 M 130 156 L 112 172 M 130 182 H 70 M 70 182 L 88 166 M 70 182 L 88 198"],
   ["basededonnees2", "Bases répliquées", "données serveur",

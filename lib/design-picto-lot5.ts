@@ -7,7 +7,7 @@ const VOYAGE: Picto[] = [
   ["sacados", "Sac à dos", "randonnée bagage marche",
     "M 46 62 H 154 V 182 H 46 Z M 70 62 V 40 C 70 20 130 20 130 40 V 62 M 78 96 H 122 V 130 H 78 Z M 46 146 H 154"],
   ["passeport2", "Passeport", "voyage frontière document",
-    "M 40 14 H 160 V 186 H 40 Z M 100 52 a 30 30 0 1 1 0.1 0 Z M 70 82 H 130 M 76 148 H 124"],
+    "M 40 14 H 160 V 186 H 40 Z M 100 52 a 30 30 0 1 1 -0.1 0 Z M 70 82 H 130 M 76 148 H 124"],
   ["billetavion", "Billet d'avion", "vol carte embarquement",
     "M 14 62 H 186 V 138 H 14 Z M 132 62 V 138 M 40 88 H 106 M 40 112 H 84 M 152 88 H 172 M 152 112 H 172"],
   ["boussole2", "Boussole", "orientation nord cap",
