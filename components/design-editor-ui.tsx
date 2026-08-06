@@ -26,7 +26,7 @@ import {
   EMOJI_GROUPS, BG_SOLIDS, GRADIENT_PRESETS, FILTER_PRESETS, TEXT_PRESETS,
   TEMPLATES, templateDoc, type TextPreset,
 } from "@/lib/design-presets";
-import { elementSlotDefaults, elementThumbSrc, normalizeSearch, type ElementDef } from "@/lib/design-elements";
+import { elementSlotDefaults, elementThumbSrc, luminance, normalizeSearch, type ElementDef } from "@/lib/design-elements";
 import { ELEMENT_CATEGORIES, catalogElementById, categoryCount, categoryPage, searchElements, catalogTotal } from "@/lib/design-catalog";
 import { PHOTO_CATEGORIES, loadPhotos, photoSrc, type StockPhoto } from "@/lib/design-photos";
 import { DocPreview } from "./design-render";
@@ -1187,14 +1187,19 @@ function CatChip({ label, active, onClick }: { label: string; active: boolean; o
 function ElementGrid({ els, onPick }: { els: ElementDef[]; onPick: (el: ElementDef) => void }) {
   return (
     <div className="grid grid-cols-3 gap-1.5">
-      {els.map((el) => (
-        <button key={el.id} title={`${el.label} — recolorable`} onClick={() => onPick(el)}
-          className="group grid aspect-square place-items-center overflow-hidden rounded-xl border border-white/10 bg-[#262a36] p-1.5 transition hover:border-purple-400/40 hover:bg-[#2d3140]">
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src={elementThumbSrc(el)} alt={el.label} loading="lazy" draggable={false}
-            className="max-h-full max-w-full transition group-hover:scale-105" />
-        </button>
-      ))}
+      {els.map((el) => {
+        // Une forme noire sur une vignette sombre serait invisible : la tuile
+        // s'éclaircit sous les éléments foncés.
+        const sombre = luminance(elementSlotDefaults(el)[0].fill) < 0.1;
+        return (
+          <button key={el.id} title={`${el.label} — recolorable`} onClick={() => onPick(el)}
+            className={`group grid aspect-square place-items-center overflow-hidden rounded-xl border border-white/10 p-1.5 transition hover:border-purple-400/40 ${sombre ? "bg-[#cbd2df] hover:bg-[#dde3ec]" : "bg-[#262a36] hover:bg-[#2d3140]"}`}>
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src={elementThumbSrc(el)} alt={el.label} loading="lazy" draggable={false}
+              className="max-h-full max-w-full transition group-hover:scale-105" />
+          </button>
+        );
+      })}
     </div>
   );
 }

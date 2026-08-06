@@ -11,7 +11,7 @@
 // retrouve exactement le même dessin, puisque l'index détermine les paramètres.
 
 import type { ElementDef } from "./design-elements";
-import { normalizeSearch } from "./design-elements";
+import { normalizeSearch, familyDefaultColor } from "./design-elements";
 import {
   C, N, rng, polar, smoothClosed, starPts, polyPts, arrowHead, stroke, fillp, eo, holeC,
   fillWith, strokeWith,
@@ -1507,13 +1507,32 @@ const FAM_BY_KEY = new Map(FAMILIES.map((f) => [`${f.cat}.${f.id}`, f]));
 const cache = new Map<string, ElementDef>();
 const CACHE_MAX = 4000;
 
+/* Décalage propre à chaque famille : sans lui, toutes les familles d'une même
+   catégorie démarreraient sur la même teinte, et le panneau — qui les entrelace
+   — afficherait des rangées entières de la même couleur. */
+const famSeed = new Map<string, number>();
+function seedOf(key: string): number {
+  const hit = famSeed.get(key);
+  if (hit !== undefined) return hit;
+  let h = 0;
+  for (let k = 0; k < key.length; k++) h = (h * 31 + key.charCodeAt(k)) % 1000003;
+  famSeed.set(key, h);
+  return h;
+}
+
 /** Fabrique (ou retrouve) l'élément n° i d'une famille. */
 export function familyItem(f: ElementFamily, i: number): ElementDef {
   const id = `${f.cat}.${f.id}~${i}`;
   const hit = cache.get(id);
   if (hit) return hit;
   const { w, h, body, slots } = f.make(i);
-  const def: ElementDef = { id, label: f.label, cat: f.cat, w, h, body, keywords: f.kw, slots: slots ?? f.slots };
+  const def: ElementDef = {
+    id, label: f.label, cat: f.cat, w, h, body, keywords: f.kw,
+    slots: slots ?? f.slots,
+    // Sans couleur de départ, tout le catalogue génératif — l'écrasante
+    // majorité des éléments — retombait sur le violet par défaut.
+    defaultColor: familyDefaultColor(f.cat, seedOf(`${f.cat}.${f.id}`) + i * 7),
+  };
   if (cache.size > CACHE_MAX) cache.clear();
   cache.set(id, def);
   return def;

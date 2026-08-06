@@ -36,7 +36,42 @@ export type SlotPaint = { fill: string; gradient: GradientFill | null };
 export function elementSlotDefaults(def: ElementDef): SlotPaint[] {
   const base = def.defaultColor ?? "#8b5cf6";
   if (!def.slots?.length) return [{ fill: base, gradient: null }];
-  return def.slots.map((s, i) => ({ fill: s.def ?? (i === 0 ? base : base), gradient: null }));
+  const lb = luminance(base);
+  return def.slots.map((s, i) => {
+    if (i === 0 || !s.def) return { fill: base, gradient: null };
+    // Un symbole posé sur un fond plein doit rester lisible. La correction ne
+    // vise QUE les couleurs de CONTRASTE — un blanc, un gris, un noir destinés
+    // à se détacher du fond — et seulement quand elles s'y confondent. Une
+    // vraie teinte (la feuille verte d'une pomme rouge, les gemmes cyan d'une
+    // couronne dorée) est du dessin, pas du contraste : on n'y touche pas.
+    // Deux cas seulement : la MÊME couleur des deux côtés (le symbole n'existe
+    // plus), ou deux neutres proches. Dès que l'un des deux porte une couleur
+    // franche, la différence de teinte suffit à le faire ressortir.
+    const corrigible =
+      ecart(base, s.def) < 24 ||
+      (estNeutre(base) && estNeutre(s.def) && Math.abs(luminance(s.def) - lb) < 0.14);
+    return { fill: corrigible ? (lb > 0.45 ? "#111827" : "#f8fafc") : s.def, gradient: null };
+  });
+}
+
+function rgb(hex: string): [number, number, number] | null {
+  let s = (hex || "").replace(/^#/, "");
+  if (s.length === 3) s = s.split("").map((c) => c + c).join("");
+  if (!/^[0-9a-fA-F]{6}$/.test(s)) return null;
+  return [0, 2, 4].map((i) => parseInt(s.slice(i, i + 2), 16)) as [number, number, number];
+}
+
+/** Teinte sans couleur marquée : blanc, gris, noir — donc faite pour trancher. */
+function estNeutre(hex: string): boolean {
+  const v = rgb(hex);
+  return !!v && Math.max(...v) - Math.min(...v) < 40;
+}
+
+/** Distance entre deux couleurs (0 = identiques). */
+function ecart(a: string, b: string): number {
+  const x = rgb(a), y = rgb(b);
+  if (!x || !y) return 999;
+  return Math.hypot(x[0] - y[0], x[1] - y[1], x[2] - y[2]);
 }
 
 export const ELEMENT_CATEGORIES: { id: string; label: string }[] = [
@@ -97,6 +132,11 @@ export const ELEMENT_CATEGORIES: { id: string; label: string }[] = [
    et varié plutôt que monochrome. Chaque élément reste recolorable à volonté ;
    les motifs à couleur évidente sont ensuite surchargés (tint). */
 const VIBRANT = ["#f472b6", "#fb7185", "#fb923c", "#fbbf24", "#facc15", "#a3e635", "#4ade80", "#2dd4bf", "#38bdf8", "#60a5fa", "#818cf8", "#c084fc", "#e879f9"];
+/* Palette d'une catégorie récente : ses teintes propres comptent double, puis
+   la palette générale prend le relais — assez de variété pour que deux
+   vignettes voisines diffèrent, sans perdre l'identité de la catégorie. */
+const wide = (p: string[]) => [...p, ...p, ...VIBRANT];
+
 const CAT_PALETTE: Record<string, string[]> = {
   circles: VIBRANT,
   strokes: VIBRANT,
@@ -119,7 +159,68 @@ const CAT_PALETTE: Record<string, string[]> = {
   ornaments: VIBRANT,
   frames: VIBRANT,
   daily: VIBRANT,
+  transport: wide(["#38bdf8", "#f87171", "#fbbf24", "#4ade80", "#60a5fa", "#fb923c", "#a78bfa", "#22d3ee"]),
+  musique: wide(["#c084fc", "#e879f9", "#f472b6", "#818cf8", "#38bdf8", "#fbbf24", "#2dd4bf", "#fb7185"]),
+  outils: wide(["#94a3b8", "#fbbf24", "#f87171", "#60a5fa", "#a3e635", "#fb923c", "#22d3ee", "#c084fc"]),
+  science: wide(["#22d3ee", "#38bdf8", "#a3e635", "#c084fc", "#f472b6", "#4ade80", "#60a5fa", "#fb7185"]),
+  mode: wide(["#f472b6", "#fb7185", "#c084fc", "#fbbf24", "#38bdf8", "#4ade80", "#e879f9", "#fb923c"]),
+  bureau: wide(["#60a5fa", "#fbbf24", "#f87171", "#4ade80", "#c084fc", "#38bdf8", "#fb923c", "#2dd4bf"]),
+  batiment: wide(["#fb923c", "#fbbf24", "#f87171", "#60a5fa", "#a3e635", "#c084fc", "#38bdf8", "#94a3b8"]),
+  espace: wide(["#818cf8", "#c084fc", "#38bdf8", "#fbbf24", "#e879f9", "#60a5fa", "#22d3ee", "#f472b6"]),
+  education: wide(["#60a5fa", "#fbbf24", "#4ade80", "#f472b6", "#fb923c", "#c084fc", "#38bdf8", "#f87171"]),
+  communication: wide(["#38bdf8", "#818cf8", "#4ade80", "#f472b6", "#fbbf24", "#c084fc", "#2dd4bf", "#fb7185"]),
+  energie: wide(["#4ade80", "#a3e635", "#facc15", "#22c55e", "#38bdf8", "#fbbf24", "#2dd4bf", "#84cc16"]),
+  voyage: wide(["#38bdf8", "#fbbf24", "#fb923c", "#4ade80", "#f472b6", "#60a5fa", "#22d3ee", "#c084fc"]),
+  maison: wide(["#fb923c", "#fbbf24", "#a3e635", "#60a5fa", "#f472b6", "#c084fc", "#38bdf8", "#f87171"]),
+  beaute: wide(["#f472b6", "#e879f9", "#fb7185", "#c084fc", "#fbbf24", "#38bdf8", "#4ade80", "#fb923c"]),
+  agriculture: wide(["#a3e635", "#4ade80", "#facc15", "#fb923c", "#84cc16", "#fbbf24", "#22c55e", "#f87171"]),
+  jeux: wide(["#f472b6", "#fbbf24", "#38bdf8", "#4ade80", "#fb7185", "#c084fc", "#fb923c", "#818cf8"]),
+  interface: wide(["#60a5fa", "#818cf8", "#38bdf8", "#c084fc", "#2dd4bf", "#f472b6", "#4ade80", "#fbbf24"]),
+  art: wide(["#e879f9", "#f472b6", "#c084fc", "#fbbf24", "#38bdf8", "#fb7185", "#4ade80", "#fb923c"]),
+  finance: wide(["#4ade80", "#22c55e", "#fbbf24", "#60a5fa", "#38bdf8", "#a3e635", "#c084fc", "#facc15"]),
+  bebe: wide(["#f9a8d4", "#a5b4fc", "#fde68a", "#99f6e4", "#fbcfe8", "#bfdbfe", "#fed7aa", "#d9f99d"]),
+  marine: wide(["#38bdf8", "#0ea5e9", "#22d3ee", "#2dd4bf", "#60a5fa", "#f472b6", "#fbbf24", "#4ade80"]),
+  metiers: wide(["#60a5fa", "#f87171", "#fbbf24", "#4ade80", "#c084fc", "#fb923c", "#38bdf8", "#2dd4bf"]),
+  ville: wide(["#94a3b8", "#60a5fa", "#fbbf24", "#4ade80", "#fb923c", "#38bdf8", "#c084fc", "#f87171"]),
+  textile: wide(["#f472b6", "#c084fc", "#fbbf24", "#38bdf8", "#4ade80", "#fb7185", "#e879f9", "#60a5fa"]),
+  temps: wide(["#60a5fa", "#818cf8", "#fbbf24", "#38bdf8", "#c084fc", "#4ade80", "#fb923c", "#2dd4bf"]),
+  logistique: wide(["#fb923c", "#fbbf24", "#60a5fa", "#4ade80", "#38bdf8", "#94a3b8", "#c084fc", "#f87171"]),
+  symboles: wide(["#c084fc", "#818cf8", "#e879f9", "#fbbf24", "#38bdf8", "#f472b6", "#2dd4bf", "#4ade80"]),
+  recompense: wide(["#fbbf24", "#facc15", "#fde047", "#fb923c", "#f472b6", "#c084fc", "#4ade80", "#38bdf8"]),
+  signalisation: wide(["#f87171", "#fbbf24", "#38bdf8", "#4ade80", "#fb923c", "#60a5fa", "#facc15", "#c084fc"]),
 };
+
+/* Une part des éléments part en NOIR ou en BLANC plutôt qu'en couleur : un
+   catalogue tout en teintes vives n'offre aucune forme neutre, alors que c'est
+   ce qu'on cherche le plus souvent pour un logo ou une mise en page sobre.
+   Les rangs retenus sont premiers avec la longueur des palettes, donc le
+   neutre ne remplace pas toujours la même teinte. */
+const NEUTRE_BLANC = "#ffffff";
+const NEUTRE_NOIR = "#111827";
+
+/** Couleur de départ d'un élément généré : une teinte de sa catégorie répartie
+    par rang, neutres compris. Déterministe — un élément garde sa couleur d'une
+    session à l'autre, et deux éléments voisins n'ont pas la même. */
+export function familyDefaultColor(cat: string, seed: number): string {
+  const s = ((seed % 1000003) + 1000003) % 1000003;
+  const n = s % 17;
+  if (n === 4) return NEUTRE_BLANC;
+  if (n === 11) return NEUTRE_NOIR;
+  const pal = CAT_PALETTE[cat] ?? VIBRANT;
+  return pal[s % pal.length];
+}
+
+/** Luminance relative (0 = noir, 1 = blanc) — sert à garantir les contrastes. */
+export function luminance(hex: string): number {
+  let s = (hex || "").replace(/^#/, "");
+  if (s.length === 3) s = s.split("").map((c) => c + c).join("");
+  if (!/^[0-9a-fA-F]{6}$/.test(s)) return 0.5;
+  const v = [0, 2, 4].map((i) => {
+    const c = parseInt(s.slice(i, i + 2), 16) / 255;
+    return c <= 0.03928 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4;
+  });
+  return 0.2126 * v[0] + 0.7152 * v[1] + 0.0722 * v[2];
+}
 
 /* ═══════════ Outils ═══════════ */
 
