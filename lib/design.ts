@@ -102,6 +102,39 @@ export const SHAPE_KINDS: { id: ShapeKind; label: string }[] = [
   { id: "crescent", label: "Croissant" },
 ];
 
+/* ── Rognage ──
+   Le calque garde sa boîte (x,y,w,h) : c'est le CADRE VISIBLE. `crop` dit
+   quelle portion du contenu ce cadre laisse voir, en fractions de la boîte de
+   contenu. {0,0,1,1} = rien de rogné, et l'absence de `crop` vaut pareil : un
+   document enregistré avant cette fonctionnalité se relit à l'identique.
+
+   Le contenu conserve sa taille de mise en page — rogner un texte ne le
+   recompose pas, rogner une image ne l'étire pas —, seul le cadre rétrécit. */
+export type Crop = { x: number; y: number; w: number; h: number };
+export const FULL_CROP: Crop = { x: 0, y: 0, w: 1, h: 1 };
+
+export function hasCrop(c: Crop | null | undefined): c is Crop {
+  return !!c && (c.x > 1e-4 || c.y > 1e-4 || c.w < 1 - 1e-4 || c.h < 1 - 1e-4);
+}
+
+/** Boîte du CONTENU sous le cadre : sa taille et son décalage (repère local). */
+export function contentBox(l: { w: number; h: number; crop?: Crop | null }) {
+  const c = l.crop ?? FULL_CROP;
+  const cw = l.w / Math.max(1e-3, c.w);
+  const ch = l.h / Math.max(1e-3, c.h);
+  return { cw, ch, ox: -c.x * cw, oy: -c.y * ch };
+}
+
+/** Opération inverse : fenêtre de rognage d'un cadre w×h posé sur ce contenu. */
+export function cropFrom(ox: number, oy: number, cw: number, ch: number, w: number, h: number): Crop {
+  return {
+    x: Math.max(0, -ox / Math.max(1e-3, cw)),
+    y: Math.max(0, -oy / Math.max(1e-3, ch)),
+    w: Math.min(1, w / Math.max(1e-3, cw)),
+    h: Math.min(1, h / Math.max(1e-3, ch)),
+  };
+}
+
 export type BaseLayer = {
   id: string;
   name: string;
@@ -115,6 +148,10 @@ export type BaseLayer = {
   flipX: boolean;
   flipY: boolean;
   shadow: Shadow;
+  /** Fenêtre visible dans le contenu (null = contenu entier). */
+  crop?: Crop | null;
+  /** Rognage à une forme : le contenu est découpé par ce tracé (null = cadre). */
+  mask?: ShapeKind | null;
 };
 
 export type ShapeLayer = BaseLayer & {
@@ -419,9 +456,42 @@ export function shapePath(kind: ShapeKind, w: number, h: number, radius = 0): st
   }
 }
 
+/** Tracé qui découpe le contenu d'un calque : forme de rognage, ou cadre
+    (arrondi pour une image). Sert au DOM (clip-path) comme au canvas (clip). */
+export function clipPath(l: Layer): string {
+  const w = Math.max(1, l.w), h = Math.max(1, l.h);
+  if (l.mask) return shapePath(l.mask, w, h);
+  return roundedRectPath(w, h, l.type === "image" ? l.radius : 0);
+}
+
+/** Le calque a-t-il besoin d'un découpage au rendu ? */
+export function isClipped(l: Layer): boolean {
+  return hasCrop(l.crop) || !!l.mask;
+}
+
 /* ═══════════════ Lecture / migration d'un document ═══════════════ */
 
 type LegacyLayer = Record<string, unknown> & { type?: string };
+
+const SHAPE_IDS = new Set<string>(SHAPE_KINDS.map((s) => s.id));
+
+function normCrop(v: unknown): Crop | null {
+  if (!v || typeof v !== "object") return null;
+  const o = v as Record<string, unknown>;
+  const num = (k: string, d: number) => { const n = Number(o[k]); return Number.isFinite(n) ? n : d; };
+  const w = Math.max(0.01, Math.min(1, num("w", 1)));
+  const h = Math.max(0.01, Math.min(1, num("h", 1)));
+  const c: Crop = {
+    w, h,
+    x: Math.max(0, Math.min(1 - w, num("x", 0))),
+    y: Math.max(0, Math.min(1 - h, num("y", 0))),
+  };
+  return hasCrop(c) ? c : null;
+}
+
+function normMask(v: unknown): ShapeKind | null {
+  return typeof v === "string" && SHAPE_IDS.has(v) ? (v as ShapeKind) : null;
+}
 
 function withBaseDefaults<T extends Record<string, unknown>>(l: T): T & BaseLayer {
   return {
@@ -438,6 +508,9 @@ function withBaseDefaults<T extends Record<string, unknown>>(l: T): T & BaseLaye
     flipY: l.flipY === true,
     shadow: l.shadow && typeof l.shadow === "object" ? { ...DEFAULT_SHADOW, ...(l.shadow as Shadow) } : { ...DEFAULT_SHADOW },
     ...l,
+    // Après l'étalement : les valeurs brutes passent par la normalisation.
+    crop: normCrop(l.crop),
+    mask: normMask(l.mask),
   } as T & BaseLayer;
 }
 
@@ -760,17 +833,45 @@ export async function rasterize(
 
     const sh = devShadow(layer, scale);
     try {
-      if (layer.type === "shape") drawShape(ctx, layer, sh);
-      else if (layer.type === "line") drawLine(ctx, layer, sh);
-      else if (layer.type === "text") drawText(ctx, layer, sh);
-      else if (layer.type === "image") await drawImage(ctx, layer, sh, scale);
-      else if (layer.type === "element") await drawElement(ctx, layer, sh, scale);
+      if (isClipped(layer)) await drawClipped(ctx, layer, sh, scale);
+      else await drawContent(ctx, layer, sh, scale);
     } catch {
       /* un calque en échec ne casse pas l'export */
     }
     ctx.restore();
   }
   return canvas;
+}
+
+async function drawContent(ctx: CanvasRenderingContext2D, layer: Layer, sh: DevShadow | null, scale: number) {
+  if (layer.type === "shape") drawShape(ctx, layer, sh);
+  else if (layer.type === "line") drawLine(ctx, layer, sh);
+  else if (layer.type === "text") drawText(ctx, layer, sh);
+  else if (layer.type === "image") await drawImage(ctx, layer, sh, scale);
+  else if (layer.type === "element") await drawElement(ctx, layer, sh, scale);
+}
+
+/* Calque rogné ou découpé à une forme.
+   Le contenu est peint dans un intermédiaire aux dimensions du CADRE puis
+   découpé ; l'ombre est appliquée en posant cet intermédiaire, donc elle suit
+   la silhouette du cadre et non celle du contenu — exactement ce que fait le
+   DOM, où `filter: drop-shadow` s'applique après `overflow: hidden`.
+   L'intermédiaire est en pixels d'export : pas de perte de piqué en 2×/3×. */
+async function drawClipped(ctx: CanvasRenderingContext2D, layer: Layer, sh: DevShadow | null, scale: number) {
+  const { cw, ch, ox, oy } = contentBox(layer);
+  const off = document.createElement("canvas");
+  off.width = Math.max(1, Math.round(layer.w * scale));
+  off.height = Math.max(1, Math.round(layer.h * scale));
+  const octx = off.getContext("2d")!;
+  octx.scale(scale, scale);
+  octx.clip(new Path2D(clipPath(layer)), "evenodd");
+  octx.translate(ox, oy);
+  // L'arrondi de l'image est déjà porté par le découpage du cadre.
+  const content = { ...layer, w: cw, h: ch, ...(layer.type === "image" ? { radius: 0 } : {}) } as Layer;
+  await drawContent(octx, content, null, scale);
+  applyShadow(ctx, sh);
+  ctx.drawImage(off, 0, 0, layer.w, layer.h);
+  clearShadow(ctx);
 }
 
 function drawShape(ctx: CanvasRenderingContext2D, l: ShapeLayer, sh: DevShadow | null) {

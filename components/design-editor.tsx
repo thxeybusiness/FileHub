@@ -11,28 +11,32 @@ import {
   ArrowLeft, Check, Loader2, Shapes, Undo2, Redo2, Download, ZoomIn, ZoomOut,
   Maximize2, Lock, LayoutGrid, Keyboard, Copy, Trash2, ClipboardPaste, Scissors,
   BringToFront, SendToBack, ArrowUp, ArrowDown, Lock as LockIcon, Unlock, MousePointerSquareDashed,
+  Crop,
 } from "lucide-react";
 import { api, notifyRefresh } from "@/lib/api";
 import { useAutosave } from "./use-autosave";
 import {
   type DesignDoc, type Layer, type TextLayer, type ImageLayer, type ShapeKind, type LineDash,
   parseDesign, makeShape, makeLine, makeText, makeImage, makeElement, cloneLayer, rasterize,
+  contentBox, cropFrom, hasCrop,
 } from "@/lib/design";
 import { type TextPreset } from "@/lib/design-presets";
 import { elementSlotDefaults, type ElementDef } from "@/lib/design-elements";
 import { photoSrc, type StockPhoto } from "@/lib/design-photos";
-import { LayerVisual, layerBoxStyle, textStyle } from "./design-render";
+import { LayerContent, LayerVisual, layerBoxStyle, textStyle } from "./design-render";
 import {
-  type EditorCtl, type LayerPatch, type DockTab, type CtxMenuItem,
-  ContextBar, LeftDock, RightPanel, SizeModal, ExportModal, ShortcutsModal, ContextMenu, ACCENT,
+  type EditorCtl, type LayerPatch, type DockTab, type CtxMenuItem, type CropCtl,
+  ContextBar, LeftDock, RightPanel, SizeModal, ExportModal, ShortcutsModal, ContextMenu,
+  CropBar, DocCropBar, ACCENT,
 } from "./design-editor-ui";
 
 type Crumb = { id: string; name: string };
 const MIN_SIZE = 8;
+const MIN_CROP = 12;
 const clampN = (n: number, a: number, b: number) => Math.max(a, Math.min(b, n));
 
 /* ── Filtrage des patches par type (évite de polluer les calques) ── */
-const BASE_KEYS = new Set(["name", "x", "y", "w", "h", "rotation", "opacity", "blend", "visible", "locked", "flipX", "flipY", "shadow"]);
+const BASE_KEYS = new Set(["name", "x", "y", "w", "h", "rotation", "opacity", "blend", "visible", "locked", "flipX", "flipY", "shadow", "crop", "mask"]);
 const TYPE_KEYS: Record<Layer["type"], Set<string>> = {
   shape: new Set(["shape", "fill", "gradient", "stroke", "strokeWidth", "radius"]),
   line: new Set(["stroke", "strokeWidth", "dash"]),
@@ -86,6 +90,10 @@ export function DesignEditor({
   const [ctxMenu, setCtxMenu] = useState<{ x: number; y: number; onCanvas: boolean } | null>(null);
   const [uploading, setUploading] = useState(false);
   const [spaceDown, setSpaceDown] = useState(false);
+  // Rognage : identifiant du calque en cours de recadrage, ou cadre de rognage
+  // de la toile. Les deux sont exclusifs.
+  const [cropId, setCropId] = useState<string | null>(null);
+  const [docCrop, setDocCrop] = useState<{ x: number; y: number; w: number; h: number } | null>(null);
 
   const docRef = useRef(doc); docRef.current = doc;
   const selRef = useRef(selIds); selRef.current = selIds;
@@ -355,6 +363,139 @@ export function DesignEditor({
     }));
   }, [commit]);
 
+  /* ══ Rognage ══
+     Le cadre du calque (x,y,w,h) devient la fenêtre ; `crop` dit quelle part du
+     contenu elle laisse voir. Rogner ne redimensionne donc jamais le contenu :
+     un texte garde sa composition, une image son cadrage. */
+  const cropIdRef = useRef<string | null>(null); cropIdRef.current = cropId;
+  const docCropRef = useRef(docCrop); docCropRef.current = docCrop;
+
+  const cropLayer = useMemo(() => doc.layers.find((l) => l.id === cropId) ?? null, [doc.layers, cropId]);
+
+  const endCrop = useCallback(() => setCropId(null), []);
+
+  const beginCrop = useCallback((lid: string) => {
+    const l = docRef.current.layers.find((x) => x.id === lid);
+    if (!l || !canEdit || l.locked) return;
+    // Une image posée dans un cadre d'un autre rapport est déjà rognée par le
+    // « cover » du rendu : ces pixels-là seraient hors d'atteinte. On rend donc
+    // au contenu le rapport natif de l'image avant d'ouvrir l'outil, sans
+    // toucher au cadre — rien ne bouge à l'écran, tout devient accessible.
+    if (l.type === "image" && l.naturalW && l.naturalH) {
+      const cb = contentBox(l);
+      const target = l.naturalW / l.naturalH;
+      if (Math.abs(cb.cw / cb.ch - target) > 0.005) {
+        let cw = cb.cw, ch = cb.ch;
+        if (cw / ch < target) cw = ch * target; else ch = cw / target;
+        const ox = clampN(cb.ox + (cb.cw - cw) / 2, l.w - cw, 0);
+        const oy = clampN(cb.oy + (cb.ch - ch) / 2, l.h - ch, 0);
+        commit((d) => ({
+          ...d,
+          layers: d.layers.map((x) => (x.id === lid ? { ...x, crop: cropFrom(ox, oy, cw, ch, x.w, x.h) } : x)),
+        }));
+      }
+    }
+    setSelIds([lid]);
+    setEditingId(null);
+    setDocCrop(null);
+    setCropId(lid);
+  }, [canEdit, commit]);
+
+  /** Rend au cadre la taille du contenu : plus rien n'est rogné. */
+  const resetCrop = useCallback((lid: string) => {
+    const l = docRef.current.layers.find((x) => x.id === lid);
+    if (!l || !hasCrop(l.crop)) return;
+    const { cw, ch, ox, oy } = contentBox(l);
+    const rad = (l.rotation * Math.PI) / 180;
+    const fx = l.flipX ? -1 : 1, fy = l.flipY ? -1 : 1;
+    // Le cadre s'agrandit jusqu'au contenu : son centre se déplace, on le
+    // repositionne dans le repère toile (rotation et miroirs compris).
+    const qx = (ox + cw / 2 - l.w / 2) * fx;
+    const qy = (oy + ch / 2 - l.h / 2) * fy;
+    const cx = l.x + l.w / 2 + (qx * Math.cos(rad) - qy * Math.sin(rad));
+    const cy = l.y + l.h / 2 + (qx * Math.sin(rad) + qy * Math.cos(rad));
+    patchLayer(lid, {
+      crop: null,
+      x: Math.round(cx - cw / 2), y: Math.round(cy - ch / 2),
+      w: Math.round(cw), h: Math.round(ch),
+    }, true);
+  }, [patchLayer]);
+
+  /** Impose un rapport au cadre, centré sur le contenu visible. */
+  const cropRatio = useCallback((lid: string, ratio: number | null) => {
+    const l = docRef.current.layers.find((x) => x.id === lid);
+    if (!l) return;
+    const cb = contentBox(l);
+    if (ratio === null) { patchLayer(lid, { crop: null }, true); return; }
+    // Plus grand cadre du rapport voulu tenant dans le contenu.
+    let nw = cb.cw, nh = nw / ratio;
+    if (nh > cb.ch) { nh = cb.ch; nw = nh * ratio; }
+    const cxc = l.w / 2, cyc = l.h / 2; // centre du cadre actuel (repère local)
+    let nx = clampN(cxc - nw / 2, cb.ox, cb.ox + cb.cw - nw);
+    let ny = clampN(cyc - nh / 2, cb.oy, cb.oy + cb.ch - nh);
+    nx = Math.round(nx); ny = Math.round(ny);
+    nw = Math.round(nw); nh = Math.round(nh);
+    const rad = (l.rotation * Math.PI) / 180;
+    const fx = l.flipX ? -1 : 1, fy = l.flipY ? -1 : 1;
+    const qx = (nx + nw / 2 - l.w / 2) * fx;
+    const qy = (ny + nh / 2 - l.h / 2) * fy;
+    const cx = l.x + l.w / 2 + (qx * Math.cos(rad) - qy * Math.sin(rad));
+    const cy = l.y + l.h / 2 + (qx * Math.sin(rad) + qy * Math.cos(rad));
+    patchLayer(lid, {
+      x: Math.round(cx - nw / 2), y: Math.round(cy - nh / 2), w: nw, h: nh,
+      crop: cropFrom(cb.ox - nx, cb.oy - ny, cb.cw, cb.ch, nw, nh),
+    }, true);
+  }, [patchLayer]);
+
+  /** Zoom du CONTENU sous un cadre figé. 100 % = le contenu remplit tout juste. */
+  const cropZoom = useCallback((lid: string, pct: number, done: boolean) => {
+    const l = docRef.current.layers.find((x) => x.id === lid);
+    if (!l) return;
+    const cb = contentBox(l);
+    const fit = Math.max(l.w / cb.cw, l.h / cb.ch);
+    const k = (fit * pct) / 100;
+    const ncw = cb.cw * k, nch = cb.ch * k;
+    // Le point du contenu sous le centre du cadre ne bouge pas.
+    const fx = (l.w / 2 - cb.ox) / cb.cw;
+    const fy = (l.h / 2 - cb.oy) / cb.ch;
+    const ox = clampN(l.w / 2 - fx * ncw, l.w - ncw, 0);
+    const oy = clampN(l.h / 2 - fy * nch, l.h - nch, 0);
+    patchLayer(lid, { crop: cropFrom(ox, oy, ncw, nch, l.w, l.h) }, done);
+  }, [patchLayer]);
+
+  const setMask = useCallback((lid: string, mask: ShapeKind | null) => {
+    patchLayer(lid, { mask }, true);
+  }, [patchLayer]);
+
+  /* ── Rognage de la toile ── */
+  const beginDocCrop = useCallback((rect?: { x: number; y: number; w: number; h: number }) => {
+    if (!canEdit) return;
+    const d = docRef.current;
+    setCropId(null);
+    setEditingId(null);
+    setDocCrop(rect ?? { x: 0, y: 0, w: d.width, h: d.height });
+  }, [canEdit]);
+
+  const cropToSelection = useCallback(() => {
+    const ls = docRef.current.layers.filter((l) => selRef.current.includes(l.id));
+    if (!ls.length) return;
+    const b = bboxOf(ls);
+    beginDocCrop({ x: Math.round(b.x), y: Math.round(b.y), w: Math.max(16, Math.round(b.w)), h: Math.max(16, Math.round(b.h)) });
+  }, [beginDocCrop]);
+
+  const applyDocCrop = useCallback(() => {
+    const r = docCropRef.current;
+    if (!r) return;
+    const w = Math.max(16, Math.round(r.w)), h = Math.max(16, Math.round(r.h));
+    const dx = Math.round(r.x), dy = Math.round(r.y);
+    commit((d) => ({
+      ...d,
+      width: w, height: h,
+      layers: d.layers.map((l) => ({ ...l, x: l.x - dx, y: l.y - dy })),
+    }));
+    setDocCrop(null);
+  }, [commit]);
+
   /* ── Presse-papiers interne ── */
   const copySel = useCallback(() => {
     const ls = docRef.current.layers.filter((l) => selRef.current.includes(l.id));
@@ -399,7 +540,11 @@ export function DesignEditor({
     | { mode: "resize"; id: string; handle: string; orig: Layer; pushed: boolean; snap: DesignDoc }
     | { mode: "rotate"; id: string; cx: number; cy: number; startAngle: number; origRot: number; pushed: boolean; snap: DesignDoc }
     | { mode: "marquee"; startX: number; startY: number; additive: boolean; moved: boolean }
-    | { mode: "pan"; startClientX: number; startClientY: number; startL: number; startT: number };
+    | { mode: "pan"; startClientX: number; startClientY: number; startL: number; startT: number }
+    | { mode: "cropFrame"; id: string; handle: string; orig: Layer; pushed: boolean; snap: DesignDoc }
+    | { mode: "cropPan"; id: string; startX: number; startY: number; orig: Layer; pushed: boolean; snap: DesignDoc }
+    | { mode: "docFrame"; handle: string; orig: { x: number; y: number; w: number; h: number } }
+    | { mode: "docMove"; startX: number; startY: number; orig: { x: number; y: number; w: number; h: number } };
   const dragRef = useRef<Drag | null>(null);
 
   const ensurePushed = useCallback(() => {
@@ -465,6 +610,69 @@ export function DesignEditor({
           return o ? { ...l, x: o.x + dx, y: o.y + dy } : l;
         }),
       }));
+      return;
+    }
+
+    /* ── Rognage de la toile ── */
+    if (dg.mode === "docFrame" || dg.mode === "docMove") {
+      const d = docRef.current;
+      const o = dg.orig;
+      if (dg.mode === "docMove") {
+        const nx = clampN(o.x + (p.x - dg.startX), Math.min(0, d.width - o.w), Math.max(0, d.width - o.w));
+        const ny = clampN(o.y + (p.y - dg.startY), Math.min(0, d.height - o.h), Math.max(0, d.height - o.h));
+        setDocCrop({ ...o, x: Math.round(nx), y: Math.round(ny) });
+        return;
+      }
+      const a = HANDLES[dg.handle];
+      let { x, y, w, h } = o;
+      if (a.x < 0) { const r = o.x + o.w; x = Math.min(p.x, r - 16); w = r - x; }
+      else if (a.x > 0) { w = Math.max(16, p.x - o.x); }
+      if (a.y < 0) { const b = o.y + o.h; y = Math.min(p.y, b - 16); h = b - y; }
+      else if (a.y > 0) { h = Math.max(16, p.y - o.y); }
+      setDocCrop({ x: Math.round(x), y: Math.round(y), w: Math.round(w), h: Math.round(h) });
+      setBadge(`${Math.round(w)} × ${Math.round(h)}`);
+      return;
+    }
+
+    /* ── Rognage d'un calque ── */
+    if (dg.mode === "cropFrame" || dg.mode === "cropPan") {
+      ensurePushed();
+      const o = dg.orig;
+      const rad = (o.rotation * Math.PI) / 180;
+      const fxs = o.flipX ? -1 : 1, fys = o.flipY ? -1 : 1;
+      const fwd = (vx: number, vy: number) => rot2(vx * fxs, vy * fys, rad);
+      const inv = (vx: number, vy: number) => { const r = rot2(vx, vy, -rad); return { x: r.x * fxs, y: r.y * fys }; };
+      const cxo = o.x + o.w / 2, cyo = o.y + o.h / 2;
+      const cb = contentBox(o);
+
+      if (dg.mode === "cropPan") {
+        // Le contenu glisse sous un cadre figé ; il ne peut pas le découvrir.
+        const q0 = inv(dg.startX - cxo, dg.startY - cyo);
+        const q1 = inv(p.x - cxo, p.y - cyo);
+        const ox = clampN(cb.ox + (q1.x - q0.x), o.w - cb.cw, 0);
+        const oy = clampN(cb.oy + (q1.y - q0.y), o.h - cb.ch, 0);
+        patchLayer(dg.id, { crop: cropFrom(ox, oy, cb.cw, cb.ch, o.w, o.h) });
+        return;
+      }
+
+      // Le bord opposé reste fixe et le cadre ne sort jamais du contenu.
+      const q = inv(p.x - cxo, p.y - cyo);
+      const lx = q.x + o.w / 2, ly = q.y + o.h / 2;
+      const a = HANDLES[dg.handle];
+      let nx = 0, ny = 0, nw = o.w, nh = o.h;
+      if (a.x < 0) { nx = clampN(lx, cb.ox, o.w - MIN_CROP); nw = o.w - nx; }
+      else if (a.x > 0) { nw = clampN(lx, MIN_CROP, cb.ox + cb.cw); }
+      if (a.y < 0) { ny = clampN(ly, cb.oy, o.h - MIN_CROP); nh = o.h - ny; }
+      else if (a.y > 0) { nh = clampN(ly, MIN_CROP, cb.oy + cb.ch); }
+      nx = Math.round(nx); ny = Math.round(ny);
+      nw = Math.max(MIN_CROP, Math.round(nw)); nh = Math.max(MIN_CROP, Math.round(nh));
+      const off = fwd(nx + nw / 2 - o.w / 2, ny + nh / 2 - o.h / 2);
+      setBadge(`${nw} × ${nh}`);
+      patchLayer(dg.id, {
+        x: Math.round(cxo + off.x - nw / 2), y: Math.round(cyo + off.y - nh / 2),
+        w: nw, h: nh,
+        crop: cropFrom(cb.ox - nx, cb.oy - ny, cb.cw, cb.ch, nw, nh),
+      });
       return;
     }
 
@@ -596,6 +804,34 @@ export function DesignEditor({
     startDrag({ mode: "rotate", id: l.id, cx, cy, startAngle: Math.atan2(p.y - cy, p.x - cx), origRot: l.rotation, pushed: false, snap: docRef.current });
   }, [canEdit, toCanvas, startDrag]);
 
+  const beginCropFrame = useCallback((l: Layer, handle: string, e: React.PointerEvent) => {
+    if (!canEdit || l.locked) return;
+    e.stopPropagation();
+    startDrag({ mode: "cropFrame", id: l.id, handle, orig: l, pushed: false, snap: docRef.current });
+  }, [canEdit, startDrag]);
+
+  const beginCropPan = useCallback((l: Layer, e: React.PointerEvent) => {
+    if (e.button !== 0 || spaceDown || !canEdit || l.locked) return;
+    e.stopPropagation();
+    const p = toCanvas(e.clientX, e.clientY);
+    startDrag({ mode: "cropPan", id: l.id, startX: p.x, startY: p.y, orig: l, pushed: false, snap: docRef.current });
+  }, [canEdit, spaceDown, toCanvas, startDrag]);
+
+  const beginDocFrame = useCallback((handle: string, e: React.PointerEvent) => {
+    const r = docCropRef.current;
+    if (!r || e.button !== 0) return;
+    e.stopPropagation();
+    startDrag({ mode: "docFrame", handle, orig: r });
+  }, [startDrag]);
+
+  const beginDocMove = useCallback((e: React.PointerEvent) => {
+    const r = docCropRef.current;
+    if (!r || e.button !== 0) return;
+    e.stopPropagation();
+    const p = toCanvas(e.clientX, e.clientY);
+    startDrag({ mode: "docMove", startX: p.x, startY: p.y, orig: r });
+  }, [toCanvas, startDrag]);
+
   const onWorkspaceDown = useCallback((e: React.PointerEvent) => {
     setCtxMenu(null);
     const el = scrollRef.current;
@@ -604,6 +840,10 @@ export function DesignEditor({
       return;
     }
     if (e.button !== 0) return;
+    // Pendant un rognage, cliquer à côté termine l'opération plutôt que de
+    // lancer un lasso : sinon on perdrait le cadre en cours d'un geste anodin.
+    if (docCropRef.current) return;
+    if (cropIdRef.current) { setCropId(null); return; }
     if (editingId) setEditingId(null);
     const p = toCanvas(e.clientX, e.clientY);
     startDrag({ mode: "marquee", startX: p.x, startY: p.y, additive: e.shiftKey, moved: false });
@@ -651,7 +891,15 @@ export function DesignEditor({
       if (mod && e.key.toLowerCase() === "c") { copySel(); return; }
       if (mod && e.key.toLowerCase() === "x") { e.preventDefault(); cutSel(); return; }
       if (mod) return; // ⌘/Ctrl+0, ⌘+-, etc. : zoom du navigateur, pas le nôtre
+      if (docCropRef.current) {
+        if (e.key === "Escape") { e.preventDefault(); setDocCrop(null); return; }
+        if (e.key === "Enter") { e.preventDefault(); applyDocCrop(); return; }
+      }
+      if (cropIdRef.current && (e.key === "Escape" || e.key === "Enter")) {
+        e.preventDefault(); setCropId(null); return;
+      }
       if (e.key === "Escape") { setSelIds([]); setEditingId(null); setCtxMenu(null); return; }
+      if (e.key.toLowerCase() === "c" && selRef.current.length === 1) { beginCrop(selRef.current[0]); return; }
       if (e.key === "+" || e.key === "=") { setZoom((z) => clampN(z + 0.1, 0.03, 4)); return; }
       if (e.key === "-") { setZoom((z) => clampN(z - 0.1, 0.03, 4)); return; }
       if (e.key === "0") { fit(); return; }
@@ -680,7 +928,13 @@ export function DesignEditor({
     window.addEventListener("keyup", onKeyUp);
     return () => { window.removeEventListener("keydown", onKeyDown); window.removeEventListener("keyup", onKeyUp); };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [undo, redo, duplicateSel, copySel, cutSel, removeSel, order, canEdit, commit, patchLayers]);
+  }, [undo, redo, duplicateSel, copySel, cutSel, removeSel, order, canEdit, commit, patchLayers, beginCrop, applyDocCrop]);
+
+  // Le recadrage suit la sélection : changer de calque (ou en sélectionner
+  // plusieurs) referme l'outil sur celui qu'on quittait.
+  useEffect(() => {
+    if (cropId && (selIds.length !== 1 || selIds[0] !== cropId)) setCropId(null);
+  }, [selIds, cropId]);
 
   /* ── Collage (⌘V) : fichiers image du presse-papiers OU calques internes ── */
   useEffect(() => {
@@ -855,16 +1109,25 @@ export function DesignEditor({
     replaceImageClick: () => replaceRef.current?.click(),
     align, distribute, order, duplicateSel, removeSel, flipSel,
     reorderLayer, removeLayer, duplicateLayer,
+    cropId, beginCrop, endCrop, resetCrop, cropRatio, cropZoom, setMask,
+    docCropActive: docCrop !== null, beginDocCrop: () => beginDocCrop(), cropToSelection,
   };
+
+  const cropCtl: CropCtl | null = cropLayer
+    ? { layer: cropLayer, endCrop, resetCrop, cropRatio, cropZoom, setMask }
+    : null;
 
   /* ── Menu contextuel ── */
   const ctxItems: CtxMenuItem[] = ctxMenu?.onCanvas
     ? [
         { label: "Coller", icon: ClipboardPaste, onClick: pasteInternal, kbd: "⌘V" },
         { label: "Tout sélectionner", icon: MousePointerSquareDashed, onClick: () => setSelIds(docRef.current.layers.filter((l) => l.visible && !l.locked).map((l) => l.id)), kbd: "⌘A" },
+        { label: "Rogner la toile", icon: Crop, onClick: () => beginDocCrop(), divider: true },
       ]
     : [
-        { label: "Copier", icon: Copy, onClick: copySel, kbd: "⌘C" },
+        ...(selIds.length === 1 ? [{ label: "Rogner", icon: Crop, onClick: () => beginCrop(selIds[0]), kbd: "C" }] : []),
+        ...(selIds.length ? [{ label: "Rogner la toile ici", icon: Crop, onClick: cropToSelection }] : []),
+        { label: "Copier", icon: Copy, onClick: copySel, kbd: "⌘C", divider: selIds.length > 0 },
         { label: "Couper", icon: Scissors, onClick: cutSel, kbd: "⌘X" },
         { label: "Coller", icon: ClipboardPaste, onClick: pasteInternal, kbd: "⌘V" },
         { label: "Dupliquer", icon: Copy, onClick: duplicateSel, kbd: "⌘D" },
@@ -926,7 +1189,11 @@ export function DesignEditor({
           onChange={(e) => { const f = e.target.files?.[0]; if (f) replaceImage(f); e.target.value = ""; }} />
 
         <div className="flex min-w-0 flex-1 flex-col">
-          <ContextBar ctl={ctl} />
+          {docCrop
+            ? <DocCropBar rect={docCrop} doc={doc} onChange={setDocCrop} onApply={applyDocCrop} onCancel={() => setDocCrop(null)} />
+            : cropCtl
+              ? <CropBar ctl={cropCtl} />
+              : <ContextBar ctl={ctl} />}
 
           {/* Espace de travail */}
           <div
@@ -970,12 +1237,17 @@ export function DesignEditor({
                       selected={selIds.includes(l.id)}
                       soloSelected={selIds.length === 1 && selIds[0] === l.id}
                       editing={editingId === l.id}
+                      cropping={cropId === l.id}
+                      dimmed={docCrop !== null}
                       canEdit={canEdit}
                       editRef={editingId === l.id ? editRef : undefined}
                       onBeginMove={(e) => beginMove(l, e)}
                       onBeginResize={(h, e) => beginResize(l, h, e)}
                       onBeginRotate={(e) => beginRotate(l, e)}
+                      onBeginCropPan={(e) => beginCropPan(l, e)}
+                      onBeginCropFrame={(h, e) => beginCropFrame(l, h, e)}
                       onStartEdit={() => startEdit(l)}
+                      onDoubleClickCrop={() => beginCrop(l.id)}
                       onEditInput={(text) => patchLayer(l.id, { text })}
                       onEditBlur={() => { setEditingId(null); liveBaseRef.current = null; /* point déjà posé par startEdit */ }}
                       onContext={(e) => {
@@ -985,6 +1257,11 @@ export function DesignEditor({
                       }}
                     />
                   ))}
+
+                  {/* Cadre de rognage de la toile */}
+                  {docCrop && (
+                    <DocCropOverlay rect={docCrop} doc={doc} zoom={zoom} onBeginMove={beginDocMove} onBeginFrame={beginDocFrame} />
+                  )}
 
                   {/* Repères d'aimantation */}
                   {guides.x.map((gx, i) => (
@@ -1044,15 +1321,20 @@ export function DesignEditor({
 /* ═══════════════ Calque interactif (visuel partagé + poignées) ═══════════════ */
 
 function InteractiveLayer({
-  layer: l, zoom, selected, soloSelected, editing, canEdit, editRef,
-  onBeginMove, onBeginResize, onBeginRotate, onStartEdit, onEditInput, onEditBlur, onContext,
+  layer: l, zoom, selected, soloSelected, editing, cropping, dimmed, canEdit, editRef,
+  onBeginMove, onBeginResize, onBeginRotate, onBeginCropPan, onBeginCropFrame,
+  onStartEdit, onDoubleClickCrop, onEditInput, onEditBlur, onContext,
 }: {
-  layer: Layer; zoom: number; selected: boolean; soloSelected: boolean; editing: boolean; canEdit: boolean;
+  layer: Layer; zoom: number; selected: boolean; soloSelected: boolean; editing: boolean;
+  cropping: boolean; dimmed: boolean; canEdit: boolean;
   editRef?: React.RefObject<HTMLDivElement | null>;
   onBeginMove: (e: React.PointerEvent) => void;
   onBeginResize: (handle: string, e: React.PointerEvent) => void;
   onBeginRotate: (e: React.PointerEvent) => void;
+  onBeginCropPan: (e: React.PointerEvent) => void;
+  onBeginCropFrame: (handle: string, e: React.PointerEvent) => void;
   onStartEdit: () => void;
+  onDoubleClickCrop: () => void;
   onEditInput: (text: string) => void;
   onEditBlur: () => void;
   onContext: (e: React.MouseEvent) => void;
@@ -1060,34 +1342,49 @@ function InteractiveLayer({
   const hz = 1 / zoom;
   const style: React.CSSProperties = {
     ...layerBoxStyle(l),
-    pointerEvents: l.locked ? "none" : "auto",
-    cursor: canEdit && !l.locked ? "move" : "default",
+    pointerEvents: l.locked || dimmed ? "none" : "auto",
+    cursor: cropping ? "move" : canEdit && !l.locked ? "move" : "default",
   };
 
   const content = editing && l.type === "text" ? (
-    <div
-      ref={editRef}
-      contentEditable
-      suppressContentEditableWarning
-      style={{ ...textStyle(l), cursor: "text" }}
-      onInput={(e) => onEditInput((e.currentTarget as HTMLDivElement).innerText)}
-      onBlur={onEditBlur}
-      onPointerDown={(e) => e.stopPropagation()}
-    />
+    <LayerContent layer={l}>
+      <div
+        ref={editRef}
+        contentEditable
+        suppressContentEditableWarning
+        style={{ ...textStyle(l), cursor: "text" }}
+        onInput={(e) => onEditInput((e.currentTarget as HTMLDivElement).innerText)}
+        onBlur={onEditBlur}
+        onPointerDown={(e) => e.stopPropagation()}
+      />
+    </LayerContent>
   ) : (
-    <LayerVisual layer={l} />
+    <LayerContent layer={l} />
   );
 
   return (
     <div
       style={style}
-      onPointerDown={(e) => { if (!editing) onBeginMove(e); }}
-      onDoubleClick={(e) => { if (l.type === "text") { e.stopPropagation(); onStartEdit(); } }}
+      onPointerDown={(e) => {
+        if (editing) return;
+        if (cropping) onBeginCropPan(e); else onBeginMove(e);
+      }}
+      onDoubleClick={(e) => {
+        e.stopPropagation();
+        if (l.type === "text" && !cropping) onStartEdit();
+        else if (!cropping) onDoubleClickCrop();
+      }}
       onContextMenu={onContext}
     >
+      {/* Rognage en cours : le contenu entier reste visible en sourdine autour
+          du cadre, pour voir ce qu'on écarte et ce qu'on peut ramener. */}
+      {cropping && <CropGhost layer={l} />}
+
       {content}
 
-      {selected && canEdit && !editing && (
+      {cropping && <CropFrame layer={l} zoom={zoom} onBeginFrame={onBeginCropFrame} />}
+
+      {selected && canEdit && !editing && !cropping && (
         <>
           <div className="pointer-events-none absolute inset-0" style={{ outline: `${1.6 * hz}px solid ${ACCENT}` }} />
           {soloSelected && (
@@ -1126,6 +1423,126 @@ function InteractiveLayer({
           )}
         </>
       )}
+    </div>
+  );
+}
+
+/* ═══════════════ Rognage : superpositions de toile ═══════════════ */
+
+/** Contenu entier en sourdine sous le cadre : montre ce qui est écarté. */
+function CropGhost({ layer: l }: { layer: Layer }) {
+  const { cw, ch, ox, oy } = contentBox(l);
+  return (
+    <div className="pointer-events-none absolute" style={{ left: ox, top: oy, width: cw, height: ch, opacity: 0.3 }}>
+      <LayerVisual layer={{ ...l, w: cw, h: ch, ...(l.type === "image" ? { radius: 0 } : {}) } as Layer} />
+    </div>
+  );
+}
+
+/** Cadre de rognage : équerres aux coins, barres sur les bords, tiers. */
+function CropFrame({ layer: l, zoom, onBeginFrame }: {
+  layer: Layer; zoom: number; onBeginFrame: (handle: string, e: React.PointerEvent) => void;
+}) {
+  const hz = 1 / zoom;
+  const arm = Math.min(26 * hz, Math.min(l.w, l.h) / 3);
+  const thick = 4 * hz;
+  const grab = 16 * hz;
+  const corners: [string, React.CSSProperties, React.CSSProperties][] = [
+    ["nw", { left: 0, top: 0 }, { left: 0, top: 0 }],
+    ["ne", { right: 0, top: 0 }, { right: 0, top: 0 }],
+    ["sw", { left: 0, bottom: 0 }, { left: 0, bottom: 0 }],
+    ["se", { right: 0, bottom: 0 }, { right: 0, bottom: 0 }],
+  ];
+  const edges: [string, React.CSSProperties, string][] = [
+    ["n", { left: "50%", top: 0, width: arm, height: thick, transform: "translate(-50%,-50%)" }, "ns-resize"],
+    ["s", { left: "50%", bottom: 0, width: arm, height: thick, transform: "translate(-50%,50%)" }, "ns-resize"],
+    ["w", { top: "50%", left: 0, width: thick, height: arm, transform: "translate(-50%,-50%)" }, "ew-resize"],
+    ["e", { top: "50%", right: 0, width: thick, height: arm, transform: "translate(50%,-50%)" }, "ew-resize"],
+  ];
+  const line = { position: "absolute" as const, background: "rgba(255,255,255,0.45)" };
+  return (
+    <>
+      <div className="pointer-events-none absolute inset-0" style={{ outline: `${1.2 * hz}px solid rgba(255,255,255,0.8)` }} />
+      {/* Règle des tiers */}
+      <div className="pointer-events-none absolute inset-0">
+        {[1, 2].map((i) => (
+          <div key={`v${i}`} style={{ ...line, left: `${(i * 100) / 3}%`, top: 0, bottom: 0, width: Math.max(0.5, hz) }} />
+        ))}
+        {[1, 2].map((i) => (
+          <div key={`h${i}`} style={{ ...line, top: `${(i * 100) / 3}%`, left: 0, right: 0, height: Math.max(0.5, hz) }} />
+        ))}
+      </div>
+      {corners.map(([h, pos]) => (
+        <div
+          key={h}
+          onPointerDown={(e) => onBeginFrame(h, e)}
+          className="absolute"
+          style={{ ...pos, width: grab, height: grab, cursor: h === "nw" || h === "se" ? "nwse-resize" : "nesw-resize", touchAction: "none" }}
+        >
+          <div className="pointer-events-none absolute bg-white" style={{ [h.includes("w") ? "left" : "right"]: 0, [h.includes("n") ? "top" : "bottom"]: 0, width: arm, height: thick } as React.CSSProperties} />
+          <div className="pointer-events-none absolute bg-white" style={{ [h.includes("w") ? "left" : "right"]: 0, [h.includes("n") ? "top" : "bottom"]: 0, width: thick, height: arm } as React.CSSProperties} />
+        </div>
+      ))}
+      {edges.map(([h, pos, cur]) => (
+        <div key={h} onPointerDown={(e) => onBeginFrame(h, e)} className="absolute bg-white" style={{ ...pos, cursor: cur, touchAction: "none" }} />
+      ))}
+    </>
+  );
+}
+
+/** Cadre de rognage de la TOILE : l'extérieur est assombri, pas supprimé. */
+function DocCropOverlay({ rect: r, doc, zoom, onBeginMove, onBeginFrame }: {
+  rect: { x: number; y: number; w: number; h: number };
+  doc: DesignDoc; zoom: number;
+  onBeginMove: (e: React.PointerEvent) => void;
+  onBeginFrame: (handle: string, e: React.PointerEvent) => void;
+}) {
+  const hz = 1 / zoom;
+  const veil = "rgba(10,10,16,0.62)";
+  const big = 4000;
+  const pos: Record<string, [string, string, string]> = {
+    nw: ["0%", "0%", "nwse-resize"], n: ["50%", "0%", "ns-resize"], ne: ["100%", "0%", "nesw-resize"],
+    e: ["100%", "50%", "ew-resize"], se: ["100%", "100%", "nwse-resize"], s: ["50%", "100%", "ns-resize"],
+    sw: ["0%", "100%", "nesw-resize"], w: ["0%", "50%", "ew-resize"],
+  };
+  return (
+    <div className="absolute" style={{ left: 0, top: 0, width: doc.width, height: doc.height }} onPointerDown={(e) => e.stopPropagation()}>
+      {/* Voile : quatre bandes autour du cadre, débordant largement pour couvrir
+          aussi ce qui dépasse de la toile. */}
+      <div className="pointer-events-none absolute" style={{ left: -big, right: -big, top: -big, height: big + r.y, background: veil }} />
+      <div className="pointer-events-none absolute" style={{ left: -big, right: -big, top: r.y + r.h, height: big, background: veil }} />
+      <div className="pointer-events-none absolute" style={{ left: -big, width: big + r.x, top: r.y, height: r.h, background: veil }} />
+      <div className="pointer-events-none absolute" style={{ left: r.x + r.w, width: big, top: r.y, height: r.h, background: veil }} />
+
+      <div
+        className="absolute"
+        style={{ left: r.x, top: r.y, width: r.w, height: r.h, cursor: "move", outline: `${1.5 * hz}px solid #fff`, touchAction: "none" }}
+        onPointerDown={onBeginMove}
+      >
+        {[1, 2].map((i) => (
+          <div key={`v${i}`} className="pointer-events-none absolute" style={{ left: `${(i * 100) / 3}%`, top: 0, bottom: 0, width: Math.max(0.5, hz), background: "rgba(255,255,255,0.4)" }} />
+        ))}
+        {[1, 2].map((i) => (
+          <div key={`h${i}`} className="pointer-events-none absolute" style={{ top: `${(i * 100) / 3}%`, left: 0, right: 0, height: Math.max(0.5, hz), background: "rgba(255,255,255,0.4)" }} />
+        ))}
+        {(["nw", "n", "ne", "e", "se", "s", "sw", "w"] as const).map((h) => {
+          const [lft, tp, cur] = pos[h];
+          const corner = h.length === 2;
+          return (
+            <div
+              key={h}
+              onPointerDown={(e) => onBeginFrame(h, e)}
+              className={`absolute bg-white ${corner ? "rounded-[3px]" : "rounded-full"}`}
+              style={{
+                left: lft, top: tp,
+                width: (corner ? 12 : 10) * hz, height: (corner ? 12 : 10) * hz,
+                transform: "translate(-50%,-50%)", cursor: cur, touchAction: "none",
+                boxShadow: `0 0 0 ${1.6 * hz}px rgba(0,0,0,0.5)`,
+              }}
+            />
+          );
+        })}
+      </div>
     </div>
   );
 }

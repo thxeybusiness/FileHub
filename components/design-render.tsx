@@ -9,6 +9,7 @@ import {
   type DesignDoc, type Layer, type GradientFill,
   shapePath, filterCss, shadowCss, backgroundCss,
   linearGradientPoints, radialGradientRadius,
+  contentBox, clipPath, isClipped,
 } from "@/lib/design";
 import { elementSvgFor } from "@/lib/design-catalog-svg";
 
@@ -79,6 +80,30 @@ export function LayerVisual({ layer: l }: { layer: Layer }) {
 
   // texte
   return <div style={textStyle(l)}>{l.text || " "}</div>;
+}
+
+/* ── Contenu d'un calque, rognage et forme de découpe compris ──
+   Le contenu est peint à sa TAILLE DE MISE EN PAGE dans une boîte décalée, et
+   c'est le cadre qui le découpe. Un texte rogné garde donc sa composition,
+   une image rognée son cadrage : seul le cadre change. Même règle que
+   l'export canvas (drawClipped). */
+export function LayerContent({ layer: l, children }: { layer: Layer; children?: React.ReactNode }) {
+  if (!isClipped(l)) return <>{children ?? <LayerVisual layer={l} />}</>;
+  const { cw, ch, ox, oy } = contentBox(l);
+  const content = { ...l, w: cw, h: ch, ...(l.type === "image" ? { radius: 0 } : {}) } as Layer;
+  return (
+    <div
+      style={{
+        position: "absolute", inset: 0, overflow: "hidden",
+        clipPath: l.mask ? `path(evenodd, "${clipPath(l)}")` : undefined,
+        borderRadius: !l.mask && l.type === "image" ? l.radius : undefined,
+      }}
+    >
+      <div style={{ position: "absolute", left: ox, top: oy, width: cw, height: ch }}>
+        {children ?? <LayerVisual layer={content} />}
+      </div>
+    </div>
+  );
 }
 
 export function textStyle(l: Extract<Layer, { type: "text" }>): React.CSSProperties {
@@ -184,7 +209,7 @@ export function DocPreview({ doc, className = "", rounded = 8 }: { doc: DesignDo
         >
           {doc.layers.map((l) => (
             <div key={l.id} style={layerBoxStyle(l)}>
-              <LayerVisual layer={l} />
+              <LayerContent layer={l} />
             </div>
           ))}
         </div>

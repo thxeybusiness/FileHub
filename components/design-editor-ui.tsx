@@ -14,13 +14,13 @@ import {
   FlipHorizontal2, FlipVertical2, BringToFront, SendToBack, ArrowUp, ArrowDown,
   Shapes, Smile, PaintBucket, LayoutTemplate, Upload, Droplet, Pipette,
   CaseUpper, Layers as LayersIcon, SlidersHorizontal, Sparkles, LayoutGrid,
-  Keyboard, ClipboardCopy, Columns3, Rows3, Search,
+  Keyboard, ClipboardCopy, Columns3, Rows3, Search, Crop, Check, RotateCcw, Frame,
 } from "lucide-react";
 import {
   type DesignDoc, type Layer, type ShapeKind, type LineDash, type GradientFill,
   type Filters, type Shadow, type TextLayer, type ImageLayer, type ShapeLayer, type LineLayer, type ElementLayer,
   SHAPE_KINDS, FONTS, BLEND_MODES, SIZE_PRESETS, NEUTRAL_FILTERS, DEFAULT_SHADOW,
-  shapePath, backgroundCss,
+  shapePath, backgroundCss, contentBox, hasCrop,
 } from "@/lib/design";
 import {
   EMOJI_GROUPS, BG_SOLIDS, GRADIENT_PRESETS, FILTER_PRESETS, TEXT_PRESETS,
@@ -66,6 +66,27 @@ export type EditorCtl = {
   reorderLayer: (id: string, dir: 1 | -1) => void;
   removeLayer: (id: string) => void;
   duplicateLayer: (id: string) => void;
+  /* Rognage */
+  cropId: string | null;
+  beginCrop: (id: string) => void;
+  endCrop: () => void;
+  resetCrop: (id: string) => void;
+  cropRatio: (id: string, ratio: number | null) => void;
+  cropZoom: (id: string, pct: number, done: boolean) => void;
+  setMask: (id: string, mask: ShapeKind | null) => void;
+  docCropActive: boolean;
+  beginDocCrop: () => void;
+  cropToSelection: () => void;
+};
+
+/** Contrat réduit de la barre de rognage (un seul calque en jeu). */
+export type CropCtl = {
+  layer: Layer;
+  endCrop: () => void;
+  resetCrop: (id: string) => void;
+  cropRatio: (id: string, ratio: number | null) => void;
+  cropZoom: (id: string, pct: number, done: boolean) => void;
+  setMask: (id: string, mask: ShapeKind | null) => void;
 };
 
 /* ═══════════════ Petits contrôles ═══════════════ */
@@ -478,9 +499,26 @@ export function ContextBar({ ctl }: { ctl: EditorCtl }) {
       {sameType === "image" && one && <ImageQuick l={one as ImageLayer} ctl={ctl} />}
       {sameType === "element" && <ElementColorChips l={ls[0] as ElementLayer} ctl={ctl} compact />}
 
+      {one && (
+        <>
+          <Divider />
+          <button
+            onClick={() => ctl.beginCrop(one.id)}
+            className={`flex h-8 shrink-0 items-center gap-1.5 rounded-lg border px-2.5 text-xs transition hover:bg-white/5 hover:text-white ${hasCrop(one.crop) ? "border-purple-400/50 bg-purple-500/15 text-white" : "border-white/10 text-muted"}`}
+            title="Rogner (C)"
+          >
+            <Crop className="size-3.5" /> Rogner
+          </button>
+          <MaskPicker value={one.mask ?? null} onChange={(m) => ctl.setMask(one.id, m)} compact />
+        </>
+      )}
+
       {ls.length > 1 && (
         <>
           <span className="px-1 text-[11px] font-medium text-muted">{ls.length} éléments</span>
+          <button onClick={ctl.cropToSelection} className="flex h-8 shrink-0 items-center gap-1.5 rounded-lg border border-white/10 px-2.5 text-xs text-muted transition hover:bg-white/5 hover:text-white" title="Rogner la toile sur la sélection">
+            <Frame className="size-3.5" /> Toile ici
+          </button>
           <Divider />
           {([["l", AlignStartVertical], ["c", AlignCenterVertical], ["r", AlignEndVertical], ["t", AlignStartHorizontal], ["m", AlignCenterHorizontal], ["b", AlignEndHorizontal]] as const).map(([e, Ic]) => (
             <IconBtn key={e} onClick={() => ctl.align(e)} title="Aligner"><Ic className="size-4" /></IconBtn>
@@ -517,6 +555,172 @@ export function ContextBar({ ctl }: { ctl: EditorCtl }) {
 
 function Divider() {
   return <div className="mx-1 h-6 w-px shrink-0 bg-white/10" />;
+}
+
+/* ═══════════════ Rognage ═══════════════ */
+
+const CROP_RATIOS: { label: string; r: number | null }[] = [
+  { label: "Libre", r: null },
+  { label: "1:1", r: 1 },
+  { label: "4:5", r: 4 / 5 },
+  { label: "3:4", r: 3 / 4 },
+  { label: "2:3", r: 2 / 3 },
+  { label: "4:3", r: 4 / 3 },
+  { label: "3:2", r: 3 / 2 },
+  { label: "16:9", r: 16 / 9 },
+  { label: "9:16", r: 9 / 16 },
+];
+
+/** Barre active pendant le recadrage d'un calque. */
+export function CropBar({ ctl }: { ctl: CropCtl }) {
+  const l = ctl.layer;
+  const cb = contentBox(l);
+  // 100 % = le contenu remplit tout juste le cadre ; au-delà, il déborde.
+  const fit = Math.max(l.w / cb.cw, l.h / cb.ch);
+  const zoom = Math.round(100 / Math.max(0.01, fit));
+  return (
+    <div className="relative z-30 flex min-h-12 shrink-0 flex-wrap items-center gap-1 border-b border-purple-400/30 bg-purple-500/[0.07] px-2 py-1 backdrop-blur-xl" onPointerDown={(e) => e.stopPropagation()}>
+      <span className="flex items-center gap-1.5 px-1 text-xs font-semibold text-white">
+        <Crop className="size-3.5 text-purple-300" /> Rognage
+      </span>
+      <span className="hidden px-1 text-[11px] text-muted sm:inline">
+        Tirez les bords du cadre ; glissez à l&apos;intérieur pour déplacer le contenu.
+      </span>
+      <Divider />
+      <div className="flex flex-wrap items-center gap-1">
+        {CROP_RATIOS.map((p) => (
+          <button
+            key={p.label}
+            onClick={() => ctl.cropRatio(l.id, p.r)}
+            className="h-8 shrink-0 rounded-lg border border-white/10 px-2 text-[11px] font-medium text-muted transition hover:bg-white/5 hover:text-white"
+          >
+            {p.label}
+          </button>
+        ))}
+      </div>
+      <Divider />
+      <div className="flex h-8 w-40 shrink-0 items-center gap-2 rounded-lg border border-white/10 px-2">
+        <span className="text-[10px] text-muted">Zoom</span>
+        <input
+          type="range" min={100} max={400} value={Math.min(400, Math.max(100, zoom))}
+          onChange={(e) => ctl.cropZoom(l.id, Number(e.target.value), false)}
+          onPointerUp={(e) => ctl.cropZoom(l.id, Number((e.target as HTMLInputElement).value), true)}
+          className="w-full accent-purple-500"
+        />
+        <span className="w-9 text-right text-[10px] tabular-nums text-white/70">{zoom}%</span>
+      </div>
+      <MaskPicker value={l.mask ?? null} onChange={(m) => ctl.setMask(l.id, m)} />
+
+      <div className="ml-auto flex items-center gap-1">
+        <button
+          onClick={() => ctl.resetCrop(l.id)}
+          disabled={!hasCrop(l.crop)}
+          className="flex h-8 items-center gap-1.5 rounded-lg border border-white/10 px-2.5 text-xs text-muted transition hover:bg-white/5 hover:text-white disabled:opacity-30"
+        >
+          <RotateCcw className="size-3.5" /> Réinitialiser
+        </button>
+        <button
+          onClick={ctl.endCrop}
+          className="flex h-8 items-center gap-1.5 rounded-lg bg-gradient-to-r from-[#a855f7] to-[#6366f1] px-3 text-xs font-semibold text-white shadow-lg shadow-purple-500/25 transition hover:brightness-110"
+        >
+          <Check className="size-3.5" /> Terminé
+        </button>
+      </div>
+    </div>
+  );
+}
+
+/** Barre active pendant le rognage de la toile. */
+export function DocCropBar({ rect, doc, onChange, onApply, onCancel }: {
+  rect: { x: number; y: number; w: number; h: number };
+  doc: DesignDoc;
+  onChange: (r: { x: number; y: number; w: number; h: number }) => void;
+  onApply: () => void;
+  onCancel: () => void;
+}) {
+  const set = (p: Partial<typeof rect>) => onChange({ ...rect, ...p });
+  return (
+    <div className="relative z-30 flex min-h-12 shrink-0 flex-wrap items-center gap-1 border-b border-purple-400/30 bg-purple-500/[0.07] px-2 py-1 backdrop-blur-xl" onPointerDown={(e) => e.stopPropagation()}>
+      <span className="flex items-center gap-1.5 px-1 text-xs font-semibold text-white">
+        <Frame className="size-3.5 text-purple-300" /> Rogner la toile
+      </span>
+      <Divider />
+      <div className="flex flex-wrap items-center gap-1.5">
+        <NumField label="X" value={rect.x} onChange={(v) => set({ x: v })} />
+        <NumField label="Y" value={rect.y} onChange={(v) => set({ y: v })} />
+        <NumField label="L" value={rect.w} min={16} onChange={(v) => set({ w: v })} />
+        <NumField label="H" value={rect.h} min={16} onChange={(v) => set({ h: v })} />
+      </div>
+      <Divider />
+      <button
+        onClick={() => onChange({ x: 0, y: 0, w: doc.width, h: doc.height })}
+        className="h-8 shrink-0 rounded-lg border border-white/10 px-2.5 text-[11px] font-medium text-muted transition hover:bg-white/5 hover:text-white"
+      >
+        Toute la toile
+      </button>
+      <span className="hidden px-1 text-[11px] text-muted lg:inline">
+        Ce qui sort du cadre est retiré du format ; les calques suivent.
+      </span>
+
+      <div className="ml-auto flex items-center gap-1">
+        <button onClick={onCancel} className="h-8 rounded-lg border border-white/10 px-2.5 text-xs text-muted transition hover:bg-white/5 hover:text-white">
+          Annuler
+        </button>
+        <button
+          onClick={onApply}
+          className="flex h-8 items-center gap-1.5 rounded-lg bg-gradient-to-r from-[#a855f7] to-[#6366f1] px-3 text-xs font-semibold text-white shadow-lg shadow-purple-500/25 transition hover:brightness-110"
+        >
+          <Check className="size-3.5" /> Rogner
+        </button>
+      </div>
+    </div>
+  );
+}
+
+/** Choix de la forme de découpe (rognage à une forme). */
+function MaskPicker({ value, onChange, compact }: { value: ShapeKind | null; onChange: (m: ShapeKind | null) => void; compact?: boolean }) {
+  const [open, setOpen] = useState(false);
+  const ref = useRef<HTMLDivElement | null>(null);
+  useEffect(() => {
+    if (!open) return;
+    const onDoc = (e: MouseEvent) => { if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false); };
+    document.addEventListener("mousedown", onDoc);
+    return () => document.removeEventListener("mousedown", onDoc);
+  }, [open]);
+  return (
+    <div className="relative shrink-0" ref={ref}>
+      <button
+        onClick={() => setOpen((o) => !o)}
+        className={`flex h-8 items-center gap-1.5 rounded-lg border px-2.5 text-xs transition hover:bg-white/5 hover:text-white ${value ? "border-purple-400/50 bg-purple-500/15 text-white" : "border-white/10 text-muted"}`}
+        title="Rogner à une forme"
+      >
+        {value ? <ShapeGlyph kind={value} size={14} /> : <Frame className="size-3.5" />}
+        {!compact && "Forme"}
+        <ChevronDown className="size-3" />
+      </button>
+      {open && (
+        <div className="absolute left-0 top-full z-50 mt-2 w-64 rounded-xl border border-white/10 bg-[#15151d] p-2 shadow-2xl">
+          <button
+            onClick={() => { onChange(null); setOpen(false); }}
+            className={`mb-1 w-full rounded-lg px-2 py-1.5 text-left text-xs transition hover:bg-white/10 ${value ? "text-muted" : "bg-purple-500/20 text-white"}`}
+          >
+            Aucune — cadre rectangulaire
+          </button>
+          <div className="grid grid-cols-7 gap-1">
+            {SHAPE_KINDS.map((s) => (
+              <button
+                key={s.id} title={s.label}
+                onClick={() => { onChange(s.id); setOpen(false); }}
+                className={`grid aspect-square place-items-center rounded-lg transition hover:bg-white/10 ${s.id === value ? "bg-purple-500/20" : ""}`}
+              >
+                <ShapeGlyph kind={s.id} size={20} />
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+    </div>
+  );
 }
 
 function TextQuick({ l, ctl }: { l: TextLayer; ctl: EditorCtl }) {
@@ -1137,6 +1341,12 @@ function PropsPanel({ ctl }: { ctl: EditorCtl }) {
             onChange={(v) => ctl.commitDoc({ background: v, backgroundGradient: null })}
             onGradient={(g) => ctl.commitDoc({ backgroundGradient: g })}
             allowTransparent disabled={dis} />
+          <button
+            onClick={ctl.beginDocCrop} disabled={dis}
+            className="flex w-full items-center justify-center gap-2 rounded-lg border border-white/10 py-2 text-xs font-medium text-muted transition hover:bg-white/5 hover:text-white disabled:opacity-40"
+          >
+            <Crop className="size-3.5" /> Rogner la toile
+          </button>
         </Section>
         <p className="px-1 text-xs leading-relaxed text-muted">Sélectionnez un élément sur la toile pour afficher ses réglages détaillés — ou ajoutez-en un depuis le dock à gauche.</p>
       </div>
@@ -1183,6 +1393,8 @@ function PropsPanel({ ctl }: { ctl: EditorCtl }) {
           <IconBtn onClick={() => ctl.flipSel("y")} title="Miroir vertical"><FlipVertical2 className="size-4" /></IconBtn>
         </div>
       </Section>
+
+      <CropProps l={one} ctl={ctl} dis={dis} />
 
       {one.type === "text" && <TextProps l={one} ctl={ctl} dis={dis} />}
       {one.type === "shape" && (
@@ -1231,6 +1443,39 @@ function PropsPanel({ ctl }: { ctl: EditorCtl }) {
           onChange={(v) => ctl.patchSel({ blend: v }, true)} disabled={dis} />
       </Section>
     </div>
+  );
+}
+
+function CropProps({ l, ctl, dis }: { l: Layer; ctl: EditorCtl; dis: boolean }) {
+  const cropped = hasCrop(l.crop);
+  const cb = contentBox(l);
+  return (
+    <Section title="Rognage">
+      <div className="flex gap-2">
+        <button
+          onClick={() => ctl.beginCrop(l.id)} disabled={dis || l.locked}
+          className="flex flex-1 items-center justify-center gap-2 rounded-lg border border-white/10 py-2 text-xs font-medium text-muted transition hover:bg-white/5 hover:text-white disabled:opacity-40"
+        >
+          <Crop className="size-3.5" /> Recadrer
+        </button>
+        <button
+          onClick={() => ctl.resetCrop(l.id)} disabled={dis || !cropped}
+          className="flex items-center justify-center gap-1.5 rounded-lg border border-white/10 px-2.5 py-2 text-xs font-medium text-muted transition hover:bg-white/5 hover:text-white disabled:opacity-30"
+          title="Rendre au cadre la taille du contenu"
+        >
+          <RotateCcw className="size-3.5" />
+        </button>
+      </div>
+      <div className="flex items-center justify-between gap-2">
+        <span className="text-[11px] text-muted">Forme de découpe</span>
+        <MaskPicker value={l.mask ?? null} onChange={(m) => ctl.setMask(l.id, m)} compact />
+      </div>
+      <p className="text-[10.5px] leading-relaxed text-muted">
+        {cropped
+          ? `Cadre ${Math.round(l.w)} × ${Math.round(l.h)} sur un contenu de ${Math.round(cb.cw)} × ${Math.round(cb.ch)} — rien n'est perdu, la partie masquée revient à tout moment.`
+          : "Le cadre découpe le contenu sans le déformer : le texte garde sa composition, l'image son cadrage. Raccourci : C."}
+      </p>
+    </Section>
   );
 }
 
@@ -1585,6 +1830,8 @@ export function ShortcutsModal({ onClose }: { onClose: () => void }) {
     ["⇧ + clic", "Sélection multiple"],
     ["Glisser sur la toile", "Sélection au lasso"],
     ["Double-clic sur un texte", "Éditer le texte"],
+    ["C / double-clic", "Rogner l'élément sélectionné"],
+    ["Entrée / Échap (rognage)", "Terminer le rognage"],
     ["Espace + glisser", "Déplacer la vue"],
     ["⌘/Ctrl + molette", "Zoomer vers le curseur"],
     ["[ / ]", "Reculer / Avancer le calque"],
