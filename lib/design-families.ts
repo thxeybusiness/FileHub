@@ -1494,6 +1494,7 @@ import "./design-picto-lot8";
 import "./design-picto-lot9";
 import "./design-picto-lot10";
 import "./design-picto-lot11";
+import "./design-picto-lot12";
 
 export const ELEMENT_FAMILIES: ElementFamily[] = [...FAMILIES, ...(PICTO_FAMILIES as ElementFamily[])];
 
