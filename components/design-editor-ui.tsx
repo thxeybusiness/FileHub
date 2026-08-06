@@ -1195,15 +1195,18 @@ function ElementGrid({ els, onPick }: { els: ElementDef[]; onPick: (el: ElementD
   return (
     <div className="grid grid-cols-3 gap-1.5">
       {els.map((el) => {
-        // Une forme noire sur une vignette sombre serait invisible : la tuile
-        // s'éclaircit sous les éléments foncés.
-        const sombre = luminance(elementSlotDefaults(el)[0].fill) < 0.1;
+        // Toutes les tuiles portent le fond du panneau. Une forme presque noire
+        // y disparaîtrait : elle est cernée d'un liseré clair, qui épouse sa
+        // silhouette sans toucher à sa couleur — seulement dans le catalogue,
+        // l'élément posé sur la toile reste nu.
+        const sombre = luminance(elementSlotDefaults(el)[0].fill) < 0.12;
         return (
           <button key={el.id} title={`${el.label} — recolorable`} onClick={() => onPick(el)}
-            className={`group grid aspect-square place-items-center overflow-hidden rounded-xl border border-white/10 p-1.5 transition hover:border-purple-400/40 ${sombre ? "bg-[#cbd2df] hover:bg-[#dde3ec]" : "bg-[#262a36] hover:bg-[#2d3140]"}`}>
+            className="group grid aspect-square place-items-center overflow-hidden rounded-xl border border-white/10 bg-[#262a36] p-1.5 transition hover:border-purple-400/40 hover:bg-[#2d3140]">
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img src={elementThumbSrc(el)} alt={el.label} loading="lazy" draggable={false}
-              className="max-h-full max-w-full transition group-hover:scale-105" />
+              className="max-h-full max-w-full transition group-hover:scale-105"
+              style={sombre ? { filter: "drop-shadow(0 0 1px rgba(255,255,255,0.9)) drop-shadow(0 0 2px rgba(255,255,255,0.45))" } : undefined} />
           </button>
         );
       })}
