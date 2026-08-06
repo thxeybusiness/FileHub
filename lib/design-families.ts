@@ -1495,6 +1495,17 @@ import "./design-picto-lot9";
 import "./design-picto-lot10";
 import "./design-picto-lot11";
 import "./design-picto-lot12";
+import "./design-picto-lot13";
+import "./design-picto-lot14";
+import "./design-picto-lot15";
+import "./design-picto-lot16";
+import "./design-picto-lot17";
+import "./design-picto-lot18";
+import "./design-picto-lot19";
+import "./design-picto-lot20";
+import "./design-picto-lot21";
+import "./design-picto-lot22";
+import "./design-picto-lot23";
 
 export const ELEMENT_FAMILIES: ElementFamily[] = [...FAMILIES, ...(PICTO_FAMILIES as ElementFamily[])];
 
