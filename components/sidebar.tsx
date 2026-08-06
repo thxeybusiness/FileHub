@@ -24,6 +24,7 @@ import {
   BarChart3,
   ChevronDown,
   Shapes,
+  FolderOpen,
   X,
 } from "lucide-react";
 import { cn, formatBytes } from "@/lib/utils";
@@ -139,25 +140,6 @@ export function Sidebar({ initial }: { initial: Me }) {
     setMobileOpen(false);
     notifyRefresh();
     router.push(`/drive/coaching/${id}`);
-  }
-
-  // Liste des créations affichée dans la barre latérale de l'application Design.
-  const [designs, setDesigns] = useState<{ id: string; name: string }[]>([]);
-  const loadDesigns = () => api.listDesigns().then((r) => setDesigns(r.items.map((d) => ({ id: d.id, name: d.name })))).catch(() => {});
-  useEffect(() => {
-    if (!inDesign) return;
-    loadDesigns();
-    const refresh = () => loadDesigns();
-    window.addEventListener("filehub:refresh", refresh);
-    return () => window.removeEventListener("filehub:refresh", refresh);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [inDesign, pathname]);
-
-  async function createDesign() {
-    const { node } = await api.createNode("design", "Création sans titre", null);
-    setMobileOpen(false);
-    notifyRefresh();
-    router.push(`/drive/design/${node.id}`);
   }
 
   // Ouverture/fermeture du tiroir mobile via un événement global (bouton menu).
@@ -302,58 +284,32 @@ export function Sidebar({ initial }: { initial: Me }) {
       </div>
 
       {inDesign ? (
-        /* ── Navigation de l'application Design ── */
+        /* ── Navigation de l'application Design ──
+           Une seule entrée. La barre listait auparavant chaque création : elle
+           doublait la page des créations et se remplissait sans fin. Les
+           créations ont leur page, atteinte depuis l'accueil. */
         <nav className="flex-1 px-3 py-4 space-y-1 overflow-y-auto">
-          {(() => {
-            const active = pathname === "/drive/design";
+          {[
+            { href: "/drive/design", label: "FileHub Design", icon: Shapes },
+            { href: "/drive/design/mes-creations", label: "Mes créations", icon: FolderOpen },
+          ].map(({ href, label, icon: Icon }) => {
+            const active = pathname === href;
             return (
               <Link
-                href="/drive/design"
+                key={href}
+                href={href}
                 className={cn(
                   "relative flex items-center gap-3 px-3 h-10 rounded-xl text-sm font-medium transition overflow-hidden",
                   active ? "bg-gradient-to-r from-purple-500/25 to-transparent text-white" : "text-ink/70 hover:bg-white/5 hover:text-ink",
                 )}
               >
                 {active && <span className="absolute left-0 top-1/2 h-5 w-1 -translate-y-1/2 rounded-r-full bg-gradient-to-b from-[#a855f7] to-[#6366f1]" />}
-                <Shapes className={cn("size-[18px]", active && "text-purple-200")} />
-                Mes créations
+                <Icon className={cn("size-[18px]", active && "text-purple-200")} />
+                {label}
                 {active && <ChevronRight className="size-4 ml-auto text-purple-300" />}
               </Link>
             );
-          })()}
-
-          <div className="pt-5">
-            <div className="flex items-center justify-between px-3 pb-1">
-              <span className="text-[11px] font-semibold uppercase tracking-wider text-muted">Créations</span>
-              <button onClick={createDesign} title="Nouvelle création" className="grid size-6 place-items-center rounded-md text-muted hover:bg-white/10 hover:text-white transition">
-                <Plus className="size-4" />
-              </button>
-            </div>
-            {designs.length === 0 ? (
-              <button onClick={createDesign} className="flex w-full items-center gap-2 px-3 h-9 rounded-xl text-sm text-muted hover:bg-white/5 hover:text-ink transition">
-                <Plus className="size-4" /> Nouvelle création
-              </button>
-            ) : (
-              designs.map((d) => {
-                const href = `/drive/design/${d.id}`;
-                const active = pathname === href;
-                return (
-                  <Link
-                    key={d.id}
-                    href={href}
-                    className={cn(
-                      "relative flex items-center gap-2.5 px-3 h-10 rounded-xl text-sm font-medium transition overflow-hidden",
-                      active ? "bg-gradient-to-r from-purple-500/25 to-transparent text-white" : "text-ink/70 hover:bg-white/5 hover:text-ink",
-                    )}
-                  >
-                    {active && <span className="absolute left-0 top-1/2 h-5 w-1 -translate-y-1/2 rounded-r-full bg-gradient-to-b from-[#a855f7] to-[#6366f1]" />}
-                    <Shapes className={cn("size-[18px] shrink-0", active && "text-purple-200")} />
-                    <span className="truncate">{d.name || "Sans titre"}</span>
-                  </Link>
-                );
-              })
-            )}
-          </div>
+          })}
         </nav>
       ) : inAccompagnement ? (
         /* ── Navigation de l'espace Coaching (aucune option FileHub) ── */
