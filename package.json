@@ -37,6 +37,7 @@
     "zod": "^4.4.3"
   },
   "devDependencies": {
+    "@iconify-json/logos": "^1.2.12",
     "@tailwindcss/postcss": "^4",
     "@types/bcryptjs": "^2.4.6",
     "@types/node": "^20",
@@ -44,6 +45,7 @@
     "@types/react-dom": "^19",
     "@types/sanitize-html": "^2.16.1",
     "prisma": "^6.19.3",
+    "simple-icons": "^16.28.0",
     "tailwindcss": "^4",
     "typescript": "^5"
   }

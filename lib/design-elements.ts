@@ -12,7 +12,7 @@ import {
   C, N, rng, polar, smoothClosed, starPts, polyPts, arrowHead, stroke, fillp, eo, holeC, op, opc,
   fillWith, strokeWith,
 } from "./design-geom";
-import { LOGOS, logoBodyColor, logoBodyMono, logoSlots } from "./design-logos";
+import { LOGO_ENTRIES } from "./design-logos";
 
 
 export type ElementDef = {
@@ -5406,19 +5406,23 @@ for (const e of items) {
 }
 
   /* ── Marques logicielles ──
-     Reconstructions géométriques, deux versions par marque : couleurs
-     d'origine et monochrome. Voir design-logos.ts pour les réserves d'usage. */
-  for (const L of LOGOS) {
+     Tracés officiels repris tels quels de jeux CC0, deux versions par marque :
+     couleurs d'origine et monochrome. Voir design-logos.ts pour la provenance
+     et les réserves d'usage. */
+  for (const L of LOGO_ENTRIES) {
     const kw = `${L.kw} logo marque application logiciel`;
     items.push({
       id: `logos.${L.id}`, label: L.label, cat: "logos", w: 200, h: 200,
-      body: logoBodyColor(L), keywords: normalizeSearch(`${L.label} ${kw} couleur`),
-      defaultColor: L.parts[0].c, exact: true, slots: logoSlots(L),
+      body: L.couleur, keywords: normalizeSearch(`${L.label} ${kw} couleur`),
+      defaultColor: L.colors[0], exact: true,
+      slots: L.colors.map((c, i) => (i === 0
+        ? { label: "Couleur 1" }
+        : { label: `Couleur ${i + 1}`, def: c })),
     });
     items.push({
       id: `logos.${L.id}-m`, label: `${L.label} (monochrome)`, cat: "logos", w: 200, h: 200,
-      body: logoBodyMono(L), keywords: normalizeSearch(`${L.label} ${kw} monochrome unicolore noir blanc`),
-      defaultColor: "#111827",
+      body: L.mono, keywords: normalizeSearch(`${L.label} ${kw} monochrome unicolore noir blanc`),
+      defaultColor: L.monoHex ?? "#111827",
     });
   }
 
