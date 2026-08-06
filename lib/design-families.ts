@@ -1479,7 +1479,22 @@ subjects("daily", "home", "maison intérieur meuble déco pièce", [
     (v) => box1(60, 92, 80, 92, 8, "D") + fil1(`M 100 ${N(122 - v * 4)} C 112 140 122 148 122 160 C 122 172 112 178 100 178 C 88 178 78 172 78 160 C 78 148 88 140 100 ${N(122 - v * 4)} Z`), FLAME],
 ]);
 
-export const ELEMENT_FAMILIES: ElementFamily[] = FAMILIES;
+// Pictogrammes : des SUJETS dessinés, seul apport réel une fois le catalogue
+// déduplicaté par ressemblance — faire varier des paramètres ne produit plus
+// que des doublons.
+import { PICTO_FAMILIES } from "./design-picto";
+import "./design-picto-lot1";
+import "./design-picto-lot2";
+import "./design-picto-lot3";
+import "./design-picto-lot4";
+import "./design-picto-lot5";
+import "./design-picto-lot6";
+import "./design-picto-lot7";
+import "./design-picto-lot8";
+import "./design-picto-lot9";
+import "./design-picto-lot10";
+
+export const ELEMENT_FAMILIES: ElementFamily[] = [...FAMILIES, ...(PICTO_FAMILIES as ElementFamily[])];
 
 /** Nombre total d'éléments accessibles via les familles. */
 export const FAMILY_TOTAL = FAMILIES.reduce((a, f) => a + f.count, 0);
