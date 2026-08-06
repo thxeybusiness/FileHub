@@ -24,7 +24,7 @@ import {
 } from "@/lib/design";
 import {
   EMOJI_GROUPS, BG_SOLIDS, GRADIENT_PRESETS, FILTER_PRESETS, TEXT_PRESETS,
-  TEMPLATES, templateDoc, type TextPreset,
+  TEMPLATES, templateDoc, templateGroups, type TextPreset,
 } from "@/lib/design-presets";
 import { elementSlotDefaults, elementThumbSrc, luminance, normalizeSearch, type ElementDef } from "@/lib/design-elements";
 import { ELEMENT_CATEGORIES, catalogElementById, categoryCount, categoryPage, searchElements, catalogTotal } from "@/lib/design-catalog";
@@ -1304,16 +1304,70 @@ function BgDock({ ctl }: { ctl: EditorCtl }) {
   );
 }
 
+const TPL_PAGE = 18; // aperçus rendus par page : chacun monte un document complet
+
 function TemplatesDock({ ctl }: { ctl: EditorCtl }) {
+  const [query, setQuery] = useState("");
+  const [groupe, setGroupe] = useState<string>("Tous");
+  const [shown, setShown] = useState(TPL_PAGE);
+  const q = normalizeSearch(query.trim());
+  const groupes = useMemo(() => ["Tous", ...templateGroups(TEMPLATES)], []);
+
+  // La recherche porte sur le libellé, le groupe et le format : « story »,
+  // « carte de visite », « 1080 » trouvent tous quelque chose.
+  const filtres = useMemo(() => TEMPLATES.filter((t) => {
+    if (groupe !== "Tous" && t.group !== groupe) return false;
+    if (!q) return true;
+    return normalizeSearch(`${t.label} ${t.group} ${t.doc.width}x${t.doc.height}`).includes(q);
+  }), [q, groupe]);
+  useEffect(() => { setShown(TPL_PAGE); }, [q, groupe]);
+
   return (
-    <div className="space-y-3">
-      {TEMPLATES.map((t) => (
-        <button key={t.id} onClick={() => ctl.applyTemplate(templateDoc(t))} className="group flex w-full flex-col text-left">
-          <DocPreview doc={t.doc} className="ring-1 ring-white/10 transition group-hover:ring-purple-400/50" />
-          <p className="mt-1 text-[11px] text-muted">{t.label} <span className="opacity-60">· {t.group}</span></p>
-        </button>
-      ))}
-      <p className="text-[10.5px] leading-relaxed text-muted">Appliquer un modèle remplace le contenu actuel de la toile (annulable avec ⌘Z).</p>
+    <div>
+      <div className="relative mb-2.5">
+        <Search className="pointer-events-none absolute left-2.5 top-1/2 size-3.5 -translate-y-1/2 text-muted" />
+        <input
+          value={query}
+          onChange={(e) => setQuery(e.target.value)}
+          placeholder="Rechercher (story, affiche, CV…)"
+          className="w-full rounded-lg border border-white/10 bg-white/5 py-1.5 pl-8 pr-7 text-xs text-white outline-none placeholder:text-white/30 focus:border-purple-400/50"
+        />
+        {query && (
+          <button onClick={() => setQuery("")} className="absolute right-1.5 top-1/2 grid size-5 -translate-y-1/2 place-items-center rounded text-muted hover:text-white">
+            <X className="size-3" />
+          </button>
+        )}
+      </div>
+
+      <div className="no-scrollbar -mx-1 mb-2.5 flex gap-1 overflow-x-auto px-1 pb-0.5">
+        {groupes.map((g) => (
+          <CatChip key={g} label={g} active={groupe === g} onClick={() => setGroupe(g)} />
+        ))}
+      </div>
+
+      {filtres.length === 0 ? (
+        <p className="px-1 py-6 text-center text-xs text-muted">Aucun modèle pour « {query} ».</p>
+      ) : (
+        <div className="space-y-3">
+          {filtres.slice(0, shown).map((t) => (
+            <button key={t.id} onClick={() => ctl.applyTemplate(templateDoc(t))} className="group flex w-full flex-col text-left">
+              <DocPreview doc={t.doc} className="ring-1 ring-white/10 transition group-hover:ring-purple-400/50" />
+              <p className="mt-1 text-[11px] text-muted">
+                {t.label} <span className="opacity-60">· {t.doc.width}×{t.doc.height}</span>
+              </p>
+            </button>
+          ))}
+          {filtres.length > shown && (
+            <button
+              onClick={() => setShown((n) => n + TPL_PAGE)}
+              className="w-full rounded-lg border border-white/10 bg-white/5 py-2 text-[11px] font-medium text-white/80 transition hover:border-purple-400/40 hover:bg-white/10"
+            >
+              Afficher plus ({shown} sur {filtres.length})
+            </button>
+          )}
+          <p className="text-[10.5px] leading-relaxed text-muted">Appliquer un modèle remplace le contenu actuel de la toile (annulable avec ⌘Z).</p>
+        </div>
+      )}
     </div>
   );
 }

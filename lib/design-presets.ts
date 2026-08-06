@@ -5,6 +5,10 @@ import {
   type DesignDoc, type Layer, type Filters, type GradientFill,
   NEUTRAL_FILTERS, DEFAULT_SHADOW, FONTS, newId, cloneLayer,
 } from "./design";
+import { TEMPLATES_PLUS, type Template } from "./design-templates";
+
+export { templateGroups } from "./design-templates";
+export type { Template };
 
 /* ═══════════ Emojis (stickers) ═══════════ */
 
@@ -93,8 +97,6 @@ export const TEXT_PRESETS: TextPreset[] = [
 // Chaque modèle est un DesignDoc complet. À l'application, les ids des calques
 // sont régénérés (templateDoc) pour éviter toute collision.
 
-type Template = { id: string; label: string; group: string; doc: DesignDoc };
-
 const S = { ...DEFAULT_SHADOW };
 const font = (i: number) => FONTS[i].css;
 // Ids uniques pour les calques des modèles (les aperçus les utilisent comme clés
@@ -129,7 +131,7 @@ function line(p: Record<string, unknown>): Layer {
   } as Layer;
 }
 
-export const TEMPLATES: Template[] = [
+const TEMPLATES_BASE: Template[] = [
   {
     id: "quote-min",
     label: "Citation élégante",
@@ -264,6 +266,9 @@ export const TEMPLATES: Template[] = [
     },
   },
 ];
+
+/** Les onze modèles d'origine, puis la bibliothèque bâtie par composition. */
+export const TEMPLATES: Template[] = [...TEMPLATES_BASE, ...TEMPLATES_PLUS];
 
 /** Instancie un modèle : clone profond + nouveaux ids de calques. */
 export function templateDoc(t: Template): DesignDoc {
