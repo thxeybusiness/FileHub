@@ -1158,6 +1158,13 @@ function ElementsDock({ ctl }: { ctl: EditorCtl }) {
             <p className="flex items-center justify-center gap-2 py-6 text-[11px] text-muted"><Loader2 className="size-3.5 animate-spin" /> Chargement des éléments…</p>
           ) : (
             <>
+              {cat === "logos" && (
+                <p className="mb-2 rounded-lg border border-amber-400/20 bg-amber-400/[0.06] px-2.5 py-2 text-[10.5px] leading-relaxed text-amber-100/75">
+                  Marques déposées de leurs titulaires. À employer pour <strong className="font-semibold">désigner</strong> les
+                  produits — bouton de partage, mention « compatible avec », schéma d&apos;outillage — sans laisser croire à un
+                  partenariat. Chacune existe en couleurs d&apos;origine et en monochrome.
+                </p>
+              )}
               <ElementGrid els={catItems} onPick={ctl.addElement} />
               {catTotal > catItems.length && (
                 <button

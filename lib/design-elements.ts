@@ -12,6 +12,7 @@ import {
   C, N, rng, polar, smoothClosed, starPts, polyPts, arrowHead, stroke, fillp, eo, holeC, op, opc,
   fillWith, strokeWith,
 } from "./design-geom";
+import { LOGOS, logoBodyColor, logoBodyMono, logoSlots } from "./design-logos";
 
 
 export type ElementDef = {
@@ -23,6 +24,9 @@ export type ElementDef = {
   body: string; // SVG interne, peinture = __C__
   keywords: string;
   defaultColor?: string;
+  /** Couleurs déclarées EXACTES : aucune correction de contraste. Sert aux
+   *  marques, dont les teintes sont imposées par leur titulaire. */
+  exact?: boolean;
   /** Emplacements de couleur ÉDITABLES. slots[0] = couleur principale (le
    *  fill/gradient du calque) ; slots[1..] = couleurs secondaires (calque.slots).
    *  Absent = élément monochrome classique (une seule couleur). */
@@ -39,6 +43,7 @@ export function elementSlotDefaults(def: ElementDef): SlotPaint[] {
   const lb = luminance(base);
   return def.slots.map((s, i) => {
     if (i === 0 || !s.def) return { fill: base, gradient: null };
+    if (def.exact) return { fill: s.def, gradient: null };
     // Un symbole posé sur un fond plein doit rester lisible. La correction ne
     // vise QUE les couleurs de CONTRASTE — un blanc, un gris, un noir destinés
     // à se détacher du fond — et seulement quand elles s'y confondent. Une
@@ -125,6 +130,7 @@ export const ELEMENT_CATEGORIES: { id: string; label: string }[] = [
   { id: "textile", label: "Textile & couture" },
   { id: "temps", label: "Temps & calendrier" },
   { id: "logistique", label: "Logistique & livraison" },
+  { id: "logos", label: "Logos & marques" },
 ];
 
 /* Palette par catégorie : chaque élément reçoit une teinte de départ
@@ -5398,6 +5404,23 @@ for (const e of items) {
   e.w += l + r;
   e.h += t + b;
 }
+
+  /* ── Marques logicielles ──
+     Reconstructions géométriques, deux versions par marque : couleurs
+     d'origine et monochrome. Voir design-logos.ts pour les réserves d'usage. */
+  for (const L of LOGOS) {
+    const kw = `${L.kw} logo marque application logiciel`;
+    items.push({
+      id: `logos.${L.id}`, label: L.label, cat: "logos", w: 200, h: 200,
+      body: logoBodyColor(L), keywords: normalizeSearch(`${L.label} ${kw} couleur`),
+      defaultColor: L.parts[0].c, exact: true, slots: logoSlots(L),
+    });
+    items.push({
+      id: `logos.${L.id}-m`, label: `${L.label} (monochrome)`, cat: "logos", w: 200, h: 200,
+      body: logoBodyMono(L), keywords: normalizeSearch(`${L.label} ${kw} monochrome unicolore noir blanc`),
+      defaultColor: "#111827",
+    });
+  }
 
   return items;
 }
