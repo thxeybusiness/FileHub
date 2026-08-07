@@ -30,6 +30,13 @@ import { ROWS_BESOINS } from "./design-rows-besoins";
 import { ROWS_CANAUX } from "./design-rows-canaux";
 import { ROWS_METIERS2 } from "./design-rows-metiers2";
 import { ROWS_SOCIAL3 } from "./design-rows-social3";
+import { ROWS_DOC } from "./design-rows-doc";
+import { ROWS_SECTEURS3 } from "./design-rows-secteurs3";
+import { ROWS_FORMATS } from "./design-rows-formats";
+import { ROWS_STORIES } from "./design-rows-stories";
+import { ROWS_FINAL } from "./design-rows-final";
+import { ROWS_COMPLEMENT } from "./design-rows-complement";
+import { ROWS_EQUILIBRE } from "./design-rows-equilibre";
 
 /** Un modèle. `w` et `h` se lisent sans rien construire : ils suffisent aux
  *  libellés et à la recherche. `doc`, lui, n'est bâti qu'à la première
@@ -70,6 +77,39 @@ function line(p: Record<string, unknown>): Layer {
     shadow: { ...S }, stroke: "#111827", strokeWidth: 6, dash: "solid",
     ...p,
   } as Layer;
+}
+
+/** Un calque texte n'est pas rogné : trois lignes dans une boîte prévue pour
+ *  deux débordent sur ce qui suit. Plutôt que de contraindre les contenus à
+ *  une longueur fixe, on ramène le corps au nombre de lignes réellement
+ *  écrites. Une ligne unique n'est jamais touchée. */
+function ajuste(taille: number, texte: unknown, hauteur: number, interligne = 1.15, largeur = 0): number {
+  const brut = String(texte ?? "");
+  if (!brut || hauteur <= 0) return taille;
+  let t = taille;
+  /* Réduire change le nombre de retours à la ligne, donc le besoin : deux ou
+     trois passes suffisent à converger. */
+  for (let k = 0; k < 5; k++) {
+    let n = 0;
+    for (const ligne of brut.split("\n"))
+      n += largeur > 0 ? Math.max(1, Math.ceil(largeurTexte(ligne, t) / largeur)) : 1;
+    const besoin = n * t * interligne;
+    if (besoin <= hauteur) break;
+    t = (t * hauteur) / besoin;
+  }
+  return t;
+}
+
+/** Largeur approchée d'un texte, en pixels. Les glyphes n'ont pas tous la
+ *  même chasse : compter les caractères à valeur fixe fait dépasser les mots
+ *  étroits et tronque les mots larges. Trois classes suffisent pour poser un
+ *  surlignage crédible sans embarquer de métriques de police. */
+const ETROIT = new Set("iljtfr.,;:!'|()[]I ".split(""));
+const LARGE = new Set("mwMW@%".split(""));
+function largeurTexte(texte: string, corps: number): number {
+  let n = 0;
+  for (const c of texte) n += ETROIT.has(c) ? 0.34 : LARGE.has(c) ? 0.88 : c === c.toUpperCase() && c !== c.toLowerCase() ? 0.68 : 0.56;
+  return n * corps;
 }
 
 /* ── Lisibilité ──
@@ -204,10 +244,10 @@ const MEP: Record<string, (c: Ctx) => Bati> = {
   centre: ({ w, h, P, C, f }) => ({
     bg: P.bg, bgg: P.bg2 ? { type: "linear", angle: 150, from: P.bg, to: P.bg2 } : null,
     layers: [
-      ...(C.sur ? [text({ name: "Sur-titre", x: w * 0.1, y: h * 0.3, w: w * 0.8, h: 60 * f, text: C.sur, color: P.acc, fontSize: 32 * f, fontWeight: 700, letterSpacing: 10 * f, uppercase: true })] : []),
-      text({ name: "Titre", x: w * 0.08, y: h * 0.38, w: w * 0.84, h: h * 0.22, text: C.titre ?? "", color: P.ink, fontFamily: font(13), fontSize: 96 * f, fontWeight: 900, lineHeight: 1.1 }),
+      ...(C.sur ? [text({ name: "Sur-titre", x: w * 0.1, y: h * 0.3, w: w * 0.8, h: 60 * f, text: C.sur, color: lis(P.acc, P.bg, P.ink), fontSize: ajuste(32 * f, C.sur, 60 * f, 1.15, w * 0.8), fontWeight: 700, letterSpacing: 10 * f, uppercase: true })] : []),
+      text({ name: "Titre", x: w * 0.08, y: h * 0.38, w: w * 0.84, h: h * 0.22, text: C.titre ?? "", color: P.ink, fontFamily: font(13), fontSize: ajuste(96 * f, C.titre ?? "", h * 0.22, 1.1, w * 0.84), fontWeight: 900, lineHeight: 1.1 }),
       line({ x: (w - 160 * f) / 2, y: h * 0.63, w: 160 * f, stroke: P.acc, strokeWidth: 8 * f }),
-      ...(C.sous ? [text({ name: "Sous-titre", x: w * 0.14, y: h * 0.68, w: w * 0.72, h: h * 0.12, text: C.sous, color: P.sub, fontSize: 38 * f, fontWeight: 500, lineHeight: 1.4 })] : []),
+      ...(C.sous ? [text({ name: "Sous-titre", x: w * 0.14, y: h * 0.68, w: w * 0.72, h: h * 0.12, text: C.sous, color: P.sub, fontSize: ajuste(38 * f, C.sous, h * 0.12, 1.4, w * 0.72), fontWeight: 500, lineHeight: 1.4 })] : []),
     ],
   }),
 
@@ -216,12 +256,12 @@ const MEP: Record<string, (c: Ctx) => Bati> = {
     bg: P.bg, bgg: null,
     layers: [
       shape({ name: "Bandeau", x: 0, y: 0, w, h: h * 0.34, fill: P.acc, gradient: { type: "linear", angle: 135, from: P.acc, to: P.acc2 } }),
-      ...(C.sur ? [text({ name: "Sur-titre", x: w * 0.08, y: h * 0.08, w: w * 0.84, h: 56 * f, text: C.sur, color: P.on, fontSize: 30 * f, fontWeight: 700, letterSpacing: 8 * f, uppercase: true, opacity: 0.85 })] : []),
-      text({ name: "Titre", x: w * 0.07, y: h * 0.14, w: w * 0.86, h: h * 0.16, text: C.titre ?? "", color: P.on, fontSize: 82 * f, fontWeight: 900, lineHeight: 1.08 }),
-      ...(C.sous ? [text({ name: "Corps", x: w * 0.1, y: h * 0.44, w: w * 0.8, h: h * 0.2, text: C.sous, color: P.ink, fontSize: 40 * f, fontWeight: 500, lineHeight: 1.45 })] : []),
+      ...(C.sur ? [text({ name: "Sur-titre", x: w * 0.08, y: h * 0.08, w: w * 0.84, h: 56 * f, text: C.sur, color: P.on, fontSize: ajuste(30 * f, C.sur, 56 * f, 1.15, w * 0.84), fontWeight: 700, letterSpacing: 8 * f, uppercase: true, opacity: 0.85 })] : []),
+      text({ name: "Titre", x: w * 0.07, y: h * 0.14, w: w * 0.86, h: h * 0.16, text: C.titre ?? "", color: P.on, fontSize: ajuste(82 * f, C.titre ?? "", h * 0.16, 1.08, w * 0.86), fontWeight: 900, lineHeight: 1.08 }),
+      ...(C.sous ? [text({ name: "Corps", x: w * 0.1, y: h * 0.44, w: w * 0.8, h: h * 0.2, text: C.sous, color: P.ink, fontSize: ajuste(40 * f, C.sous, h * 0.2, 1.45, w * 0.8), fontWeight: 500, lineHeight: 1.45 })] : []),
       ...(C.cta ? [
         shape({ name: "Bouton", x: (w - w * 0.44) / 2, y: h * 0.74, w: w * 0.44, h: 100 * f, fill: P.acc, radius: 60 * f, shadow: ombre(30 * f, 0.3, 10 * f) }),
-        text({ name: "CTA", x: (w - w * 0.44) / 2, y: h * 0.74 + 28 * f, w: w * 0.44, h: 50 * f, text: C.cta, color: sur(P.acc), fontSize: 34 * f, fontWeight: 800 }),
+        text({ name: "CTA", x: (w - w * 0.44) / 2, y: h * 0.74 + 28 * f, w: w * 0.44, h: 50 * f, text: C.cta, color: sur(P.acc), fontSize: ajuste(34 * f, C.cta, 50 * f, 1.15, w * 0.44), fontWeight: 800 }),
       ] : []),
     ],
   }),
@@ -231,9 +271,9 @@ const MEP: Record<string, (c: Ctx) => Bati> = {
     bg: P.bg, bgg: P.bg2 ? { type: "linear", angle: 115, from: P.bg, to: P.bg2 } : null,
     layers: [
       shape({ name: "Diagonale", x: -w * 0.2, y: -h * 0.2, w: w * 0.62, h: h * 1.5, fill: P.acc, rotation: 18, gradient: { type: "linear", angle: 160, from: P.acc, to: P.acc2 }, shadow: ombre(60 * f, 0.4, 0) }),
-      text({ name: "Titre", x: w * 0.42, y: h * 0.22, w: w * 0.52, h: h * 0.3, text: C.titre ?? "", color: P.ink, fontFamily: font(14), fontSize: 78 * f, fontWeight: 900, align: "left", lineHeight: 1.1, uppercase: true }),
-      ...(C.sous ? [text({ name: "Sous", x: w * 0.42, y: h * 0.58, w: w * 0.5, h: h * 0.14, text: C.sous, color: P.sub, fontSize: 34 * f, fontWeight: 500, align: "left", lineHeight: 1.4 })] : []),
-      ...(C.gros ? [text({ name: "Gros", x: w * 0.04, y: h * 0.38, w: w * 0.3, h: h * 0.2, text: C.gros, color: P.on, fontFamily: font(14), fontSize: 110 * f, fontWeight: 900 })] : []),
+      text({ name: "Titre", x: w * 0.42, y: h * 0.22, w: w * 0.52, h: h * 0.3, text: C.titre ?? "", color: P.ink, fontFamily: font(14), fontSize: ajuste(78 * f, C.titre ?? "", h * 0.3, 1.1, w * 0.52), fontWeight: 900, align: "left", lineHeight: 1.1, uppercase: true }),
+      ...(C.sous ? [text({ name: "Sous", x: w * 0.42, y: h * 0.58, w: w * 0.5, h: h * 0.14, text: C.sous, color: P.sub, fontSize: ajuste(34 * f, C.sous, h * 0.14, 1.4, w * 0.5), fontWeight: 500, align: "left", lineHeight: 1.4 })] : []),
+      ...(C.gros ? [text({ name: "Gros", x: w * 0.04, y: h * 0.38, w: w * 0.3, h: h * 0.2, text: C.gros, color: P.on, fontFamily: font(14), fontSize: ajuste(110 * f, C.gros, h * 0.2, 1.15, w * 0.3), fontWeight: 900 })] : []),
     ],
   }),
 
@@ -242,11 +282,11 @@ const MEP: Record<string, (c: Ctx) => Bati> = {
     bg: P.bg, bgg: null,
     layers: [
       shape({ name: "Panneau", x: 0, y: 0, w: w * 0.36, h, fill: P.acc, gradient: { type: "linear", angle: 170, from: P.acc, to: P.acc2 } }),
-      ...(C.gros ? [text({ name: "Gros", x: w * 0.03, y: h * 0.4, w: w * 0.3, h: h * 0.2, text: C.gros, color: P.on, fontFamily: font(13), fontSize: 120 * f, fontWeight: 900 })] : []),
-      ...(C.sur ? [text({ name: "Sur", x: w * 0.42, y: h * 0.2, w: w * 0.52, h: 56 * f, text: C.sur, color: lis(P.acc, P.bg, P.ink), fontSize: 28 * f, fontWeight: 800, align: "left", letterSpacing: 7 * f, uppercase: true })] : []),
-      text({ name: "Titre", x: w * 0.42, y: h * 0.28, w: w * 0.53, h: h * 0.26, text: C.titre ?? "", color: P.ink, fontSize: 68 * f, fontWeight: 800, align: "left", lineHeight: 1.15 }),
-      ...(C.sous ? [text({ name: "Sous", x: w * 0.42, y: h * 0.6, w: w * 0.5, h: h * 0.16, text: C.sous, color: P.sub, fontSize: 32 * f, fontWeight: 500, align: "left", lineHeight: 1.5 })] : []),
-      ...(C.meta ? [text({ name: "Méta", x: w * 0.42, y: h * 0.84, w: w * 0.5, h: 50 * f, text: C.meta, color: lis(P.acc, P.bg, P.ink), fontSize: 28 * f, fontWeight: 700, align: "left" })] : []),
+      ...(C.gros ? [text({ name: "Gros", x: w * 0.03, y: h * 0.4, w: w * 0.3, h: h * 0.2, text: C.gros, color: P.on, fontFamily: font(13), fontSize: ajuste(120 * f, C.gros, h * 0.2, 1.15, w * 0.3), fontWeight: 900 })] : []),
+      ...(C.sur ? [text({ name: "Sur", x: w * 0.42, y: h * 0.2, w: w * 0.52, h: 56 * f, text: C.sur, color: lis(P.acc, P.bg, P.ink), fontSize: ajuste(28 * f, C.sur, 56 * f, 1.15, w * 0.52), fontWeight: 800, align: "left", letterSpacing: 7 * f, uppercase: true })] : []),
+      text({ name: "Titre", x: w * 0.42, y: h * 0.28, w: w * 0.53, h: h * 0.26, text: C.titre ?? "", color: P.ink, fontSize: ajuste(68 * f, C.titre ?? "", h * 0.26, 1.15, w * 0.53), fontWeight: 800, align: "left", lineHeight: 1.15 }),
+      ...(C.sous ? [text({ name: "Sous", x: w * 0.42, y: h * 0.6, w: w * 0.5, h: h * 0.16, text: C.sous, color: P.sub, fontSize: ajuste(32 * f, C.sous, h * 0.16, 1.5, w * 0.5), fontWeight: 500, align: "left", lineHeight: 1.5 })] : []),
+      ...(C.meta ? [text({ name: "Méta", x: w * 0.42, y: h * 0.84, w: w * 0.5, h: 50 * f, text: C.meta, color: lis(P.acc, P.bg, P.ink), fontSize: ajuste(28 * f, C.meta, 50 * f, 1.15, w * 0.5), fontWeight: 700, align: "left" })] : []),
     ],
   }),
 
@@ -256,11 +296,11 @@ const MEP: Record<string, (c: Ctx) => Bati> = {
     layers: [
       shape({ name: "Cadre", x: w * 0.06, y: h * 0.05, w: w * 0.88, h: h * 0.9, fill: "transparent", stroke: P.acc, strokeWidth: 3 * f, radius: 4 }),
       shape({ name: "Cadre intérieur", x: w * 0.08, y: h * 0.068, w: w * 0.84, h: h * 0.864, fill: "transparent", stroke: P.acc, strokeWidth: 1 * f, opacity: 0.5, radius: 2 }),
-      ...(C.sur ? [text({ name: "Sur", x: w * 0.14, y: h * 0.24, w: w * 0.72, h: 56 * f, text: C.sur, color: P.sub, fontSize: 28 * f, fontWeight: 600, letterSpacing: 12 * f, uppercase: true })] : []),
-      text({ name: "Titre", x: w * 0.12, y: h * 0.34, w: w * 0.76, h: h * 0.22, text: C.titre ?? "", color: P.ink, fontFamily: font(10), fontSize: 88 * f, fontWeight: 700, lineHeight: 1.2 }),
+      ...(C.sur ? [text({ name: "Sur", x: w * 0.14, y: h * 0.24, w: w * 0.72, h: 56 * f, text: C.sur, color: P.sub, fontSize: ajuste(28 * f, C.sur, 56 * f, 1.15, w * 0.72), fontWeight: 600, letterSpacing: 12 * f, uppercase: true })] : []),
+      text({ name: "Titre", x: w * 0.12, y: h * 0.34, w: w * 0.76, h: h * 0.22, text: C.titre ?? "", color: P.ink, fontFamily: font(10), fontSize: ajuste(88 * f, C.titre ?? "", h * 0.22, 1.2, w * 0.76), fontWeight: 700, lineHeight: 1.2 }),
       line({ x: (w - 120 * f) / 2, y: h * 0.6, w: 120 * f, stroke: P.acc, strokeWidth: 2 * f }),
-      ...(C.sous ? [text({ name: "Sous", x: w * 0.16, y: h * 0.65, w: w * 0.68, h: h * 0.12, text: C.sous, color: P.sub, fontSize: 34 * f, fontWeight: 400, lineHeight: 1.5, italic: true })] : []),
-      ...(C.meta ? [text({ name: "Méta", x: w * 0.16, y: h * 0.8, w: w * 0.68, h: 50 * f, text: C.meta, color: P.ink, fontSize: 30 * f, fontWeight: 600, letterSpacing: 4 * f })] : []),
+      ...(C.sous ? [text({ name: "Sous", x: w * 0.16, y: h * 0.65, w: w * 0.68, h: h * 0.12, text: C.sous, color: P.sub, fontSize: ajuste(34 * f, C.sous, h * 0.12, 1.5, w * 0.68), fontWeight: 400, lineHeight: 1.5, italic: true })] : []),
+      ...(C.meta ? [text({ name: "Méta", x: w * 0.16, y: h * 0.8, w: w * 0.68, h: 50 * f, text: C.meta, color: P.ink, fontSize: ajuste(30 * f, C.meta, 50 * f, 1.15, w * 0.68), fontWeight: 600, letterSpacing: 4 * f })] : []),
     ],
   }),
 
@@ -270,13 +310,13 @@ const MEP: Record<string, (c: Ctx) => Bati> = {
     layers: [
       shape({ name: "Éclat", shape: "sparkle", x: w * 0.06, y: h * 0.07, w: 150 * f, h: 150 * f, fill: P.acc2, rotation: 15 }),
       shape({ name: "Éclat 2", shape: "sparkle", x: w * 0.8, y: h * 0.78, w: 110 * f, h: 110 * f, fill: P.acc2, rotation: -12, opacity: 0.85 }),
-      ...(C.sur ? [text({ name: "Sur", x: w * 0.1, y: h * 0.19, w: w * 0.8, h: 60 * f, text: C.sur, color: P.sub, fontSize: 34 * f, fontWeight: 700, letterSpacing: 10 * f, uppercase: true })] : []),
-      text({ name: "Chiffre", x: w * 0.05, y: h * 0.28, w: w * 0.9, h: h * 0.3, text: C.gros ?? C.titre ?? "", color: P.ink, fontFamily: font(14), fontSize: 260 * f, fontWeight: 900, shadow: ombre(44 * f, 0.35, 16 * f) }),
-      text({ name: "Titre", x: w * 0.12, y: h * 0.62, w: w * 0.76, h: h * 0.12, text: C.titre ?? "", color: P.ink, fontSize: 46 * f, fontWeight: 700 }),
-      ...(C.sous ? [text({ name: "Sous", x: w * 0.14, y: h * 0.72, w: w * 0.72, h: h * 0.1, text: C.sous, color: P.sub, fontSize: 32 * f, fontWeight: 500 })] : []),
+      ...(C.sur ? [text({ name: "Sur", x: w * 0.1, y: h * 0.19, w: w * 0.8, h: 60 * f, text: C.sur, color: P.sub, fontSize: ajuste(34 * f, C.sur, 60 * f, 1.15, w * 0.8), fontWeight: 700, letterSpacing: 10 * f, uppercase: true })] : []),
+      text({ name: "Chiffre", x: w * 0.05, y: h * 0.28, w: w * 0.9, h: h * 0.3, text: C.gros ?? C.titre ?? "", color: P.ink, fontFamily: font(14), fontSize: ajuste(260 * f, C.gros ?? C.titre ?? "", h * 0.3, 1.15, w * 0.9), fontWeight: 900, shadow: ombre(44 * f, 0.35, 16 * f) }),
+      text({ name: "Titre", x: w * 0.12, y: h * 0.62, w: w * 0.76, h: h * 0.12, text: C.titre ?? "", color: P.ink, fontSize: ajuste(46 * f, C.titre ?? "", h * 0.12, 1.15, w * 0.76), fontWeight: 700 }),
+      ...(C.sous ? [text({ name: "Sous", x: w * 0.14, y: h * 0.72, w: w * 0.72, h: h * 0.1, text: C.sous, color: P.sub, fontSize: ajuste(32 * f, C.sous, h * 0.1, 1.15, w * 0.72), fontWeight: 500 })] : []),
       ...(C.cta ? [
         shape({ name: "Bouton", x: (w - w * 0.42) / 2, y: h * 0.82, w: w * 0.42, h: 96 * f, fill: P.acc, radius: 60 * f, shadow: ombre(34 * f, 0.35, 12 * f) }),
-        text({ name: "CTA", x: (w - w * 0.42) / 2, y: h * 0.82 + 26 * f, w: w * 0.42, h: 50 * f, text: C.cta, color: sur(P.acc), fontSize: 34 * f, fontWeight: 800 }),
+        text({ name: "CTA", x: (w - w * 0.42) / 2, y: h * 0.82 + 26 * f, w: w * 0.42, h: 50 * f, text: C.cta, color: sur(P.acc), fontSize: ajuste(34 * f, C.cta, 50 * f, 1.15, w * 0.42), fontWeight: 800 }),
       ] : []),
     ],
   }),
@@ -285,11 +325,11 @@ const MEP: Record<string, (c: Ctx) => Bati> = {
   citation: ({ w, h, P, C, f }) => ({
     bg: P.bg, bgg: P.bg2 ? { type: "radial", angle: 0, from: P.bg2, to: P.bg } : null,
     layers: [
-      text({ name: "Guillemet", x: w * 0.08, y: h * 0.12, w: w * 0.3, h: h * 0.25, text: "“", color: P.acc, fontFamily: font(10), fontSize: 300 * f, fontWeight: 900, align: "left", opacity: 0.5 }),
-      text({ name: "Citation", x: w * 0.1, y: h * 0.34, w: w * 0.8, h: h * 0.3, text: C.titre ?? "", color: P.ink, fontFamily: font(10), fontSize: 72 * f, fontWeight: 700, italic: true, lineHeight: 1.3 }),
+      text({ name: "Guillemet", x: w * 0.08, y: h * 0.12, w: w * 0.3, h: h * 0.25, text: "“", color: P.acc, fontFamily: font(10), fontSize: ajuste(300 * f, "“", h * 0.25, 1.15, w * 0.3), fontWeight: 900, align: "left", opacity: 0.5 }),
+      text({ name: "Citation", x: w * 0.1, y: h * 0.34, w: w * 0.8, h: h * 0.3, text: C.titre ?? "", color: P.ink, fontFamily: font(10), fontSize: ajuste(72 * f, C.titre ?? "", h * 0.3, 1.3, w * 0.8), fontWeight: 700, italic: true, lineHeight: 1.3 }),
       line({ x: (w - 140 * f) / 2, y: h * 0.7, w: 140 * f, stroke: P.acc, strokeWidth: 6 * f }),
-      text({ name: "Auteur", x: w * 0.15, y: h * 0.75, w: w * 0.7, h: 60 * f, text: C.auteur ?? "— VOTRE NOM", color: P.acc, fontSize: 30 * f, fontWeight: 700, letterSpacing: 6 * f, uppercase: true }),
-      ...(C.sous ? [text({ name: "Rôle", x: w * 0.15, y: h * 0.82, w: w * 0.7, h: 50 * f, text: C.sous, color: P.sub, fontSize: 26 * f, fontWeight: 500 })] : []),
+      text({ name: "Auteur", x: w * 0.15, y: h * 0.75, w: w * 0.7, h: 60 * f, text: C.auteur ?? "— VOTRE NOM", color: lis(P.acc, P.bg, P.ink), fontSize: ajuste(30 * f, C.auteur ?? "— VOTRE NOM", 60 * f, 1.15, w * 0.7), fontWeight: 700, letterSpacing: 6 * f, uppercase: true }),
+      ...(C.sous ? [text({ name: "Rôle", x: w * 0.15, y: h * 0.82, w: w * 0.7, h: 50 * f, text: C.sous, color: P.sub, fontSize: ajuste(26 * f, C.sous, 50 * f, 1.15, w * 0.7), fontWeight: 500 })] : []),
     ],
   }),
 
@@ -301,14 +341,14 @@ const MEP: Record<string, (c: Ctx) => Bati> = {
       bg: P.bg, bgg: null,
       layers: [
         shape({ name: "Filet haut", x: 0, y: 0, w, h: 14 * f, fill: P.acc }),
-        ...(C.sur ? [text({ name: "Sur", x: w * 0.08, y: h * 0.11, w: w * 0.84, h: 56 * f, text: C.sur, color: P.acc, fontSize: 28 * f, fontWeight: 800, align: "left", letterSpacing: 8 * f, uppercase: true })] : []),
-        text({ name: "Titre", x: w * 0.07, y: h * 0.17, w: w * 0.86, h: h * 0.13, text: C.titre ?? "", color: P.ink, fontSize: 68 * f, fontWeight: 900, align: "left", lineHeight: 1.1 }),
+        ...(C.sur ? [text({ name: "Sur", x: w * 0.08, y: h * 0.11, w: w * 0.84, h: 56 * f, text: C.sur, color: lis(P.acc, P.bg, P.ink), fontSize: ajuste(28 * f, C.sur, 56 * f, 1.15, w * 0.84), fontWeight: 800, align: "left", letterSpacing: 8 * f, uppercase: true })] : []),
+        text({ name: "Titre", x: w * 0.07, y: h * 0.17, w: w * 0.86, h: h * 0.13, text: C.titre ?? "", color: P.ink, fontSize: ajuste(68 * f, C.titre ?? "", h * 0.13, 1.1, w * 0.86), fontWeight: 900, align: "left", lineHeight: 1.1 }),
         ...it.flatMap((s, i) => [
           shape({ name: `Puce ${i + 1}`, shape: "ellipse", x: w * 0.08, y: y0 + i * dy, w: 62 * f, h: 62 * f, fill: P.acc }),
-          text({ name: `N° ${i + 1}`, x: w * 0.08, y: y0 + i * dy + 13 * f, w: 62 * f, h: 40 * f, text: String(i + 1), color: P.on, fontSize: 32 * f, fontWeight: 900 }),
-          text({ name: `Item ${i + 1}`, x: w * 0.08 + 86 * f, y: y0 + i * dy + 6 * f, w: w * 0.84 - 86 * f, h: dy * 0.8, text: s, color: P.ink, fontSize: 36 * f, fontWeight: 600, align: "left", lineHeight: 1.3 }),
+          text({ name: `N° ${i + 1}`, x: w * 0.08, y: y0 + i * dy + 13 * f, w: 62 * f, h: 40 * f, text: String(i + 1), color: P.on, fontSize: ajuste(32 * f, String(i + 1), 40 * f, 1.15, 62 * f), fontWeight: 900 }),
+          text({ name: `Item ${i + 1}`, x: w * 0.08 + 86 * f, y: y0 + i * dy + 6 * f, w: w * 0.84 - 86 * f, h: dy * 0.8, text: s, color: P.ink, fontSize: ajuste(36 * f, s, dy * 0.8, 1.3, w * 0.84 - 86 * f), fontWeight: 600, align: "left", lineHeight: 1.3 }),
         ]),
-        ...(C.meta ? [text({ name: "Pied", x: w * 0.08, y: h * 0.9, w: w * 0.84, h: 50 * f, text: C.meta, color: P.sub, fontSize: 28 * f, fontWeight: 600, align: "left" })] : []),
+        ...(C.meta ? [text({ name: "Pied", x: w * 0.08, y: h * 0.9, w: w * 0.84, h: 50 * f, text: C.meta, color: P.sub, fontSize: ajuste(28 * f, C.meta, 50 * f, 1.15, w * 0.84), fontWeight: 600, align: "left" })] : []),
       ],
     };
   },
@@ -320,15 +360,15 @@ const MEP: Record<string, (c: Ctx) => Bati> = {
     return {
       bg: P.bg, bgg: P.bg2 ? { type: "linear", angle: 160, from: P.bg, to: P.bg2 } : null,
       layers: [
-        text({ name: "Titre", x: w * 0.08, y: h * 0.12, w: w * 0.84, h: h * 0.12, text: C.titre ?? "", color: P.ink, fontSize: 66 * f, fontWeight: 900, lineHeight: 1.1 }),
-        ...(C.sous ? [text({ name: "Sous", x: w * 0.14, y: h * 0.26, w: w * 0.72, h: h * 0.08, text: C.sous, color: P.sub, fontSize: 32 * f, fontWeight: 500 })] : []),
+        text({ name: "Titre", x: w * 0.08, y: h * 0.12, w: w * 0.84, h: h * 0.12, text: C.titre ?? "", color: P.ink, fontSize: ajuste(66 * f, C.titre ?? "", h * 0.12, 1.1, w * 0.84), fontWeight: 900, lineHeight: 1.1 }),
+        ...(C.sous ? [text({ name: "Sous", x: w * 0.14, y: h * 0.26, w: w * 0.72, h: h * 0.08, text: C.sous, color: P.sub, fontSize: ajuste(32 * f, C.sous, h * 0.08, 1.15, w * 0.72), fontWeight: 500 })] : []),
         ...it.flatMap((s, i) => {
           const x = x0 + i * (cw + w * 0.03);
           const [t, d] = s.split("|");
           return [
             shape({ name: `Carte ${i + 1}`, x, y: h * 0.4, w: cw, h: h * 0.38, fill: i === 1 ? P.acc : P.bg, gradient: i === 1 ? { type: "linear", angle: 160, from: P.acc, to: P.acc2 } : null, radius: 32 * f, stroke: P.acc, strokeWidth: i === 1 ? 0 : 2 * f, shadow: ombre(40 * f, 0.18, 16 * f) }),
-            text({ name: `Titre ${i + 1}`, x, y: h * 0.46, w: cw, h: 70 * f, text: t ?? "", color: i === 1 ? P.on : P.ink, fontSize: 40 * f, fontWeight: 800 }),
-            text({ name: `Détail ${i + 1}`, x: x + cw * 0.08, y: h * 0.56, w: cw * 0.84, h: h * 0.18, text: d ?? "", color: i === 1 ? P.on : P.sub, fontSize: 26 * f, fontWeight: 500, lineHeight: 1.45 }),
+            text({ name: `Titre ${i + 1}`, x, y: h * 0.46, w: cw, h: 70 * f, text: t ?? "", color: i === 1 ? P.on : P.ink, fontSize: ajuste(40 * f, t ?? "", 70 * f, 1.15, cw), fontWeight: 800 }),
+            text({ name: `Détail ${i + 1}`, x: x + cw * 0.08, y: h * 0.56, w: cw * 0.84, h: h * 0.18, text: d ?? "", color: i === 1 ? P.on : P.sub, fontSize: ajuste(26 * f, d ?? "", h * 0.18, 1.45, cw * 0.84), fontWeight: 500, lineHeight: 1.45 }),
           ];
         }),
       ],
@@ -340,13 +380,13 @@ const MEP: Record<string, (c: Ctx) => Bati> = {
     bg: P.bg, bgg: P.bg2 ? { type: "linear", angle: 180, from: P.bg, to: P.bg2 } : null,
     layers: [
       shape({ name: "Astre", shape: "ellipse", x: w * 0.62, y: h * 0.06, w: w * 0.24, h: w * 0.24, fill: P.acc, gradient: { type: "radial", angle: 0, from: P.acc2, to: P.acc }, shadow: ombre(80 * f, 0.55, 0, P.acc) }),
-      ...(C.sur ? [text({ name: "Sur", x: w * 0.1, y: h * 0.3, w: w * 0.8, h: 60 * f, text: C.sur, color: P.sub, fontSize: 36 * f, fontWeight: 700, letterSpacing: 12 * f, uppercase: true })] : []),
-      text({ name: "Titre", x: w * 0.07, y: h * 0.37, w: w * 0.86, h: h * 0.2, text: C.titre ?? "", color: P.ink, fontFamily: font(13), fontSize: 104 * f, fontWeight: 900, lineHeight: 1.1, uppercase: true }),
+      ...(C.sur ? [text({ name: "Sur", x: w * 0.1, y: h * 0.3, w: w * 0.8, h: 60 * f, text: C.sur, color: P.sub, fontSize: ajuste(36 * f, C.sur, 60 * f, 1.15, w * 0.8), fontWeight: 700, letterSpacing: 12 * f, uppercase: true })] : []),
+      text({ name: "Titre", x: w * 0.07, y: h * 0.37, w: w * 0.86, h: h * 0.2, text: C.titre ?? "", color: P.ink, fontFamily: font(13), fontSize: ajuste(104 * f, C.titre ?? "", h * 0.2, 1.1, w * 0.86), fontWeight: 900, lineHeight: 1.1, uppercase: true }),
       line({ x: (w - 220 * f) / 2, y: h * 0.62, w: 220 * f, stroke: P.acc, strokeWidth: 5 * f }),
       shape({ name: "Carte", x: w * 0.14, y: h * 0.68, w: w * 0.72, h: h * 0.16, fill: P.acc, radius: 28 * f, opacity: 0.14, stroke: P.acc, strokeWidth: 2 * f }),
-      text({ name: "Date", x: w * 0.14, y: h * 0.71, w: w * 0.72, h: 56 * f, text: C.meta ?? "VENDREDI 20 SEPTEMBRE — 19H", color: P.ink, fontSize: 34 * f, fontWeight: 700, letterSpacing: 2 * f }),
-      ...(C.sous ? [text({ name: "Lieu", x: w * 0.14, y: h * 0.77, w: w * 0.72, h: 50 * f, text: C.sous, color: P.sub, fontSize: 30 * f, fontWeight: 500 })] : []),
-      ...(C.cta ? [text({ name: "CTA", x: w * 0.2, y: h * 0.9, w: w * 0.6, h: 50 * f, text: C.cta, color: P.acc, fontSize: 30 * f, fontWeight: 700 })] : []),
+      text({ name: "Date", x: w * 0.14, y: h * 0.71, w: w * 0.72, h: 56 * f, text: C.meta ?? "VENDREDI 20 SEPTEMBRE — 19H", color: P.ink, fontSize: ajuste(34 * f, C.meta ?? "VENDREDI 20 SEPTEMBRE — 19H", 56 * f, 1.15, w * 0.72), fontWeight: 700, letterSpacing: 2 * f }),
+      ...(C.sous ? [text({ name: "Lieu", x: w * 0.14, y: h * 0.77, w: w * 0.72, h: 50 * f, text: C.sous, color: P.sub, fontSize: ajuste(30 * f, C.sous, 50 * f, 1.15, w * 0.72), fontWeight: 500 })] : []),
+      ...(C.cta ? [text({ name: "CTA", x: w * 0.2, y: h * 0.9, w: w * 0.6, h: 50 * f, text: C.cta, color: lis(P.acc, P.bg, P.ink), fontSize: ajuste(30 * f, C.cta, 50 * f, 1.15, w * 0.6), fontWeight: 700 })] : []),
     ],
   }),
 
@@ -358,13 +398,13 @@ const MEP: Record<string, (c: Ctx) => Bati> = {
       layers: [
         shape({ name: "Carte", x: w * 0.1, y: h * 0.08, w: w * 0.8, h: h * 0.84, fill: P.bg, radius: 40 * f, stroke: P.acc, strokeWidth: 3 * f, shadow: ombre(50 * f, 0.16, 20 * f) }),
         shape({ name: "Chapeau", x: w * 0.1, y: h * 0.08, w: w * 0.8, h: h * 0.2, fill: P.acc, gradient: { type: "linear", angle: 135, from: P.acc, to: P.acc2 }, radius: 40 * f }),
-        text({ name: "Formule", x: w * 0.1, y: h * 0.13, w: w * 0.8, h: 70 * f, text: C.sur ?? "FORMULE", color: sur(P.acc), fontSize: 38 * f, fontWeight: 800, letterSpacing: 6 * f, uppercase: true }),
-        text({ name: "Prix", x: w * 0.1, y: h * 0.31, w: w * 0.8, h: h * 0.14, text: C.gros ?? "49 €", color: P.ink, fontFamily: font(13), fontSize: 140 * f, fontWeight: 900 }),
-        text({ name: "Période", x: w * 0.1, y: h * 0.45, w: w * 0.8, h: 50 * f, text: C.sous ?? "par mois, sans engagement", color: P.sub, fontSize: 28 * f, fontWeight: 500 }),
-        ...it.slice(0, 5).map((s, i) => text({ name: `Inclus ${i + 1}`, x: w * 0.16, y: h * 0.53 + i * h * 0.065, w: w * 0.68, h: 54 * f, text: `✓  ${s}`, color: P.ink, fontSize: 28 * f, fontWeight: 500, align: "left" })),
+        text({ name: "Formule", x: w * 0.1, y: h * 0.13, w: w * 0.8, h: 70 * f, text: C.sur ?? "FORMULE", color: sur(P.acc), fontSize: ajuste(38 * f, C.sur ?? "FORMULE", 70 * f, 1.15, w * 0.8), fontWeight: 800, letterSpacing: 6 * f, uppercase: true }),
+        text({ name: "Prix", x: w * 0.1, y: h * 0.31, w: w * 0.8, h: h * 0.14, text: C.gros ?? "49 €", color: P.ink, fontFamily: font(13), fontSize: ajuste(140 * f, C.gros ?? "49 €", h * 0.14, 1.15, w * 0.8), fontWeight: 900 }),
+        text({ name: "Période", x: w * 0.1, y: h * 0.45, w: w * 0.8, h: 50 * f, text: C.sous ?? "par mois, sans engagement", color: P.sub, fontSize: ajuste(28 * f, C.sous ?? "par mois, sans engagement", 50 * f, 1.15, w * 0.8), fontWeight: 500 }),
+        ...it.slice(0, 5).map((s, i) => text({ name: `Inclus ${i + 1}`, x: w * 0.16, y: h * 0.53 + i * h * 0.065, w: w * 0.68, h: 54 * f, text: `✓  ${s}`, color: P.ink, fontSize: ajuste(28 * f, `✓  ${s}`, 54 * f, 1.15, w * 0.68), fontWeight: 500, align: "left" })),
         ...(C.cta ? [
           shape({ name: "Bouton", x: w * 0.18, y: h * 0.82, w: w * 0.64, h: 92 * f, fill: P.acc, radius: 50 * f }),
-          text({ name: "CTA", x: w * 0.18, y: h * 0.82 + 26 * f, w: w * 0.64, h: 50 * f, text: C.cta, color: sur(P.acc), fontSize: 32 * f, fontWeight: 800 }),
+          text({ name: "CTA", x: w * 0.18, y: h * 0.82 + 26 * f, w: w * 0.64, h: 50 * f, text: C.cta, color: sur(P.acc), fontSize: ajuste(32 * f, C.cta, 50 * f, 1.15, w * 0.64), fontWeight: 800 }),
         ] : []),
       ],
     };
@@ -377,19 +417,19 @@ const MEP: Record<string, (c: Ctx) => Bati> = {
       bg: P.bg, bgg: null,
       layers: [
         shape({ name: "Filet", x: w * 0.08, y: h * 0.06, w: w * 0.84, h: h * 0.88, fill: "transparent", stroke: P.acc, strokeWidth: 2 * f }),
-        ...(C.sur ? [text({ name: "Sur", x: w * 0.12, y: h * 0.12, w: w * 0.76, h: 50 * f, text: C.sur, color: P.acc, fontSize: 26 * f, fontWeight: 600, letterSpacing: 12 * f, uppercase: true })] : []),
-        text({ name: "Titre", x: w * 0.12, y: h * 0.17, w: w * 0.76, h: h * 0.1, text: C.titre ?? "", color: P.ink, fontFamily: font(10), fontSize: 82 * f, fontWeight: 700 }),
+        ...(C.sur ? [text({ name: "Sur", x: w * 0.12, y: h * 0.12, w: w * 0.76, h: 50 * f, text: C.sur, color: lis(P.acc, P.bg, P.ink), fontSize: ajuste(26 * f, C.sur, 50 * f, 1.15, w * 0.76), fontWeight: 600, letterSpacing: 12 * f, uppercase: true })] : []),
+        text({ name: "Titre", x: w * 0.12, y: h * 0.17, w: w * 0.76, h: h * 0.1, text: C.titre ?? "", color: P.ink, fontFamily: font(10), fontSize: ajuste(82 * f, C.titre ?? "", h * 0.1, 1.15, w * 0.76), fontWeight: 700 }),
         line({ x: w * 0.35, y: h * 0.28, w: w * 0.3, stroke: P.acc, strokeWidth: 2 * f }),
         ...it.slice(0, 6).flatMap((s, i) => {
           const [nom, prix] = s.split("|");
           const y = h * 0.34 + i * h * 0.095;
           return [
-            text({ name: `Plat ${i + 1}`, x: w * 0.13, y, w: w * 0.55, h: 50 * f, text: nom ?? "", color: P.ink, fontSize: 34 * f, fontWeight: 700, align: "left" }),
-            text({ name: `Prix ${i + 1}`, x: w * 0.68, y, w: w * 0.19, h: 50 * f, text: prix ?? "", color: lis(P.acc, P.bg, P.ink), fontSize: 34 * f, fontWeight: 800, align: "right" }),
+            text({ name: `Plat ${i + 1}`, x: w * 0.13, y, w: w * 0.55, h: 50 * f, text: nom ?? "", color: P.ink, fontSize: ajuste(34 * f, nom ?? "", 50 * f, 1.15, w * 0.55), fontWeight: 700, align: "left" }),
+            text({ name: `Prix ${i + 1}`, x: w * 0.68, y, w: w * 0.19, h: 50 * f, text: prix ?? "", color: lis(P.acc, P.bg, P.ink), fontSize: ajuste(34 * f, prix ?? "", 50 * f, 1.15, w * 0.19), fontWeight: 800, align: "right" }),
             line({ x: w * 0.13, y: y + 62 * f, w: w * 0.74, stroke: P.sub, strokeWidth: 1 * f, dash: "dotted", opacity: 0.5 }),
           ];
         }),
-        ...(C.meta ? [text({ name: "Pied", x: w * 0.12, y: h * 0.88, w: w * 0.76, h: 46 * f, text: C.meta, color: P.sub, fontSize: 24 * f, fontWeight: 500, letterSpacing: 3 * f })] : []),
+        ...(C.meta ? [text({ name: "Pied", x: w * 0.12, y: h * 0.88, w: w * 0.76, h: 46 * f, text: C.meta, color: P.sub, fontSize: ajuste(24 * f, C.meta, 46 * f, 1.15, w * 0.76), fontWeight: 500, letterSpacing: 3 * f })] : []),
       ],
     };
   },
@@ -400,11 +440,11 @@ const MEP: Record<string, (c: Ctx) => Bati> = {
     layers: [
       shape({ name: "Diagonale", x: -w * 0.2, y: -h * 0.2, w: w * 0.55, h: h * 1.5, fill: P.acc, rotation: 18, gradient: { type: "linear", angle: 160, from: P.acc, to: P.acc2 }, shadow: ombre(60 * f, 0.5, 0) }),
       shape({ name: "Rond", shape: "ellipse", x: w * 0.05, y: h * 0.2, w: h * 0.6, h: h * 0.6, fill: P.acc2, stroke: P.ink, strokeWidth: 10 * f, shadow: ombre(40 * f, 0.45, 10 * f) }),
-      ...(C.emoji ? [text({ name: "Emoji", x: w * 0.05, y: h * 0.3, w: h * 0.6, h: h * 0.4, text: C.emoji, fontSize: h * 0.32, fontWeight: 400 })] : []),
-      text({ name: "Titre", x: w * 0.45, y: h * 0.16, w: w * 0.52, h: h * 0.5, text: C.titre ?? "", color: P.ink, fontFamily: font(14), fontSize: 84 * f, fontWeight: 900, align: "left", lineHeight: 1.06, uppercase: true, strokeColor: P.bg, strokeWidth: 5 * f, shadow: ombre(0, 0.6, 8 * f) }),
+      ...(C.emoji ? [text({ name: "Emoji", x: w * 0.05, y: h * 0.3, w: h * 0.6, h: h * 0.4, text: C.emoji, fontSize: ajuste(h * 0.32, C.emoji, h * 0.4, 1.15, h * 0.6), fontWeight: 400 })] : []),
+      text({ name: "Titre", x: w * 0.45, y: h * 0.16, w: w * 0.52, h: h * 0.5, text: C.titre ?? "", color: P.ink, fontFamily: font(14), fontSize: ajuste(84 * f, C.titre ?? "", h * 0.5, 1.06, w * 0.52), fontWeight: 900, align: "left", lineHeight: 1.06, uppercase: true, strokeColor: P.bg, strokeWidth: 5 * f, shadow: ombre(0, 0.6, 8 * f) }),
       ...(C.meta ? [
         shape({ name: "Badge", x: w * 0.45, y: h * 0.74, w: w * 0.26, h: 88 * f, fill: P.acc2, radius: 16 * f, rotation: -3 }),
-        text({ name: "Badge txt", x: w * 0.45, y: h * 0.74 + 22 * f, w: w * 0.26, h: 50 * f, text: C.meta, color: sur(P.acc2), fontSize: 36 * f, fontWeight: 800, rotation: -3 }),
+        text({ name: "Badge txt", x: w * 0.45, y: h * 0.74 + 22 * f, w: w * 0.26, h: 50 * f, text: C.meta, color: sur(P.acc2), fontSize: ajuste(36 * f, C.meta, 50 * f, 1.15, w * 0.26), fontWeight: 800, rotation: -3 }),
       ] : []),
     ],
   }),
@@ -415,12 +455,12 @@ const MEP: Record<string, (c: Ctx) => Bati> = {
     layers: [
       shape({ name: "Cercle", shape: "ellipse", x: w * 0.72, y: -h * 0.4, w: h * 1.6, h: h * 1.6, fill: P.acc, opacity: 0.18 }),
       shape({ name: "Pastille", shape: "ellipse", x: w * 0.05, y: h * 0.26, w: h * 0.48, h: h * 0.48, fill: P.acc, gradient: { type: "linear", angle: 135, from: P.acc, to: P.acc2 } }),
-      ...(C.gros ? [text({ name: "Sigle", x: w * 0.05, y: h * 0.36, w: h * 0.48, h: h * 0.3, text: C.gros, color: sur(P.acc), fontFamily: font(13), fontSize: h * 0.24, fontWeight: 900 })] : []),
-      text({ name: "Titre", x: w * 0.05 + h * 0.6, y: h * 0.3, w: w * 0.5, h: h * 0.24, text: C.titre ?? "", color: P.ink, fontSize: 62 * f, fontWeight: 900, align: "left", lineHeight: 1.1 }),
-      ...(C.sous ? [text({ name: "Sous", x: w * 0.05 + h * 0.6, y: h * 0.58, w: w * 0.46, h: h * 0.18, text: C.sous, color: P.sub, fontSize: 32 * f, fontWeight: 500, align: "left" })] : []),
+      ...(C.gros ? [text({ name: "Sigle", x: w * 0.05, y: h * 0.36, w: h * 0.48, h: h * 0.3, text: C.gros, color: sur(P.acc), fontFamily: font(13), fontSize: ajuste(h * 0.24, C.gros, h * 0.3, 1.15, h * 0.48), fontWeight: 900 })] : []),
+      text({ name: "Titre", x: w * 0.05 + h * 0.6, y: h * 0.3, w: w * 0.5, h: h * 0.24, text: C.titre ?? "", color: P.ink, fontSize: ajuste(62 * f, C.titre ?? "", h * 0.24, 1.1, w * 0.5), fontWeight: 900, align: "left", lineHeight: 1.1 }),
+      ...(C.sous ? [text({ name: "Sous", x: w * 0.05 + h * 0.6, y: h * 0.58, w: w * 0.46, h: h * 0.18, text: C.sous, color: P.sub, fontSize: ajuste(32 * f, C.sous, h * 0.18, 1.15, w * 0.46), fontWeight: 500, align: "left" })] : []),
       ...(C.cta ? [
         shape({ name: "Bouton", x: w * 0.76, y: h * 0.4, w: w * 0.18, h: h * 0.2, fill: P.acc, radius: 60 * f, shadow: ombre(30 * f, 0.3, 10 * f) }),
-        text({ name: "CTA", x: w * 0.76, y: h * 0.45, w: w * 0.18, h: h * 0.1, text: C.cta, color: sur(P.acc), fontSize: 30 * f, fontWeight: 800 }),
+        text({ name: "CTA", x: w * 0.76, y: h * 0.45, w: w * 0.18, h: h * 0.1, text: C.cta, color: sur(P.acc), fontSize: ajuste(30 * f, C.cta, h * 0.1, 1.15, w * 0.18), fontWeight: 800 }),
       ] : []),
     ],
   }),
@@ -431,11 +471,11 @@ const MEP: Record<string, (c: Ctx) => Bati> = {
     layers: [
       shape({ name: "Bande", x: 0, y: 0, w: w * 0.32, h, fill: P.ink, gradient: { type: "linear", angle: 160, from: P.ink, to: P.sub } }),
       shape({ name: "Accent", x: w * 0.3, y: 0, w: w * 0.024, h, fill: P.acc, gradient: { type: "linear", angle: 180, from: P.acc, to: P.acc2 } }),
-      text({ name: "Sigle", x: w * 0.06, y: h * 0.36, w: w * 0.2, h: h * 0.24, text: C.gros ?? "TX", color: P.bg, fontFamily: font(13), fontSize: 120 * f, fontWeight: 900 }),
-      text({ name: "Nom", x: w * 0.38, y: h * 0.26, w: w * 0.56, h: h * 0.14, text: C.titre ?? "", color: P.ink, fontSize: 66 * f, fontWeight: 800, align: "left" }),
-      text({ name: "Rôle", x: w * 0.38, y: h * 0.42, w: w * 0.56, h: 54 * f, text: C.sur ?? "", color: P.acc, fontSize: 26 * f, fontWeight: 700, align: "left", letterSpacing: 5 * f, uppercase: true }),
+      text({ name: "Sigle", x: w * 0.06, y: h * 0.36, w: w * 0.2, h: h * 0.24, text: C.gros ?? "TX", color: P.bg, fontFamily: font(13), fontSize: ajuste(120 * f, C.gros ?? "TX", h * 0.24, 1.15, w * 0.2), fontWeight: 900 }),
+      text({ name: "Nom", x: w * 0.38, y: h * 0.26, w: w * 0.56, h: h * 0.14, text: C.titre ?? "", color: P.ink, fontSize: ajuste(66 * f, C.titre ?? "", h * 0.14, 1.15, w * 0.56), fontWeight: 800, align: "left" }),
+      text({ name: "Rôle", x: w * 0.38, y: h * 0.42, w: w * 0.56, h: 54 * f, text: C.sur ?? "", color: lis(P.acc, P.bg, P.ink), fontSize: ajuste(26 * f, C.sur ?? "", 54 * f, 1.15, w * 0.56), fontWeight: 700, align: "left", letterSpacing: 5 * f, uppercase: true }),
       line({ x: w * 0.38, y: h * 0.56, w: w * 0.5, stroke: P.sub, strokeWidth: 2 * f, opacity: 0.4 }),
-      text({ name: "Contact", x: w * 0.38, y: h * 0.62, w: w * 0.56, h: h * 0.3, text: C.sous ?? "", color: P.sub, fontSize: 28 * f, fontWeight: 500, align: "left", lineHeight: 1.6 }),
+      text({ name: "Contact", x: w * 0.38, y: h * 0.62, w: w * 0.56, h: h * 0.3, text: C.sous ?? "", color: P.sub, fontSize: ajuste(28 * f, C.sous ?? "", h * 0.3, 1.6, w * 0.56), fontWeight: 500, align: "left", lineHeight: 1.6 }),
     ],
   }),
 
@@ -445,15 +485,15 @@ const MEP: Record<string, (c: Ctx) => Bati> = {
     layers: [
       shape({ name: "Cadre", x: w * 0.05, y: h * 0.06, w: w * 0.9, h: h * 0.88, fill: "transparent", stroke: P.acc, strokeWidth: 6 * f }),
       shape({ name: "Cadre fin", x: w * 0.07, y: h * 0.082, w: w * 0.86, h: h * 0.836, fill: "transparent", stroke: P.acc, strokeWidth: 2 * f, opacity: 0.6 }),
-      text({ name: "Sur", x: w * 0.12, y: h * 0.16, w: w * 0.76, h: 60 * f, text: C.sur ?? "CERTIFICAT", color: lis(P.acc, P.bg, P.ink), fontSize: 34 * f, fontWeight: 700, letterSpacing: 14 * f, uppercase: true }),
-      text({ name: "Objet", x: w * 0.12, y: h * 0.24, w: w * 0.76, h: h * 0.09, text: C.titre ?? "", color: P.ink, fontFamily: font(10), fontSize: 62 * f, fontWeight: 700 }),
-      text({ name: "Mention", x: w * 0.16, y: h * 0.38, w: w * 0.68, h: 60 * f, text: "décerné à", color: P.sub, fontSize: 30 * f, fontWeight: 400, italic: true }),
-      text({ name: "Nom", x: w * 0.1, y: h * 0.44, w: w * 0.8, h: h * 0.1, text: C.auteur ?? "PRÉNOM NOM", color: P.ink, fontFamily: font(16), fontSize: 92 * f, fontWeight: 700 }),
+      text({ name: "Sur", x: w * 0.12, y: h * 0.16, w: w * 0.76, h: 60 * f, text: C.sur ?? "CERTIFICAT", color: lis(P.acc, P.bg, P.ink), fontSize: ajuste(34 * f, C.sur ?? "CERTIFICAT", 60 * f, 1.15, w * 0.76), fontWeight: 700, letterSpacing: 14 * f, uppercase: true }),
+      text({ name: "Objet", x: w * 0.12, y: h * 0.24, w: w * 0.76, h: h * 0.09, text: C.titre ?? "", color: P.ink, fontFamily: font(10), fontSize: ajuste(62 * f, C.titre ?? "", h * 0.09, 1.15, w * 0.76), fontWeight: 700 }),
+      text({ name: "Mention", x: w * 0.16, y: h * 0.38, w: w * 0.68, h: 60 * f, text: "décerné à", color: P.sub, fontSize: ajuste(30 * f, "décerné à", 60 * f, 1.15, w * 0.68), fontWeight: 400, italic: true }),
+      text({ name: "Nom", x: w * 0.1, y: h * 0.44, w: w * 0.8, h: h * 0.1, text: C.auteur ?? "PRÉNOM NOM", color: P.ink, fontFamily: font(16), fontSize: ajuste(92 * f, C.auteur ?? "PRÉNOM NOM", h * 0.1, 1.15, w * 0.8), fontWeight: 700 }),
       line({ x: w * 0.28, y: h * 0.57, w: w * 0.44, stroke: P.acc, strokeWidth: 2 * f }),
-      ...(C.sous ? [text({ name: "Motif", x: w * 0.16, y: h * 0.62, w: w * 0.68, h: h * 0.1, text: C.sous, color: P.sub, fontSize: 28 * f, fontWeight: 500, lineHeight: 1.5 })] : []),
+      ...(C.sous ? [text({ name: "Motif", x: w * 0.16, y: h * 0.62, w: w * 0.68, h: h * 0.1, text: C.sous, color: P.sub, fontSize: ajuste(28 * f, C.sous, h * 0.1, 1.5, w * 0.68), fontWeight: 500, lineHeight: 1.5 })] : []),
       shape({ name: "Sceau", shape: "seal", x: w * 0.72, y: h * 0.72, w: 150 * f, h: 150 * f, fill: P.acc, opacity: 0.9 }),
       line({ x: w * 0.14, y: h * 0.84, w: w * 0.28, stroke: P.ink, strokeWidth: 2 * f }),
-      text({ name: "Signature", x: w * 0.14, y: h * 0.855, w: w * 0.28, h: 46 * f, text: C.meta ?? "Signature", color: P.sub, fontSize: 24 * f, fontWeight: 500 }),
+      text({ name: "Signature", x: w * 0.14, y: h * 0.855, w: w * 0.28, h: 46 * f, text: C.meta ?? "Signature", color: P.sub, fontSize: ajuste(24 * f, C.meta ?? "Signature", 46 * f, 1.15, w * 0.28), fontWeight: 500 }),
     ],
   }),
 
@@ -464,18 +504,18 @@ const MEP: Record<string, (c: Ctx) => Bati> = {
     return {
       bg: P.bg, bgg: P.bg2 ? { type: "linear", angle: 150, from: P.bg, to: P.bg2 } : null,
       layers: [
-        ...(C.sur ? [text({ name: "Sur", x: w * 0.07, y: h * 0.14, w: w * 0.86, h: 56 * f, text: C.sur, color: P.acc, fontSize: 28 * f, fontWeight: 800, align: "left", letterSpacing: 8 * f, uppercase: true })] : []),
-        text({ name: "Titre", x: w * 0.07, y: h * 0.2, w: w * 0.86, h: h * 0.14, text: C.titre ?? "", color: P.ink, fontSize: 66 * f, fontWeight: 900, align: "left", lineHeight: 1.1 }),
+        ...(C.sur ? [text({ name: "Sur", x: w * 0.07, y: h * 0.14, w: w * 0.86, h: 56 * f, text: C.sur, color: lis(P.acc, P.bg, P.ink), fontSize: ajuste(28 * f, C.sur, 56 * f, 1.15, w * 0.86), fontWeight: 800, align: "left", letterSpacing: 8 * f, uppercase: true })] : []),
+        text({ name: "Titre", x: w * 0.07, y: h * 0.2, w: w * 0.86, h: h * 0.14, text: C.titre ?? "", color: P.ink, fontSize: ajuste(66 * f, C.titre ?? "", h * 0.14, 1.1, w * 0.86), fontWeight: 900, align: "left", lineHeight: 1.1 }),
         ...it.flatMap((s, i) => {
           const [n, lab] = s.split("|");
           const x = w * 0.07 + i * (cw + w * 0.025);
           return [
             shape({ name: `Pavé ${i + 1}`, x, y: h * 0.46, w: cw, h: h * 0.3, fill: P.acc, opacity: 0.12, radius: 28 * f }),
-            text({ name: `Chiffre ${i + 1}`, x, y: h * 0.51, w: cw, h: h * 0.12, text: n ?? "", color: P.acc, fontFamily: font(13), fontSize: 84 * f, fontWeight: 900 }),
-            text({ name: `Libellé ${i + 1}`, x: x + cw * 0.06, y: h * 0.65, w: cw * 0.88, h: h * 0.08, text: lab ?? "", color: P.sub, fontSize: 26 * f, fontWeight: 600, lineHeight: 1.3 }),
+            text({ name: `Chiffre ${i + 1}`, x, y: h * 0.51, w: cw, h: h * 0.12, text: n ?? "", color: lis(P.acc, P.bg, P.ink), fontFamily: font(13), fontSize: ajuste(84 * f, n ?? "", h * 0.12, 1.15, cw), fontWeight: 900 }),
+            text({ name: `Libellé ${i + 1}`, x: x + cw * 0.06, y: h * 0.65, w: cw * 0.88, h: h * 0.08, text: lab ?? "", color: P.sub, fontSize: ajuste(26 * f, lab ?? "", h * 0.08, 1.3, cw * 0.88), fontWeight: 600, lineHeight: 1.3 }),
           ];
         }),
-        ...(C.meta ? [text({ name: "Pied", x: w * 0.07, y: h * 0.85, w: w * 0.86, h: 50 * f, text: C.meta, color: P.sub, fontSize: 26 * f, fontWeight: 500, align: "left" })] : []),
+        ...(C.meta ? [text({ name: "Pied", x: w * 0.07, y: h * 0.85, w: w * 0.86, h: 50 * f, text: C.meta, color: P.sub, fontSize: ajuste(26 * f, C.meta, 50 * f, 1.15, w * 0.86), fontWeight: 500, align: "left" })] : []),
       ],
     };
   },
@@ -486,11 +526,11 @@ const MEP: Record<string, (c: Ctx) => Bati> = {
     layers: [
       shape({ name: "Carte", x: w * 0.08, y: h * 0.14, w: w * 0.84, h: h * 0.72, fill: P.acc, opacity: 0.1, radius: 40 * f }),
       shape({ name: "Portrait", shape: "ellipse", x: (w - 170 * f) / 2, y: h * 0.2, w: 170 * f, h: 170 * f, fill: P.acc, gradient: { type: "linear", angle: 140, from: P.acc, to: P.acc2 } }),
-      ...(C.emoji ? [text({ name: "Emoji", x: (w - 170 * f) / 2, y: h * 0.23, w: 170 * f, h: 120 * f, text: C.emoji, fontSize: 100 * f, fontWeight: 400 })] : []),
-      text({ name: "Étoiles", x: w * 0.2, y: h * 0.42, w: w * 0.6, h: 60 * f, text: "★★★★★", color: lis(P.acc2, P.bg, P.ink), fontSize: 42 * f, fontWeight: 700, letterSpacing: 6 * f }),
-      text({ name: "Avis", x: w * 0.14, y: h * 0.5, w: w * 0.72, h: h * 0.2, text: C.titre ?? "", color: P.ink, fontSize: 42 * f, fontWeight: 500, italic: true, lineHeight: 1.4 }),
-      text({ name: "Nom", x: w * 0.2, y: h * 0.74, w: w * 0.6, h: 56 * f, text: C.auteur ?? "Camille D.", color: P.ink, fontSize: 32 * f, fontWeight: 800 }),
-      ...(C.sous ? [text({ name: "Rôle", x: w * 0.2, y: h * 0.79, w: w * 0.6, h: 46 * f, text: C.sous, color: P.sub, fontSize: 26 * f, fontWeight: 500 })] : []),
+      ...(C.emoji ? [text({ name: "Emoji", x: (w - 170 * f) / 2, y: h * 0.23, w: 170 * f, h: 120 * f, text: C.emoji, fontSize: ajuste(100 * f, C.emoji, 120 * f, 1.15, 170 * f), fontWeight: 400 })] : []),
+      text({ name: "Étoiles", x: w * 0.2, y: h * 0.42, w: w * 0.6, h: 60 * f, text: "★★★★★", color: lis(P.acc2, P.bg, P.ink), fontSize: ajuste(42 * f, "★★★★★", 60 * f, 1.15, w * 0.6), fontWeight: 700, letterSpacing: 6 * f }),
+      text({ name: "Avis", x: w * 0.14, y: h * 0.5, w: w * 0.72, h: h * 0.2, text: C.titre ?? "", color: P.ink, fontSize: ajuste(42 * f, C.titre ?? "", h * 0.2, 1.4, w * 0.72), fontWeight: 500, italic: true, lineHeight: 1.4 }),
+      text({ name: "Nom", x: w * 0.2, y: h * 0.74, w: w * 0.6, h: 56 * f, text: C.auteur ?? "Camille D.", color: P.ink, fontSize: ajuste(32 * f, C.auteur ?? "Camille D.", 56 * f, 1.15, w * 0.6), fontWeight: 800 }),
+      ...(C.sous ? [text({ name: "Rôle", x: w * 0.2, y: h * 0.79, w: w * 0.6, h: 46 * f, text: C.sous, color: P.sub, fontSize: ajuste(26 * f, C.sous, 46 * f, 1.15, w * 0.6), fontWeight: 500 })] : []),
     ],
   }),
 
@@ -501,8 +541,8 @@ const MEP: Record<string, (c: Ctx) => Bati> = {
     return {
       bg: P.bg, bgg: null,
       layers: [
-        text({ name: "Titre", x: w * 0.08, y: h * 0.14, w: w * 0.84, h: h * 0.12, text: C.titre ?? "", color: P.ink, fontSize: 66 * f, fontWeight: 900, lineHeight: 1.1 }),
-        ...(C.sous ? [text({ name: "Sous", x: w * 0.14, y: h * 0.26, w: w * 0.72, h: 60 * f, text: C.sous, color: P.sub, fontSize: 30 * f, fontWeight: 500 })] : []),
+        text({ name: "Titre", x: w * 0.08, y: h * 0.14, w: w * 0.84, h: h * 0.12, text: C.titre ?? "", color: P.ink, fontSize: ajuste(66 * f, C.titre ?? "", h * 0.12, 1.1, w * 0.84), fontWeight: 900, lineHeight: 1.1 }),
+        ...(C.sous ? [text({ name: "Sous", x: w * 0.14, y: h * 0.26, w: w * 0.72, h: 60 * f, text: C.sous, color: P.sub, fontSize: ajuste(30 * f, C.sous, 60 * f, 1.15, w * 0.72), fontWeight: 500 })] : []),
         /* Rail vertical : un calque « ligne » se trace horizontalement dans sa
            boîte, le faire pivoter obligerait à recalculer son centre — un
            rectangle fin dit la même chose sans ce détour. */
@@ -512,9 +552,9 @@ const MEP: Record<string, (c: Ctx) => Bati> = {
           const y = y0 + i * dy;
           return [
             shape({ name: `Rond ${i + 1}`, shape: "ellipse", x: w * 0.09, y, w: 80 * f, h: 80 * f, fill: P.acc, gradient: { type: "linear", angle: 140, from: P.acc, to: P.acc2 }, shadow: ombre(20 * f, 0.25, 8 * f) }),
-            text({ name: `N° ${i + 1}`, x: w * 0.09, y: y + 20 * f, w: 80 * f, h: 46 * f, text: String(i + 1), color: P.on, fontSize: 36 * f, fontWeight: 900 }),
-            text({ name: `Étape ${i + 1}`, x: w * 0.09 + 110 * f, y: y + 2 * f, w: w * 0.82 - 110 * f, h: 56 * f, text: t ?? "", color: P.ink, fontSize: 38 * f, fontWeight: 800, align: "left" }),
-            text({ name: `Détail ${i + 1}`, x: w * 0.09 + 110 * f, y: y + 52 * f, w: w * 0.82 - 110 * f, h: dy * 0.5, text: d ?? "", color: P.sub, fontSize: 28 * f, fontWeight: 500, align: "left", lineHeight: 1.35 }),
+            text({ name: `N° ${i + 1}`, x: w * 0.09, y: y + 20 * f, w: 80 * f, h: 46 * f, text: String(i + 1), color: P.on, fontSize: ajuste(36 * f, String(i + 1), 46 * f, 1.15, 80 * f), fontWeight: 900 }),
+            text({ name: `Étape ${i + 1}`, x: w * 0.09 + 110 * f, y: y + 2 * f, w: w * 0.82 - 110 * f, h: 56 * f, text: t ?? "", color: P.ink, fontSize: ajuste(38 * f, t ?? "", 56 * f, 1.15, w * 0.82 - 110 * f), fontWeight: 800, align: "left" }),
+            text({ name: `Détail ${i + 1}`, x: w * 0.09 + 110 * f, y: y + 52 * f, w: w * 0.82 - 110 * f, h: dy * 0.5, text: d ?? "", color: P.sub, fontSize: ajuste(28 * f, d ?? "", dy * 0.5, 1.35, w * 0.82 - 110 * f), fontWeight: 500, align: "left", lineHeight: 1.35 }),
           ];
         }),
       ],
@@ -526,10 +566,10 @@ const MEP: Record<string, (c: Ctx) => Bati> = {
     bg: P.bg, bgg: P.bg2 ? { type: "linear", angle: 135, from: P.bg, to: P.bg2 } : null,
     layers: [
       shape({ name: "Sceau", shape: "seal", x: (w - Math.min(w, h) * 0.6) / 2, y: h * 0.18, w: Math.min(w, h) * 0.6, h: Math.min(w, h) * 0.6, fill: P.acc, gradient: { type: "linear", angle: 140, from: P.acc, to: P.acc2 }, shadow: ombre(50 * f, 0.35, 18 * f) }),
-      text({ name: "Remise", x: w * 0.2, y: h * 0.32, w: w * 0.6, h: h * 0.18, text: C.gros ?? "-40%", color: sur(P.acc), fontFamily: font(14), fontSize: 150 * f, fontWeight: 900 }),
-      text({ name: "Mention", x: w * 0.24, y: h * 0.5, w: w * 0.52, h: 60 * f, text: C.sur ?? "SUR TOUT LE SITE", color: sur(P.acc), fontSize: 30 * f, fontWeight: 700, letterSpacing: 5 * f, uppercase: true }),
-      text({ name: "Titre", x: w * 0.1, y: h * 0.74, w: w * 0.8, h: h * 0.1, text: C.titre ?? "", color: P.ink, fontSize: 52 * f, fontWeight: 900 }),
-      ...(C.meta ? [text({ name: "Code", x: w * 0.2, y: h * 0.86, w: w * 0.6, h: 56 * f, text: C.meta, color: P.sub, fontSize: 30 * f, fontWeight: 700, letterSpacing: 6 * f })] : []),
+      text({ name: "Remise", x: w * 0.2, y: h * 0.32, w: w * 0.6, h: h * 0.18, text: C.gros ?? "-40%", color: sur(P.acc), fontFamily: font(14), fontSize: ajuste(150 * f, C.gros ?? "-40%", h * 0.18, 1.15, w * 0.6), fontWeight: 900 }),
+      text({ name: "Mention", x: w * 0.24, y: h * 0.5, w: w * 0.52, h: 60 * f, text: C.sur ?? "SUR TOUT LE SITE", color: sur(P.acc), fontSize: ajuste(30 * f, C.sur ?? "SUR TOUT LE SITE", 60 * f, 1.15, w * 0.52), fontWeight: 700, letterSpacing: 5 * f, uppercase: true }),
+      text({ name: "Titre", x: w * 0.1, y: h * 0.74, w: w * 0.8, h: h * 0.1, text: C.titre ?? "", color: P.ink, fontSize: ajuste(52 * f, C.titre ?? "", h * 0.1, 1.15, w * 0.8), fontWeight: 900 }),
+      ...(C.meta ? [text({ name: "Code", x: w * 0.2, y: h * 0.86, w: w * 0.6, h: 56 * f, text: C.meta, color: P.sub, fontSize: ajuste(30 * f, C.meta, 56 * f, 1.15, w * 0.6), fontWeight: 700, letterSpacing: 6 * f })] : []),
     ],
   }),
 
@@ -539,11 +579,11 @@ const MEP: Record<string, (c: Ctx) => Bati> = {
     layers: [
       shape({ name: "Voile", x: 0, y: h * 0.55, w, h: h * 0.45, fill: P.acc, opacity: 0.16 }),
       shape({ name: "Filet", x: w * 0.1, y: h * 0.1, w: w * 0.8, h: 6 * f, fill: P.acc }),
-      ...(C.sur ? [text({ name: "Collection", x: w * 0.1, y: h * 0.13, w: w * 0.8, h: 56 * f, text: C.sur, color: lis(P.acc, P.bg, P.ink), fontSize: 28 * f, fontWeight: 700, letterSpacing: 10 * f, uppercase: true })] : []),
-      text({ name: "Titre", x: w * 0.08, y: h * 0.24, w: w * 0.84, h: h * 0.28, text: C.titre ?? "", color: P.ink, fontFamily: font(10), fontSize: 116 * f, fontWeight: 900, lineHeight: 1.08 }),
-      ...(C.sous ? [text({ name: "Accroche", x: w * 0.12, y: h * 0.58, w: w * 0.76, h: h * 0.12, text: C.sous, color: P.sub, fontSize: 36 * f, fontWeight: 400, italic: true, lineHeight: 1.4 })] : []),
+      ...(C.sur ? [text({ name: "Collection", x: w * 0.1, y: h * 0.13, w: w * 0.8, h: 56 * f, text: C.sur, color: lis(P.acc, P.bg, P.ink), fontSize: ajuste(28 * f, C.sur, 56 * f, 1.15, w * 0.8), fontWeight: 700, letterSpacing: 10 * f, uppercase: true })] : []),
+      text({ name: "Titre", x: w * 0.08, y: h * 0.24, w: w * 0.84, h: h * 0.28, text: C.titre ?? "", color: P.ink, fontFamily: font(10), fontSize: ajuste(116 * f, C.titre ?? "", h * 0.28, 1.08, w * 0.84), fontWeight: 900, lineHeight: 1.08 }),
+      ...(C.sous ? [text({ name: "Accroche", x: w * 0.12, y: h * 0.58, w: w * 0.76, h: h * 0.12, text: C.sous, color: P.sub, fontSize: ajuste(36 * f, C.sous, h * 0.12, 1.4, w * 0.76), fontWeight: 400, italic: true, lineHeight: 1.4 })] : []),
       line({ x: w * 0.35, y: h * 0.76, w: w * 0.3, stroke: P.acc, strokeWidth: 3 * f }),
-      text({ name: "Auteur", x: w * 0.12, y: h * 0.82, w: w * 0.76, h: 60 * f, text: C.auteur ?? "PRÉNOM NOM", color: P.ink, fontSize: 34 * f, fontWeight: 700, letterSpacing: 8 * f, uppercase: true }),
+      text({ name: "Auteur", x: w * 0.12, y: h * 0.82, w: w * 0.76, h: 60 * f, text: C.auteur ?? "PRÉNOM NOM", color: P.ink, fontSize: ajuste(34 * f, C.auteur ?? "PRÉNOM NOM", 60 * f, 1.15, w * 0.76), fontWeight: 700, letterSpacing: 8 * f, uppercase: true }),
     ],
   }),
 
@@ -557,8 +597,8 @@ const MEP: Record<string, (c: Ctx) => Bati> = {
         ...Array.from({ length: cols * rows }, (_, i) =>
           shape({ name: `Pavé ${i + 1}`, x: (i % cols) * cw, y: ((i / cols) | 0) * ch, w: cw, h: ch, fill: teintes[(i * 3 + ((i / cols) | 0)) % teintes.length], opacity: 0.25 + ((i * 7) % 5) * 0.13 })),
         shape({ name: "Carte", x: w * 0.1, y: h * 0.32, w: w * 0.8, h: h * 0.36, fill: P.bg, radius: 32 * f, stroke: P.acc, strokeWidth: 2 * f, shadow: ombre(60 * f, 0.35, 20 * f) }),
-        text({ name: "Titre", x: w * 0.13, y: h * 0.38, w: w * 0.74, h: h * 0.14, text: C.titre ?? "", color: P.ink, fontSize: 66 * f, fontWeight: 900, lineHeight: 1.1 }),
-        ...(C.sous ? [text({ name: "Sous", x: w * 0.15, y: h * 0.55, w: w * 0.7, h: h * 0.1, text: C.sous, color: P.sub, fontSize: 32 * f, fontWeight: 500 })] : []),
+        text({ name: "Titre", x: w * 0.13, y: h * 0.38, w: w * 0.74, h: h * 0.14, text: C.titre ?? "", color: P.ink, fontSize: ajuste(66 * f, C.titre ?? "", h * 0.14, 1.1, w * 0.74), fontWeight: 900, lineHeight: 1.1 }),
+        ...(C.sous ? [text({ name: "Sous", x: w * 0.15, y: h * 0.55, w: w * 0.7, h: h * 0.1, text: C.sous, color: P.sub, fontSize: ajuste(32 * f, C.sous, h * 0.1, 1.15, w * 0.7), fontWeight: 500 })] : []),
       ],
     };
   },
@@ -572,9 +612,9 @@ const MEP: Record<string, (c: Ctx) => Bati> = {
         ...Array.from({ length: n }, (_, i) =>
           shape({ name: `Rayon ${i + 1}`, shape: "triangle", x: w / 2 - d * 0.06, y: h / 2 - d / 2, w: d * 0.12, h: d / 2, fill: P.acc, rotation: (i * 360) / n, opacity: i % 2 ? 0.22 : 0.12 })),
         shape({ name: "Disque", shape: "ellipse", x: (w - Math.min(w, h) * 0.62) / 2, y: h * 0.24, w: Math.min(w, h) * 0.62, h: Math.min(w, h) * 0.62, fill: P.bg, stroke: P.acc, strokeWidth: 6 * f }),
-        ...(C.sur ? [text({ name: "Sur", x: w * 0.2, y: h * 0.35, w: w * 0.6, h: 56 * f, text: C.sur, color: lis(P.acc, P.bg, P.ink), fontSize: 28 * f, fontWeight: 800, letterSpacing: 8 * f, uppercase: true })] : []),
-        text({ name: "Titre", x: w * 0.16, y: h * 0.42, w: w * 0.68, h: h * 0.16, text: C.titre ?? "", color: P.ink, fontFamily: font(13), fontSize: 84 * f, fontWeight: 900, lineHeight: 1.1, uppercase: true }),
-        ...(C.sous ? [text({ name: "Sous", x: w * 0.2, y: h * 0.72, w: w * 0.6, h: h * 0.1, text: C.sous, color: P.sub, fontSize: 32 * f, fontWeight: 600 })] : []),
+        ...(C.sur ? [text({ name: "Sur", x: w * 0.2, y: h * 0.35, w: w * 0.6, h: 56 * f, text: C.sur, color: lis(P.acc, P.bg, P.ink), fontSize: ajuste(28 * f, C.sur, 56 * f, 1.15, w * 0.6), fontWeight: 800, letterSpacing: 8 * f, uppercase: true })] : []),
+        text({ name: "Titre", x: w * 0.16, y: h * 0.42, w: w * 0.68, h: h * 0.16, text: C.titre ?? "", color: P.ink, fontFamily: font(13), fontSize: ajuste(84 * f, C.titre ?? "", h * 0.16, 1.1, w * 0.68), fontWeight: 900, lineHeight: 1.1, uppercase: true }),
+        ...(C.sous ? [text({ name: "Sous", x: w * 0.2, y: h * 0.72, w: w * 0.6, h: h * 0.1, text: C.sous, color: P.sub, fontSize: ajuste(32 * f, C.sous, h * 0.1, 1.15, w * 0.6), fontWeight: 600 })] : []),
       ],
     };
   },
@@ -585,9 +625,9 @@ const MEP: Record<string, (c: Ctx) => Bati> = {
     layers: [
       shape({ name: "Halo", shape: "ellipse", x: w * 0.1, y: h * 0.16, w: w * 0.8, h: w * 0.8, fill: P.acc, opacity: 0.2, shadow: ombre(120 * f, 0.8, 0, P.acc) }),
       shape({ name: "Anneau", shape: "ring", x: (w - Math.min(w, h) * 0.56) / 2, y: h * 0.2, w: Math.min(w, h) * 0.56, h: Math.min(w, h) * 0.56, fill: P.acc, gradient: { type: "linear", angle: 135, from: P.acc, to: P.acc2 }, shadow: ombre(60 * f, 0.7, 0, P.acc2) }),
-      ...(C.gros ? [text({ name: "Sigle", x: w * 0.25, y: h * 0.32, w: w * 0.5, h: h * 0.16, text: C.gros, color: P.ink, fontFamily: font(13), fontSize: 120 * f, fontWeight: 900 })] : []),
-      text({ name: "Titre", x: w * 0.1, y: h * 0.66, w: w * 0.8, h: h * 0.14, text: C.titre ?? "", color: P.ink, fontSize: 62 * f, fontWeight: 900, letterSpacing: 4 * f, uppercase: true, shadow: ombre(30 * f, 0.7, 0, P.acc) }),
-      ...(C.sous ? [text({ name: "Sous", x: w * 0.14, y: h * 0.8, w: w * 0.72, h: h * 0.1, text: C.sous, color: P.sub, fontSize: 30 * f, fontWeight: 500, letterSpacing: 6 * f })] : []),
+      ...(C.gros ? [text({ name: "Sigle", x: w * 0.25, y: h * 0.32, w: w * 0.5, h: h * 0.16, text: C.gros, color: P.ink, fontFamily: font(13), fontSize: ajuste(120 * f, C.gros, h * 0.16, 1.15, w * 0.5), fontWeight: 900 })] : []),
+      text({ name: "Titre", x: w * 0.1, y: h * 0.66, w: w * 0.8, h: h * 0.14, text: C.titre ?? "", color: P.ink, fontSize: ajuste(62 * f, C.titre ?? "", h * 0.14, 1.15, w * 0.8), fontWeight: 900, letterSpacing: 4 * f, uppercase: true, shadow: ombre(30 * f, 0.7, 0, P.acc) }),
+      ...(C.sous ? [text({ name: "Sous", x: w * 0.14, y: h * 0.8, w: w * 0.72, h: h * 0.1, text: C.sous, color: P.sub, fontSize: ajuste(30 * f, C.sous, h * 0.1, 1.15, w * 0.72), fontWeight: 500, letterSpacing: 6 * f })] : []),
     ],
   }),
 
@@ -598,10 +638,10 @@ const MEP: Record<string, (c: Ctx) => Bati> = {
       shape({ name: "Galet", shape: "ellipse", x: -w * 0.28, y: -h * 0.12, w: w * 0.6, h: w * 0.56, fill: P.acc, opacity: 0.2, rotation: -18 }),
       shape({ name: "Galet 2", shape: "ellipse", x: w * 0.72, y: h * 0.74, w: w * 0.52, h: w * 0.48, fill: P.acc2, opacity: 0.18, rotation: 24 }),
       shape({ name: "Goutte", shape: "drop", x: w * 0.8, y: h * 0.06, w: 110 * f, h: 128 * f, fill: P.acc, opacity: 0.45, rotation: 20 }),
-      ...(C.sur ? [text({ name: "Sur", x: w * 0.1, y: h * 0.32, w: w * 0.8, h: 56 * f, text: C.sur, color: lis(P.acc, P.bg, P.ink), fontSize: 28 * f, fontWeight: 700, letterSpacing: 9 * f, uppercase: true })] : []),
-      text({ name: "Titre", x: w * 0.1, y: h * 0.39, w: w * 0.8, h: h * 0.2, text: C.titre ?? "", color: P.ink, fontFamily: font(10), fontSize: 86 * f, fontWeight: 700, lineHeight: 1.2 }),
-      ...(C.sous ? [text({ name: "Sous", x: w * 0.15, y: h * 0.63, w: w * 0.7, h: h * 0.12, text: C.sous, color: P.sub, fontSize: 34 * f, fontWeight: 400, lineHeight: 1.45 })] : []),
-      ...(C.cta ? [text({ name: "CTA", x: w * 0.2, y: h * 0.82, w: w * 0.6, h: 56 * f, text: C.cta, color: lis(P.acc, P.bg, P.ink), fontSize: 30 * f, fontWeight: 800, letterSpacing: 4 * f, underline: true })] : []),
+      ...(C.sur ? [text({ name: "Sur", x: w * 0.1, y: h * 0.32, w: w * 0.8, h: 56 * f, text: C.sur, color: lis(P.acc, P.bg, P.ink), fontSize: ajuste(28 * f, C.sur, 56 * f, 1.15, w * 0.8), fontWeight: 700, letterSpacing: 9 * f, uppercase: true })] : []),
+      text({ name: "Titre", x: w * 0.1, y: h * 0.39, w: w * 0.8, h: h * 0.2, text: C.titre ?? "", color: P.ink, fontFamily: font(10), fontSize: ajuste(86 * f, C.titre ?? "", h * 0.2, 1.2, w * 0.8), fontWeight: 700, lineHeight: 1.2 }),
+      ...(C.sous ? [text({ name: "Sous", x: w * 0.15, y: h * 0.63, w: w * 0.7, h: h * 0.12, text: C.sous, color: P.sub, fontSize: ajuste(34 * f, C.sous, h * 0.12, 1.45, w * 0.7), fontWeight: 400, lineHeight: 1.45 })] : []),
+      ...(C.cta ? [text({ name: "CTA", x: w * 0.2, y: h * 0.82, w: w * 0.6, h: 56 * f, text: C.cta, color: lis(P.acc, P.bg, P.ink), fontSize: ajuste(30 * f, C.cta, 56 * f, 1.15, w * 0.6), fontWeight: 800, letterSpacing: 4 * f, underline: true })] : []),
     ],
   }),
 
@@ -612,11 +652,11 @@ const MEP: Record<string, (c: Ctx) => Bati> = {
       shape({ name: "Billet", x: w * 0.04, y: h * 0.1, w: w * 0.92, h: h * 0.8, fill: P.bg, radius: 26 * f, stroke: P.acc, strokeWidth: 3 * f, shadow: ombre(40 * f, 0.2, 14 * f) }),
       shape({ name: "Souche", x: w * 0.68, y: h * 0.1, w: w * 0.28, h: h * 0.8, fill: P.acc, opacity: 0.12, radius: 26 * f }),
       line({ x: w * 0.68, y: h * 0.1, w: 3 * f, h: h * 0.8, stroke: P.acc, strokeWidth: 3 * f, dash: "dashed", rotation: 90, opacity: 0.7 }),
-      ...(C.sur ? [text({ name: "Sur", x: w * 0.08, y: h * 0.2, w: w * 0.54, h: 50 * f, text: C.sur, color: P.acc, fontSize: 26 * f, fontWeight: 800, align: "left", letterSpacing: 8 * f, uppercase: true })] : []),
-      text({ name: "Titre", x: w * 0.08, y: h * 0.3, w: w * 0.56, h: h * 0.2, text: C.titre ?? "", color: P.ink, fontSize: 58 * f, fontWeight: 900, align: "left", lineHeight: 1.1 }),
-      ...(C.meta ? [text({ name: "Infos", x: w * 0.08, y: h * 0.62, w: w * 0.56, h: h * 0.2, text: C.meta, color: P.sub, fontSize: 28 * f, fontWeight: 500, align: "left", lineHeight: 1.5 })] : []),
-      text({ name: "Valeur", x: w * 0.68, y: h * 0.36, w: w * 0.28, h: h * 0.2, text: C.gros ?? "N° 042", color: lis(P.acc, P.bg, P.ink), fontFamily: font(13), fontSize: 62 * f, fontWeight: 900 }),
-      ...(C.sous ? [text({ name: "Mention", x: w * 0.68, y: h * 0.6, w: w * 0.28, h: 60 * f, text: C.sous, color: P.sub, fontSize: 24 * f, fontWeight: 600 })] : []),
+      ...(C.sur ? [text({ name: "Sur", x: w * 0.08, y: h * 0.2, w: w * 0.54, h: 50 * f, text: C.sur, color: lis(P.acc, P.bg, P.ink), fontSize: ajuste(26 * f, C.sur, 50 * f, 1.15, w * 0.54), fontWeight: 800, align: "left", letterSpacing: 8 * f, uppercase: true })] : []),
+      text({ name: "Titre", x: w * 0.08, y: h * 0.3, w: w * 0.56, h: h * 0.2, text: C.titre ?? "", color: P.ink, fontSize: ajuste(58 * f, C.titre ?? "", h * 0.2, 1.1, w * 0.56), fontWeight: 900, align: "left", lineHeight: 1.1 }),
+      ...(C.meta ? [text({ name: "Infos", x: w * 0.08, y: h * 0.62, w: w * 0.56, h: h * 0.2, text: C.meta, color: P.sub, fontSize: ajuste(28 * f, C.meta, h * 0.2, 1.5, w * 0.56), fontWeight: 500, align: "left", lineHeight: 1.5 })] : []),
+      text({ name: "Valeur", x: w * 0.68, y: h * 0.36, w: w * 0.28, h: h * 0.2, text: C.gros ?? "N° 042", color: lis(P.acc, P.bg, P.ink), fontFamily: font(13), fontSize: ajuste(62 * f, C.gros ?? "N° 042", h * 0.2, 1.15, w * 0.28), fontWeight: 900 }),
+      ...(C.sous ? [text({ name: "Mention", x: w * 0.68, y: h * 0.6, w: w * 0.28, h: 60 * f, text: C.sous, color: P.sub, fontSize: ajuste(24 * f, C.sous, 60 * f, 1.15, w * 0.28), fontWeight: 600 })] : []),
     ],
   }),
 
@@ -626,14 +666,14 @@ const MEP: Record<string, (c: Ctx) => Bati> = {
     layers: [
       shape({ name: "Bloc", x: w * 0.56, y: 0, w: w * 0.44, h, fill: P.acc, opacity: 0.14 }),
       shape({ name: "Filet", x: w * 0.07, y: h * 0.24, w: 8 * f, h: h * 0.16, fill: P.acc }),
-      ...(C.sur ? [text({ name: "Chapitre", x: w * 0.1, y: h * 0.16, w: w * 0.4, h: 56 * f, text: C.sur, color: P.acc, fontSize: 26 * f, fontWeight: 800, align: "left", letterSpacing: 8 * f, uppercase: true })] : []),
-      text({ name: "Titre", x: w * 0.1, y: h * 0.26, w: w * 0.42, h: h * 0.26, text: C.titre ?? "", color: P.ink, fontSize: 76 * f, fontWeight: 900, align: "left", lineHeight: 1.12 }),
-      ...(C.sous ? [text({ name: "Sous", x: w * 0.1, y: h * 0.58, w: w * 0.4, h: h * 0.2, text: C.sous, color: P.sub, fontSize: 32 * f, fontWeight: 500, align: "left", lineHeight: 1.5 })] : []),
+      ...(C.sur ? [text({ name: "Chapitre", x: w * 0.1, y: h * 0.16, w: w * 0.4, h: 56 * f, text: C.sur, color: lis(P.acc, P.bg, P.ink), fontSize: ajuste(26 * f, C.sur, 56 * f, 1.15, w * 0.4), fontWeight: 800, align: "left", letterSpacing: 8 * f, uppercase: true })] : []),
+      text({ name: "Titre", x: w * 0.1, y: h * 0.26, w: w * 0.42, h: h * 0.26, text: C.titre ?? "", color: P.ink, fontSize: ajuste(76 * f, C.titre ?? "", h * 0.26, 1.12, w * 0.42), fontWeight: 900, align: "left", lineHeight: 1.12 }),
+      ...(C.sous ? [text({ name: "Sous", x: w * 0.1, y: h * 0.58, w: w * 0.4, h: h * 0.2, text: C.sous, color: P.sub, fontSize: ajuste(32 * f, C.sous, h * 0.2, 1.5, w * 0.4), fontWeight: 500, align: "left", lineHeight: 1.5 })] : []),
       ...(C.items ?? []).slice(0, 4).map((s, i) => text({
         name: `Point ${i + 1}`, x: w * 0.62, y: h * 0.28 + i * h * 0.12, w: w * 0.32, h: h * 0.1,
-        text: `•  ${s}`, color: P.ink, fontSize: 32 * f, fontWeight: 600, align: "left", lineHeight: 1.35,
+        text: `•  ${s}`, color: P.ink, fontSize: ajuste(32 * f, `•  ${s}`, h * 0.1, 1.35, w * 0.32), fontWeight: 600, align: "left", lineHeight: 1.35,
       })),
-      ...(C.meta ? [text({ name: "Pied", x: w * 0.1, y: h * 0.88, w: w * 0.4, h: 46 * f, text: C.meta, color: P.sub, fontSize: 24 * f, fontWeight: 500, align: "left" })] : []),
+      ...(C.meta ? [text({ name: "Pied", x: w * 0.1, y: h * 0.88, w: w * 0.4, h: 46 * f, text: C.meta, color: P.sub, fontSize: ajuste(24 * f, C.meta, 46 * f, 1.15, w * 0.4), fontWeight: 500, align: "left" })] : []),
     ],
   }),
 
@@ -648,12 +688,12 @@ const MEP: Record<string, (c: Ctx) => Bati> = {
       layers: [
         shape({ name: "Moitié A", x: 0, y: 0, w: vert ? w : w / 2, h: vert ? h / 2 : h, fill: P.sub, opacity: 0.18 }),
         shape({ name: "Moitié B", x: vert ? 0 : w / 2, y: vert ? h / 2 : 0, w: vert ? w : w / 2, h: vert ? h / 2 : h, fill: P.acc, gradient: { type: "linear", angle: 150, from: P.acc, to: P.acc2 } }),
-        text({ name: "Titre A", x: vert ? w * 0.1 : w * 0.06, y: vert ? h * 0.16 : h * 0.34, w: vert ? w * 0.8 : w * 0.38, h: h * 0.1, text: at ?? "", color: P.ink, fontSize: 62 * f, fontWeight: 900 }),
-        text({ name: "Détail A", x: vert ? w * 0.14 : w * 0.08, y: vert ? h * 0.28 : h * 0.46, w: vert ? w * 0.72 : w * 0.34, h: h * 0.14, text: ad ?? "", color: P.sub, fontSize: 30 * f, fontWeight: 500, lineHeight: 1.4 }),
-        text({ name: "Titre B", x: vert ? w * 0.1 : w * 0.56, y: vert ? h * 0.64 : h * 0.34, w: vert ? w * 0.8 : w * 0.38, h: h * 0.1, text: bt ?? "", color: P.on, fontSize: 62 * f, fontWeight: 900 }),
-        text({ name: "Détail B", x: vert ? w * 0.14 : w * 0.58, y: vert ? h * 0.76 : h * 0.46, w: vert ? w * 0.72 : w * 0.34, h: h * 0.14, text: bd ?? "", color: P.on, fontSize: 30 * f, fontWeight: 500, lineHeight: 1.4, opacity: 0.9 }),
+        text({ name: "Titre A", x: vert ? w * 0.1 : w * 0.06, y: vert ? h * 0.16 : h * 0.34, w: vert ? w * 0.8 : w * 0.38, h: h * 0.1, text: at ?? "", color: P.ink, fontSize: ajuste(62 * f, at ?? "", h * 0.1, 1.15, vert ? w * 0.8 : w * 0.38), fontWeight: 900 }),
+        text({ name: "Détail A", x: vert ? w * 0.14 : w * 0.08, y: vert ? h * 0.28 : h * 0.46, w: vert ? w * 0.72 : w * 0.34, h: h * 0.14, text: ad ?? "", color: P.sub, fontSize: ajuste(30 * f, ad ?? "", h * 0.14, 1.4, vert ? w * 0.72 : w * 0.34), fontWeight: 500, lineHeight: 1.4 }),
+        text({ name: "Titre B", x: vert ? w * 0.1 : w * 0.56, y: vert ? h * 0.64 : h * 0.34, w: vert ? w * 0.8 : w * 0.38, h: h * 0.1, text: bt ?? "", color: P.on, fontSize: ajuste(62 * f, bt ?? "", h * 0.1, 1.15, vert ? w * 0.8 : w * 0.38), fontWeight: 900 }),
+        text({ name: "Détail B", x: vert ? w * 0.14 : w * 0.58, y: vert ? h * 0.76 : h * 0.46, w: vert ? w * 0.72 : w * 0.34, h: h * 0.14, text: bd ?? "", color: P.on, fontSize: ajuste(30 * f, bd ?? "", h * 0.14, 1.4, vert ? w * 0.72 : w * 0.34), fontWeight: 500, lineHeight: 1.4, opacity: 0.9 }),
         shape({ name: "Pastille", shape: "ellipse", x: (w - 96 * f) / 2, y: (h - 96 * f) / 2, w: 96 * f, h: 96 * f, fill: P.bg, shadow: ombre(24 * f, 0.3, 6 * f) }),
-        text({ name: "VS", x: (w - 96 * f) / 2, y: (h - 96 * f) / 2 + 26 * f, w: 96 * f, h: 46 * f, text: C.gros ?? "VS", color: P.ink, fontSize: 32 * f, fontWeight: 900 }),
+        text({ name: "VS", x: (w - 96 * f) / 2, y: (h - 96 * f) / 2 + 26 * f, w: 96 * f, h: 46 * f, text: C.gros ?? "VS", color: P.ink, fontSize: ajuste(32 * f, C.gros ?? "VS", 46 * f, 1.15, 96 * f), fontWeight: 900 }),
       ],
     };
   },
@@ -665,12 +705,12 @@ const MEP: Record<string, (c: Ctx) => Bati> = {
       bg: P.bg, bgg: null,
       layers: [
         shape({ name: "Visuel", x: 0, y: 0, w, h: h * 0.44, fill: P.acc, gradient: { type: "linear", angle: 145, from: P.acc, to: P.acc2 } }),
-        ...(C.emoji ? [text({ name: "Emoji", x: w * 0.3, y: h * 0.1, w: w * 0.4, h: h * 0.24, text: C.emoji, fontSize: Math.min(w, h) * 0.2, fontWeight: 400 })] : []),
+        ...(C.emoji ? [text({ name: "Emoji", x: w * 0.3, y: h * 0.1, w: w * 0.4, h: h * 0.24, text: C.emoji, fontSize: ajuste(Math.min(w, h) * 0.2, C.emoji, h * 0.24, 1.15, w * 0.4), fontWeight: 400 })] : []),
         shape({ name: "Étiquette", x: w * 0.06, y: h * 0.38, w: w * 0.34, h: 84 * f, fill: P.bg, radius: 44 * f, shadow: ombre(26 * f, 0.25, 8 * f) }),
-        text({ name: "Prix", x: w * 0.06, y: h * 0.38 + 20 * f, w: w * 0.34, h: 54 * f, text: C.gros ?? "129 €", color: lis(P.acc, P.bg, P.ink), fontSize: 40 * f, fontWeight: 900 }),
-        text({ name: "Titre", x: w * 0.06, y: h * 0.52, w: w * 0.88, h: h * 0.14, text: C.titre ?? "", color: P.ink, fontSize: 60 * f, fontWeight: 900, align: "left", lineHeight: 1.12 }),
-        ...(C.sous ? [text({ name: "Sous", x: w * 0.06, y: h * 0.66, w: w * 0.86, h: h * 0.08, text: C.sous, color: P.sub, fontSize: 30 * f, fontWeight: 500, align: "left" })] : []),
-        ...it.map((s, i) => text({ name: `Carac ${i + 1}`, x: w * 0.06, y: h * 0.74 + i * h * 0.058, w: w * 0.86, h: 50 * f, text: `•  ${s}`, color: P.ink, fontSize: 27 * f, fontWeight: 600, align: "left" })),
+        text({ name: "Prix", x: w * 0.06, y: h * 0.38 + 20 * f, w: w * 0.34, h: 54 * f, text: C.gros ?? "129 €", color: lis(P.acc, P.bg, P.ink), fontSize: ajuste(40 * f, C.gros ?? "129 €", 54 * f, 1.15, w * 0.34), fontWeight: 900 }),
+        text({ name: "Titre", x: w * 0.06, y: h * 0.52, w: w * 0.88, h: h * 0.14, text: C.titre ?? "", color: P.ink, fontSize: ajuste(60 * f, C.titre ?? "", h * 0.14, 1.12, w * 0.88), fontWeight: 900, align: "left", lineHeight: 1.12 }),
+        ...(C.sous ? [text({ name: "Sous", x: w * 0.06, y: h * 0.66, w: w * 0.86, h: h * 0.08, text: C.sous, color: P.sub, fontSize: ajuste(30 * f, C.sous, h * 0.08, 1.15, w * 0.86), fontWeight: 500, align: "left" })] : []),
+        ...it.map((s, i) => text({ name: `Carac ${i + 1}`, x: w * 0.06, y: h * 0.74 + i * h * 0.058, w: w * 0.86, h: 50 * f, text: `•  ${s}`, color: P.ink, fontSize: ajuste(27 * f, `•  ${s}`, 50 * f, 1.15, w * 0.86), fontWeight: 600, align: "left" })),
       ],
     };
   },
@@ -683,18 +723,18 @@ const MEP: Record<string, (c: Ctx) => Bati> = {
       layers: [
         shape({ name: "Colonne", x: 0, y: 0, w: w * 0.34, h, fill: P.ink }),
         shape({ name: "Portrait", shape: "ellipse", x: w * 0.08, y: h * 0.06, w: w * 0.18, h: w * 0.18, fill: P.acc, gradient: { type: "linear", angle: 140, from: P.acc, to: P.acc2 } }),
-        text({ name: "Sigle", x: w * 0.08, y: h * 0.06 + w * 0.045, w: w * 0.18, h: w * 0.1, text: C.gros ?? "TX", color: P.on, fontSize: 62 * f, fontWeight: 900 }),
-        text({ name: "Nom", x: w * 0.04, y: h * 0.2, w: w * 0.26, h: h * 0.06, text: C.titre ?? "", color: P.bg, fontSize: 42 * f, fontWeight: 900, lineHeight: 1.1 }),
-        text({ name: "Rôle", x: w * 0.04, y: h * 0.26, w: w * 0.26, h: 50 * f, text: C.sur ?? "", color: lis(P.acc, P.ink, P.bg), fontSize: 22 * f, fontWeight: 700, letterSpacing: 3 * f, uppercase: true }),
-        text({ name: "Contact", x: w * 0.05, y: h * 0.34, w: w * 0.25, h: h * 0.14, text: C.sous ?? "", color: lis(P.sub, P.ink, P.bg), fontSize: 20 * f, fontWeight: 500, align: "left", lineHeight: 1.7 }),
-        text({ name: "Section", x: w * 0.4, y: h * 0.08, w: w * 0.5, h: 56 * f, text: C.meta ?? "PARCOURS", color: lis(P.acc, P.bg, P.ink), fontSize: 26 * f, fontWeight: 800, align: "left", letterSpacing: 8 * f, uppercase: true }),
+        text({ name: "Sigle", x: w * 0.08, y: h * 0.06 + w * 0.045, w: w * 0.18, h: w * 0.1, text: C.gros ?? "TX", color: P.on, fontSize: ajuste(62 * f, C.gros ?? "TX", w * 0.1, 1.15, w * 0.18), fontWeight: 900 }),
+        text({ name: "Nom", x: w * 0.04, y: h * 0.2, w: w * 0.26, h: h * 0.06, text: C.titre ?? "", color: P.bg, fontSize: ajuste(42 * f, C.titre ?? "", h * 0.06, 1.1, w * 0.26), fontWeight: 900, lineHeight: 1.1 }),
+        text({ name: "Rôle", x: w * 0.04, y: h * 0.26, w: w * 0.26, h: 50 * f, text: C.sur ?? "", color: lis(P.acc, P.ink, P.bg), fontSize: ajuste(22 * f, C.sur ?? "", 50 * f, 1.15, w * 0.26), fontWeight: 700, letterSpacing: 3 * f, uppercase: true }),
+        text({ name: "Contact", x: w * 0.05, y: h * 0.34, w: w * 0.25, h: h * 0.14, text: C.sous ?? "", color: lis(P.sub, P.ink, P.bg), fontSize: ajuste(20 * f, C.sous ?? "", h * 0.14, 1.7, w * 0.25), fontWeight: 500, align: "left", lineHeight: 1.7 }),
+        text({ name: "Section", x: w * 0.4, y: h * 0.08, w: w * 0.5, h: 56 * f, text: C.meta ?? "PARCOURS", color: lis(P.acc, P.bg, P.ink), fontSize: ajuste(26 * f, C.meta ?? "PARCOURS", 56 * f, 1.15, w * 0.5), fontWeight: 800, align: "left", letterSpacing: 8 * f, uppercase: true }),
         line({ x: w * 0.4, y: h * 0.13, w: w * 0.52, stroke: P.acc, strokeWidth: 3 * f }),
         ...it.flatMap((s, i) => {
           const [t, d] = s.split("|");
           const y = h * 0.18 + i * h * 0.18;
           return [
-            text({ name: `Poste ${i + 1}`, x: w * 0.4, y, w: w * 0.54, h: 54 * f, text: t ?? "", color: P.ink, fontSize: 32 * f, fontWeight: 800, align: "left" }),
-            text({ name: `Détail ${i + 1}`, x: w * 0.4, y: y + 46 * f, w: w * 0.54, h: h * 0.1, text: d ?? "", color: P.sub, fontSize: 23 * f, fontWeight: 500, align: "left", lineHeight: 1.5 }),
+            text({ name: `Poste ${i + 1}`, x: w * 0.4, y, w: w * 0.54, h: 54 * f, text: t ?? "", color: P.ink, fontSize: ajuste(32 * f, t ?? "", 54 * f, 1.15, w * 0.54), fontWeight: 800, align: "left" }),
+            text({ name: `Détail ${i + 1}`, x: w * 0.4, y: y + 46 * f, w: w * 0.54, h: h * 0.1, text: d ?? "", color: P.sub, fontSize: ajuste(23 * f, d ?? "", h * 0.1, 1.5, w * 0.54), fontWeight: 500, align: "left", lineHeight: 1.5 }),
           ];
         }),
       ],
@@ -709,9 +749,9 @@ const MEP: Record<string, (c: Ctx) => Bati> = {
       bg: P.bg, bgg: P.bg2 ? { type: "radial", angle: 0, from: P.bg2, to: P.bg } : null,
       layers: [
         shape({ name: "Signe", shape: k, x: (w - d) / 2, y: h * 0.14, w: d, h: d, fill: P.acc, gradient: { type: "linear", angle: 135, from: P.acc, to: P.acc2 }, shadow: ombre(40 * f, 0.28, 14 * f) }),
-        text({ name: "Sigle", x: (w - d) / 2, y: h * 0.14 + d * 0.28, w: d, h: d * 0.4, text: C.gros ?? "TX", color: k === "ring" ? lis(P.ink, P.bg, sur(P.bg)) : sur(P.acc), fontFamily: font(13), fontSize: d * 0.34, fontWeight: 900, letterSpacing: 2 * f }),
-        text({ name: "Nom", x: w * 0.08, y: h * 0.79, w: w * 0.84, h: h * 0.08, text: C.titre ?? "", color: P.ink, fontSize: 52 * f, fontWeight: 800, letterSpacing: 10 * f, uppercase: true }),
-        ...(C.sous ? [text({ name: "Baseline", x: w * 0.12, y: h * 0.88, w: w * 0.76, h: 50 * f, text: C.sous, color: P.sub, fontSize: 26 * f, fontWeight: 500, letterSpacing: 5 * f })] : []),
+        text({ name: "Sigle", x: (w - d) / 2, y: h * 0.14 + d * 0.28, w: d, h: d * 0.4, text: C.gros ?? "TX", color: k === "ring" ? lis(P.ink, P.bg, sur(P.bg)) : sur(P.acc), fontFamily: font(13), fontSize: ajuste(d * 0.34, C.gros ?? "TX", d * 0.4, 1.15, d), fontWeight: 900, letterSpacing: 2 * f }),
+        text({ name: "Nom", x: w * 0.08, y: h * 0.79, w: w * 0.84, h: h * 0.08, text: C.titre ?? "", color: P.ink, fontSize: ajuste(52 * f, C.titre ?? "", h * 0.08, 1.15, w * 0.84), fontWeight: 800, letterSpacing: 10 * f, uppercase: true }),
+        ...(C.sous ? [text({ name: "Baseline", x: w * 0.12, y: h * 0.88, w: w * 0.76, h: 50 * f, text: C.sous, color: P.sub, fontSize: ajuste(26 * f, C.sous, 50 * f, 1.15, w * 0.76), fontWeight: 500, letterSpacing: 5 * f })] : []),
       ],
     };
   },
@@ -723,13 +763,13 @@ const MEP: Record<string, (c: Ctx) => Bati> = {
       bg: P.bg, bgg: P.bg2 ? { type: "linear", angle: 160, from: P.bg, to: P.bg2 } : null,
       layers: [
         shape({ name: "Étiquette", x: w * 0.08, y: h * 0.12, w: w * 0.42, h: 82 * f, fill: P.acc, radius: 44 * f, rotation: -2 }),
-        text({ name: "Nous recrutons", x: w * 0.08, y: h * 0.12 + 20 * f, w: w * 0.42, h: 54 * f, text: C.sur ?? "NOUS RECRUTONS", color: P.on, fontSize: 28 * f, fontWeight: 800, letterSpacing: 4 * f, rotation: -2 }),
-        text({ name: "Poste", x: w * 0.07, y: h * 0.26, w: w * 0.86, h: h * 0.18, text: C.titre ?? "", color: P.ink, fontSize: 78 * f, fontWeight: 900, align: "left", lineHeight: 1.1 }),
-        ...(C.sous ? [text({ name: "Contrat", x: w * 0.07, y: h * 0.46, w: w * 0.86, h: 60 * f, text: C.sous, color: lis(P.acc, P.bg, P.ink), fontSize: 32 * f, fontWeight: 700, align: "left" })] : []),
-        ...it.map((s, i) => text({ name: `Mission ${i + 1}`, x: w * 0.07, y: h * 0.56 + i * h * 0.075, w: w * 0.86, h: 60 * f, text: `→  ${s}`, color: P.ink, fontSize: 30 * f, fontWeight: 600, align: "left" })),
+        text({ name: "Nous recrutons", x: w * 0.08, y: h * 0.12 + 20 * f, w: w * 0.42, h: 54 * f, text: C.sur ?? "NOUS RECRUTONS", color: P.on, fontSize: ajuste(28 * f, C.sur ?? "NOUS RECRUTONS", 54 * f, 1.15, w * 0.42), fontWeight: 800, letterSpacing: 4 * f, rotation: -2 }),
+        text({ name: "Poste", x: w * 0.07, y: h * 0.26, w: w * 0.86, h: h * 0.18, text: C.titre ?? "", color: P.ink, fontSize: ajuste(78 * f, C.titre ?? "", h * 0.18, 1.1, w * 0.86), fontWeight: 900, align: "left", lineHeight: 1.1 }),
+        ...(C.sous ? [text({ name: "Contrat", x: w * 0.07, y: h * 0.46, w: w * 0.86, h: 60 * f, text: C.sous, color: lis(P.acc, P.bg, P.ink), fontSize: ajuste(32 * f, C.sous, 60 * f, 1.15, w * 0.86), fontWeight: 700, align: "left" })] : []),
+        ...it.map((s, i) => text({ name: `Mission ${i + 1}`, x: w * 0.07, y: h * 0.56 + i * h * 0.075, w: w * 0.86, h: 60 * f, text: `→  ${s}`, color: P.ink, fontSize: ajuste(30 * f, `→  ${s}`, 60 * f, 1.15, w * 0.86), fontWeight: 600, align: "left" })),
         ...(C.meta ? [
           shape({ name: "Pied", x: 0, y: h * 0.86, w, h: h * 0.14, fill: P.acc }),
-          text({ name: "Contact", x: w * 0.08, y: h * 0.9, w: w * 0.84, h: 60 * f, text: C.meta, color: sur(P.acc), fontSize: 30 * f, fontWeight: 700 }),
+          text({ name: "Contact", x: w * 0.08, y: h * 0.9, w: w * 0.84, h: 60 * f, text: C.meta, color: sur(P.acc), fontSize: ajuste(30 * f, C.meta, 60 * f, 1.15, w * 0.84), fontWeight: 700 }),
         ] : []),
       ],
     };
@@ -738,9 +778,9 @@ const MEP: Record<string, (c: Ctx) => Bati> = {
   typo: ({ w, h, P, C, f }) => ({
     bg: P.acc, bgg: { type: "linear", angle: 150, from: P.acc, to: P.acc2 },
     layers: [
-      text({ name: "Titre", x: w * 0.05, y: h * 0.16, w: w * 0.9, h: h * 0.5, text: C.titre ?? "", color: sur(P.acc), fontFamily: font(14), fontSize: 150 * f, fontWeight: 900, align: "left", lineHeight: 0.95, uppercase: true }),
-      ...(C.sous ? [text({ name: "Sous", x: w * 0.05, y: h * 0.72, w: w * 0.6, h: h * 0.14, text: C.sous, color: sur(P.acc), fontSize: 34 * f, fontWeight: 600, align: "left", lineHeight: 1.4, opacity: 0.9 })] : []),
-      ...(C.meta ? [text({ name: "Méta", x: w * 0.05, y: h * 0.88, w: w * 0.9, h: 50 * f, text: C.meta, color: sur(P.acc), fontSize: 26 * f, fontWeight: 700, align: "left", letterSpacing: 8 * f, uppercase: true, opacity: 0.8 })] : []),
+      text({ name: "Titre", x: w * 0.05, y: h * 0.16, w: w * 0.9, h: h * 0.5, text: C.titre ?? "", color: sur(P.acc), fontFamily: font(14), fontSize: ajuste(150 * f, C.titre ?? "", h * 0.5, 0.95, w * 0.9), fontWeight: 900, align: "left", lineHeight: 0.95, uppercase: true }),
+      ...(C.sous ? [text({ name: "Sous", x: w * 0.05, y: h * 0.72, w: w * 0.6, h: h * 0.14, text: C.sous, color: sur(P.acc), fontSize: ajuste(34 * f, C.sous, h * 0.14, 1.4, w * 0.6), fontWeight: 600, align: "left", lineHeight: 1.4, opacity: 0.9 })] : []),
+      ...(C.meta ? [text({ name: "Méta", x: w * 0.05, y: h * 0.88, w: w * 0.9, h: 50 * f, text: C.meta, color: sur(P.acc), fontSize: ajuste(26 * f, C.meta, 50 * f, 1.15, w * 0.9), fontWeight: 700, align: "left", letterSpacing: 8 * f, uppercase: true, opacity: 0.8 })] : []),
     ],
   }),
 
@@ -752,12 +792,12 @@ const MEP: Record<string, (c: Ctx) => Bati> = {
       bg: P.bg, bgg: null,
       layers: [
         shape({ name: "Chapeau", x: 0, y: 0, w, h: h * 0.2, fill: P.acc, gradient: { type: "linear", angle: 130, from: P.acc, to: P.acc2 } }),
-        text({ name: "Titre", x: w * 0.06, y: h * 0.06, w: w * 0.88, h: h * 0.1, text: C.titre ?? "", color: sur(P.acc), fontSize: 66 * f, fontWeight: 900, align: "left", lineHeight: 1.1 }),
-        ...(C.meta ? [text({ name: "Méta", x: w * 0.06, y: h * 0.155, w: w * 0.88, h: 46 * f, text: C.meta, color: sur(P.acc), fontSize: 26 * f, fontWeight: 600, align: "left", opacity: 0.85 })] : []),
-        text({ name: "Colonne A", x: w * 0.06, y: h * 0.26, w: w * 0.4, h: 50 * f, text: C.sur ?? "INGRÉDIENTS", color: lis(P.acc, P.bg, P.ink), fontSize: 24 * f, fontWeight: 800, align: "left", letterSpacing: 6 * f, uppercase: true }),
-        text({ name: "Colonne B", x: w * 0.54, y: h * 0.26, w: w * 0.4, h: 50 * f, text: C.sous ?? "PRÉPARATION", color: lis(P.acc, P.bg, P.ink), fontSize: 24 * f, fontWeight: 800, align: "left", letterSpacing: 6 * f, uppercase: true }),
-        ...it.slice(0, mi).map((t, i) => text({ name: `A${i}`, x: w * 0.06, y: h * 0.33 + i * h * 0.075, w: w * 0.4, h: 60 * f, text: `•  ${t}`, color: P.ink, fontSize: 27 * f, fontWeight: 500, align: "left", lineHeight: 1.3 })),
-        ...it.slice(mi).map((t, i) => text({ name: `B${i}`, x: w * 0.54, y: h * 0.33 + i * h * 0.075, w: w * 0.4, h: 60 * f, text: `${i + 1}.  ${t}`, color: P.ink, fontSize: 27 * f, fontWeight: 500, align: "left", lineHeight: 1.3 })),
+        text({ name: "Titre", x: w * 0.06, y: h * 0.06, w: w * 0.88, h: h * 0.1, text: C.titre ?? "", color: sur(P.acc), fontSize: ajuste(66 * f, C.titre ?? "", h * 0.1, 1.1, w * 0.88), fontWeight: 900, align: "left", lineHeight: 1.1 }),
+        ...(C.meta ? [text({ name: "Méta", x: w * 0.06, y: h * 0.155, w: w * 0.88, h: 46 * f, text: C.meta, color: sur(P.acc), fontSize: ajuste(26 * f, C.meta, 46 * f, 1.15, w * 0.88), fontWeight: 600, align: "left", opacity: 0.85 })] : []),
+        text({ name: "Colonne A", x: w * 0.06, y: h * 0.26, w: w * 0.4, h: 50 * f, text: C.sur ?? "INGRÉDIENTS", color: lis(P.acc, P.bg, P.ink), fontSize: ajuste(24 * f, C.sur ?? "INGRÉDIENTS", 50 * f, 1.15, w * 0.4), fontWeight: 800, align: "left", letterSpacing: 6 * f, uppercase: true }),
+        text({ name: "Colonne B", x: w * 0.54, y: h * 0.26, w: w * 0.4, h: 50 * f, text: C.sous ?? "PRÉPARATION", color: lis(P.acc, P.bg, P.ink), fontSize: ajuste(24 * f, C.sous ?? "PRÉPARATION", 50 * f, 1.15, w * 0.4), fontWeight: 800, align: "left", letterSpacing: 6 * f, uppercase: true }),
+        ...it.slice(0, mi).map((t, i) => text({ name: `A${i}`, x: w * 0.06, y: h * 0.33 + i * h * 0.075, w: w * 0.4, h: 60 * f, text: `•  ${t}`, color: P.ink, fontSize: ajuste(27 * f, `•  ${t}`, 60 * f, 1.3, w * 0.4), fontWeight: 500, align: "left", lineHeight: 1.3 })),
+        ...it.slice(mi).map((t, i) => text({ name: `B${i}`, x: w * 0.54, y: h * 0.33 + i * h * 0.075, w: w * 0.4, h: 60 * f, text: `${i + 1}.  ${t}`, color: P.ink, fontSize: ajuste(27 * f, `${i + 1}.  ${t}`, 60 * f, 1.3, w * 0.4), fontWeight: 500, align: "left", lineHeight: 1.3 })),
         line({ x: w * 0.5, y: h * 0.26, w: 2 * f, h: h * 0.58, stroke: P.sub, strokeWidth: 2 * f, opacity: 0.3, rotation: 90 }),
       ],
     };
@@ -771,10 +811,10 @@ const MEP: Record<string, (c: Ctx) => Bati> = {
       layers: [
         shape({ name: "Fiche", x: w * 0.12, y: h * 0.1, w: w * 0.76, h: h * 0.44, fill: P.bg, radius: 36 * f, stroke: P.acc, strokeWidth: 3 * f, shadow: ombre(40 * f, 0.2, 16 * f) }),
         shape({ name: "Bandeau", x: w * 0.12, y: h * 0.1, w: w * 0.76, h: h * 0.1, fill: P.acc, radius: 36 * f }),
-        text({ name: "Mois", x: w * 0.12, y: h * 0.125, w: w * 0.76, h: 60 * f, text: C.sur ?? "JUIN 2026", color: sur(P.acc), fontSize: 34 * f, fontWeight: 800, letterSpacing: 8 * f, uppercase: true }),
-        text({ name: "Jour", x: w * 0.12, y: h * 0.235, w: w * 0.76, h: h * 0.2, text: C.gros ?? "12", color: P.ink, fontFamily: font(13), fontSize: 190 * f, fontWeight: 900 }),
-        text({ name: "Titre", x: w * 0.1, y: h * 0.6, w: w * 0.8, h: h * 0.1, text: C.titre ?? "", color: P.ink, fontSize: 58 * f, fontWeight: 900, lineHeight: 1.1 }),
-        ...it.map((t, i) => text({ name: `Info ${i}`, x: w * 0.14, y: h * 0.72 + i * h * 0.06, w: w * 0.72, h: 50 * f, text: t, color: P.sub, fontSize: 28 * f, fontWeight: 500 })),
+        text({ name: "Mois", x: w * 0.12, y: h * 0.125, w: w * 0.76, h: 60 * f, text: C.sur ?? "JUIN 2026", color: sur(P.acc), fontSize: ajuste(34 * f, C.sur ?? "JUIN 2026", 60 * f, 1.15, w * 0.76), fontWeight: 800, letterSpacing: 8 * f, uppercase: true }),
+        text({ name: "Jour", x: w * 0.12, y: h * 0.235, w: w * 0.76, h: h * 0.2, text: C.gros ?? "12", color: P.ink, fontFamily: font(13), fontSize: ajuste(190 * f, C.gros ?? "12", h * 0.2, 1.15, w * 0.76), fontWeight: 900 }),
+        text({ name: "Titre", x: w * 0.1, y: h * 0.6, w: w * 0.8, h: h * 0.1, text: C.titre ?? "", color: P.ink, fontSize: ajuste(58 * f, C.titre ?? "", h * 0.1, 1.1, w * 0.8), fontWeight: 900, lineHeight: 1.1 }),
+        ...it.map((t, i) => text({ name: `Info ${i}`, x: w * 0.14, y: h * 0.72 + i * h * 0.06, w: w * 0.72, h: 50 * f, text: t, color: P.sub, fontSize: ajuste(28 * f, t, 50 * f, 1.15, w * 0.72), fontWeight: 500 })),
       ],
     };
   },
@@ -785,15 +825,15 @@ const MEP: Record<string, (c: Ctx) => Bati> = {
     return {
       bg: P.bg, bgg: null,
       layers: [
-        text({ name: "Sur", x: w * 0.07, y: h * 0.09, w: w * 0.86, h: 50 * f, text: C.sur ?? "", color: P.acc, fontSize: 26 * f, fontWeight: 800, align: "left", letterSpacing: 9 * f, uppercase: true }),
-        text({ name: "Titre", x: w * 0.06, y: h * 0.15, w: w * 0.88, h: h * 0.16, text: C.titre ?? "", color: P.ink, fontFamily: font(10), fontSize: 88 * f, fontWeight: 900, align: "left", lineHeight: 1.05 }),
+        text({ name: "Sur", x: w * 0.07, y: h * 0.09, w: w * 0.86, h: 50 * f, text: C.sur ?? "", color: lis(P.acc, P.bg, P.ink), fontSize: ajuste(26 * f, C.sur ?? "", 50 * f, 1.15, w * 0.86), fontWeight: 800, align: "left", letterSpacing: 9 * f, uppercase: true }),
+        text({ name: "Titre", x: w * 0.06, y: h * 0.15, w: w * 0.88, h: h * 0.16, text: C.titre ?? "", color: P.ink, fontFamily: font(10), fontSize: ajuste(88 * f, C.titre ?? "", h * 0.16, 1.05, w * 0.88), fontWeight: 900, align: "left", lineHeight: 1.05 }),
         line({ x: w * 0.07, y: h * 0.34, w: w * 0.86, stroke: P.acc, strokeWidth: 3 * f }),
-        ...(C.sous ? [text({ name: "Chapô", x: w * 0.07, y: h * 0.38, w: w * 0.86, h: h * 0.1, text: C.sous, color: P.sub, fontSize: 32 * f, fontWeight: 500, align: "left", italic: true, lineHeight: 1.4 })] : []),
+        ...(C.sous ? [text({ name: "Chapô", x: w * 0.07, y: h * 0.38, w: w * 0.86, h: h * 0.1, text: C.sous, color: P.sub, fontSize: ajuste(32 * f, C.sous, h * 0.1, 1.4, w * 0.86), fontWeight: 500, align: "left", italic: true, lineHeight: 1.4 })] : []),
         ...it.slice(0, 2).map((t, i) => text({
           name: `Colonne ${i + 1}`, x: w * 0.07 + i * w * 0.45, y: h * 0.52, w: w * 0.41, h: h * 0.36,
-          text: t, color: P.ink, fontSize: 25 * f, fontWeight: 400, align: "left", lineHeight: 1.6,
+          text: t, color: P.ink, fontSize: ajuste(25 * f, t, h * 0.36, 1.6, w * 0.41), fontWeight: 400, align: "left", lineHeight: 1.6,
         })),
-        ...(C.meta ? [text({ name: "Pied", x: w * 0.07, y: h * 0.92, w: w * 0.86, h: 46 * f, text: C.meta, color: P.sub, fontSize: 22 * f, fontWeight: 600, align: "left", letterSpacing: 4 * f })] : []),
+        ...(C.meta ? [text({ name: "Pied", x: w * 0.07, y: h * 0.92, w: w * 0.86, h: 46 * f, text: C.meta, color: P.sub, fontSize: ajuste(22 * f, C.meta, 46 * f, 1.15, w * 0.86), fontWeight: 600, align: "left", letterSpacing: 4 * f })] : []),
       ],
     };
   },
@@ -806,16 +846,16 @@ const MEP: Record<string, (c: Ctx) => Bati> = {
     return {
       bg: P.bg, bgg: P.bg2 ? { type: "linear", angle: 160, from: P.bg, to: P.bg2 } : null,
       layers: [
-        text({ name: "Titre", x: w * 0.08, y: h * 0.12, w: w * 0.84, h: h * 0.1, text: C.titre ?? "", color: P.ink, fontSize: 62 * f, fontWeight: 900 }),
-        ...(C.sous ? [text({ name: "Sous", x: w * 0.14, y: h * 0.23, w: w * 0.72, h: 60 * f, text: C.sous, color: P.sub, fontSize: 30 * f, fontWeight: 500 })] : []),
+        text({ name: "Titre", x: w * 0.08, y: h * 0.12, w: w * 0.84, h: h * 0.1, text: C.titre ?? "", color: P.ink, fontSize: ajuste(62 * f, C.titre ?? "", h * 0.1, 1.15, w * 0.84), fontWeight: 900 }),
+        ...(C.sous ? [text({ name: "Sous", x: w * 0.14, y: h * 0.23, w: w * 0.72, h: 60 * f, text: C.sous, color: P.sub, fontSize: ajuste(30 * f, C.sous, 60 * f, 1.15, w * 0.72), fontWeight: 500 })] : []),
         ...it.flatMap((t, i) => {
           const [nom, role] = t.split("|");
           const x = w * 0.08 + (i % cols) * cw, y = h * 0.34 + ((i / cols) | 0) * h * 0.3;
           return [
             shape({ name: `Portrait ${i + 1}`, shape: "ellipse", x: x + (cw - d) / 2, y, w: d, h: d, fill: P.acc, gradient: { type: "linear", angle: 140, from: P.acc, to: P.acc2 } }),
-            text({ name: `Init ${i + 1}`, x: x + (cw - d) / 2, y: y + d * 0.28, w: d, h: d * 0.5, text: (nom ?? "?").slice(0, 1), color: P.on, fontSize: d * 0.4, fontWeight: 900 }),
-            text({ name: `Nom ${i + 1}`, x, y: y + d + 16 * f, w: cw, h: 52 * f, text: nom ?? "", color: P.ink, fontSize: 30 * f, fontWeight: 800 }),
-            text({ name: `Rôle ${i + 1}`, x, y: y + d + 60 * f, w: cw, h: 46 * f, text: role ?? "", color: P.sub, fontSize: 24 * f, fontWeight: 500 }),
+            text({ name: `Init ${i + 1}`, x: x + (cw - d) / 2, y: y + d * 0.28, w: d, h: d * 0.5, text: (nom ?? "?").slice(0, 1), color: P.on, fontSize: ajuste(d * 0.4, (nom ?? "?").slice(0, 1), d * 0.5, 1.15, d), fontWeight: 900 }),
+            text({ name: `Nom ${i + 1}`, x, y: y + d + 16 * f, w: cw, h: 52 * f, text: nom ?? "", color: P.ink, fontSize: ajuste(30 * f, nom ?? "", 52 * f, 1.15, cw), fontWeight: 800 }),
+            text({ name: `Rôle ${i + 1}`, x, y: y + d + 60 * f, w: cw, h: 46 * f, text: role ?? "", color: P.sub, fontSize: ajuste(24 * f, role ?? "", 46 * f, 1.15, cw), fontWeight: 500 }),
           ];
         }),
       ],
@@ -826,11 +866,11 @@ const MEP: Record<string, (c: Ctx) => Bati> = {
   question: ({ w, h, P, C, f }) => ({
     bg: P.bg, bgg: P.bg2 ? { type: "linear", angle: 200, from: P.bg, to: P.bg2 } : null,
     layers: [
-      text({ name: "Point", x: w * 0.06, y: h * 0.1, w: w * 0.4, h: h * 0.3, text: "?", color: P.acc, fontFamily: font(13), fontSize: 320 * f, fontWeight: 900, align: "left", opacity: 0.28 }),
-      ...(C.sur ? [text({ name: "Sur", x: w * 0.08, y: h * 0.32, w: w * 0.84, h: 56 * f, text: C.sur, color: lis(P.acc, P.bg, P.ink), fontSize: 28 * f, fontWeight: 800, letterSpacing: 8 * f, uppercase: true })] : []),
-      text({ name: "Question", x: w * 0.07, y: h * 0.4, w: w * 0.86, h: h * 0.24, text: C.titre ?? "", color: P.ink, fontSize: 76 * f, fontWeight: 900, lineHeight: 1.15 }),
+      text({ name: "Point", x: w * 0.06, y: h * 0.1, w: w * 0.4, h: h * 0.3, text: "?", color: P.acc, fontFamily: font(13), fontSize: ajuste(320 * f, "?", h * 0.3, 1.15, w * 0.4), fontWeight: 900, align: "left", opacity: 0.28 }),
+      ...(C.sur ? [text({ name: "Sur", x: w * 0.08, y: h * 0.32, w: w * 0.84, h: 56 * f, text: C.sur, color: lis(P.acc, P.bg, P.ink), fontSize: ajuste(28 * f, C.sur, 56 * f, 1.15, w * 0.84), fontWeight: 800, letterSpacing: 8 * f, uppercase: true })] : []),
+      text({ name: "Question", x: w * 0.07, y: h * 0.4, w: w * 0.86, h: h * 0.24, text: C.titre ?? "", color: P.ink, fontSize: ajuste(76 * f, C.titre ?? "", h * 0.24, 1.15, w * 0.86), fontWeight: 900, lineHeight: 1.15 }),
       line({ x: (w - 130 * f) / 2, y: h * 0.68, w: 130 * f, stroke: P.acc, strokeWidth: 6 * f }),
-      ...(C.sous ? [text({ name: "Réponse", x: w * 0.12, y: h * 0.73, w: w * 0.76, h: h * 0.14, text: C.sous, color: P.sub, fontSize: 32 * f, fontWeight: 500, lineHeight: 1.45 })] : []),
+      ...(C.sous ? [text({ name: "Réponse", x: w * 0.12, y: h * 0.73, w: w * 0.76, h: h * 0.14, text: C.sous, color: P.sub, fontSize: ajuste(32 * f, C.sous, h * 0.14, 1.45, w * 0.76), fontWeight: 500, lineHeight: 1.45 })] : []),
     ],
   }),
 
@@ -839,10 +879,10 @@ const MEP: Record<string, (c: Ctx) => Bati> = {
     bg: P.bg, bgg: P.bg2 ? { type: "linear", angle: 140, from: P.bg, to: P.bg2 } : null,
     layers: [
       shape({ name: "Ruban", x: -w * 0.1, y: h * 0.36, w: w * 1.2, h: h * 0.22, fill: P.acc, rotation: -8, gradient: { type: "linear", angle: 100, from: P.acc, to: P.acc2 }, shadow: ombre(40 * f, 0.35, 14 * f) }),
-      text({ name: "Titre", x: w * 0.05, y: h * 0.41, w: w * 0.9, h: h * 0.13, text: C.titre ?? "", color: P.on, fontFamily: font(14), fontSize: 92 * f, fontWeight: 900, rotation: -8, uppercase: true }),
-      ...(C.sur ? [text({ name: "Sur", x: w * 0.1, y: h * 0.2, w: w * 0.8, h: 60 * f, text: C.sur, color: P.ink, fontSize: 34 * f, fontWeight: 700, letterSpacing: 9 * f, uppercase: true })] : []),
-      ...(C.sous ? [text({ name: "Sous", x: w * 0.12, y: h * 0.66, w: w * 0.76, h: h * 0.12, text: C.sous, color: P.ink, fontSize: 34 * f, fontWeight: 500, lineHeight: 1.4 })] : []),
-      ...(C.meta ? [text({ name: "Méta", x: w * 0.15, y: h * 0.84, w: w * 0.7, h: 56 * f, text: C.meta, color: P.sub, fontSize: 28 * f, fontWeight: 700, letterSpacing: 6 * f })] : []),
+      text({ name: "Titre", x: w * 0.05, y: h * 0.41, w: w * 0.9, h: h * 0.13, text: C.titre ?? "", color: P.on, fontFamily: font(14), fontSize: ajuste(92 * f, C.titre ?? "", h * 0.13, 1.15, w * 0.9), fontWeight: 900, rotation: -8, uppercase: true }),
+      ...(C.sur ? [text({ name: "Sur", x: w * 0.1, y: h * 0.2, w: w * 0.8, h: 60 * f, text: C.sur, color: P.ink, fontSize: ajuste(34 * f, C.sur, 60 * f, 1.15, w * 0.8), fontWeight: 700, letterSpacing: 9 * f, uppercase: true })] : []),
+      ...(C.sous ? [text({ name: "Sous", x: w * 0.12, y: h * 0.66, w: w * 0.76, h: h * 0.12, text: C.sous, color: P.ink, fontSize: ajuste(34 * f, C.sous, h * 0.12, 1.4, w * 0.76), fontWeight: 500, lineHeight: 1.4 })] : []),
+      ...(C.meta ? [text({ name: "Méta", x: w * 0.15, y: h * 0.84, w: w * 0.7, h: 56 * f, text: C.meta, color: P.sub, fontSize: ajuste(28 * f, C.meta, 56 * f, 1.15, w * 0.7), fontWeight: 700, letterSpacing: 6 * f })] : []),
     ],
   }),
 
@@ -853,17 +893,17 @@ const MEP: Record<string, (c: Ctx) => Bati> = {
     return {
       bg: P.bg, bgg: null,
       layers: [
-        text({ name: "Titre", x: w * 0.07, y: h * 0.1, w: w * 0.86, h: h * 0.1, text: C.titre ?? "", color: P.ink, fontSize: 62 * f, fontWeight: 900, align: "left" }),
-        ...(C.sous ? [text({ name: "Sous", x: w * 0.07, y: h * 0.2, w: w * 0.86, h: 56 * f, text: C.sous, color: P.sub, fontSize: 28 * f, fontWeight: 500, align: "left" })] : []),
+        text({ name: "Titre", x: w * 0.07, y: h * 0.1, w: w * 0.86, h: h * 0.1, text: C.titre ?? "", color: P.ink, fontSize: ajuste(62 * f, C.titre ?? "", h * 0.1, 1.15, w * 0.86), fontWeight: 900, align: "left" }),
+        ...(C.sous ? [text({ name: "Sous", x: w * 0.07, y: h * 0.2, w: w * 0.86, h: 56 * f, text: C.sous, color: P.sub, fontSize: ajuste(28 * f, C.sous, 56 * f, 1.15, w * 0.86), fontWeight: 500, align: "left" })] : []),
         ...it.flatMap((t, i) => {
           const x = w * 0.07 + (i % cols) * (cw + w * 0.02);
           const y = h * 0.3 + ((i / cols) | 0) * (chh + h * 0.05);
           return [
             shape({ name: `Vignette ${i + 1}`, x, y, w: cw, h: chh, fill: i % 2 ? P.acc : P.acc2, opacity: 0.85, radius: 20 * f, gradient: { type: "linear", angle: 140 + i * 20, from: i % 2 ? P.acc : P.acc2, to: i % 2 ? P.acc2 : P.acc } }),
-            text({ name: `Légende ${i + 1}`, x, y: y + chh + 10 * f, w: cw, h: 46 * f, text: t, color: P.ink, fontSize: 24 * f, fontWeight: 600 }),
+            text({ name: `Légende ${i + 1}`, x, y: y + chh + 10 * f, w: cw, h: 46 * f, text: t, color: P.ink, fontSize: ajuste(24 * f, t, 46 * f, 1.15, cw), fontWeight: 600 }),
           ];
         }),
-        ...(C.meta ? [text({ name: "Pied", x: w * 0.07, y: h * 0.9, w: w * 0.86, h: 50 * f, text: C.meta, color: lis(P.acc, P.bg, P.ink), fontSize: 26 * f, fontWeight: 700, align: "left" })] : []),
+        ...(C.meta ? [text({ name: "Pied", x: w * 0.07, y: h * 0.9, w: w * 0.86, h: 50 * f, text: C.meta, color: lis(P.acc, P.bg, P.ink), fontSize: ajuste(26 * f, C.meta, 50 * f, 1.15, w * 0.86), fontWeight: 700, align: "left" })] : []),
       ],
     };
   },
@@ -879,10 +919,10 @@ const MEP: Record<string, (c: Ctx) => Bati> = {
       layers: [
         shape({ name: "Voûte", shape: "ellipse", x: x0, y: y0, w: aw, h: aw, fill: P.acc }),
         shape({ name: "Fût", x: x0, y: y0 + aw / 2, w: aw, h: Math.max(10, bas - y0 - aw / 2), fill: P.acc }),
-        ...(C.sur ? [text({ name: "Sur", x: x0, y: y0 + aw * 0.28, w: aw, h: 56 * f, text: C.sur, color: t, fontSize: 27 * f, fontWeight: 700, letterSpacing: 8 * f, uppercase: true, opacity: 0.9 })] : []),
-        text({ name: "Titre", x: x0 + aw * 0.08, y: y0 + aw * 0.42, w: aw * 0.84, h: h * 0.2, text: C.titre ?? "", color: t, fontFamily: font(10), fontSize: 62 * f, fontWeight: 800, lineHeight: 1.18 }),
-        ...(C.sous ? [text({ name: "Sous", x: x0 + aw * 0.1, y: bas - h * 0.15, w: aw * 0.8, h: h * 0.11, text: C.sous, color: t, fontSize: 26 * f, fontWeight: 500, lineHeight: 1.4, opacity: 0.92 })] : []),
-        ...(C.meta ? [text({ name: "Méta", x: w * 0.1, y: h * 0.86, w: w * 0.8, h: 54 * f, text: C.meta, color: P.ink, fontSize: 28 * f, fontWeight: 700, letterSpacing: 6 * f })] : []),
+        ...(C.sur ? [text({ name: "Sur", x: x0, y: y0 + aw * 0.28, w: aw, h: 56 * f, text: C.sur, color: t, fontSize: ajuste(27 * f, C.sur, 56 * f, 1.15, aw), fontWeight: 700, letterSpacing: 8 * f, uppercase: true, opacity: 0.9 })] : []),
+        text({ name: "Titre", x: x0 + aw * 0.08, y: y0 + aw * 0.42, w: aw * 0.84, h: h * 0.2, text: C.titre ?? "", color: t, fontFamily: font(10), fontSize: ajuste(62 * f, C.titre ?? "", h * 0.2, 1.18, aw * 0.84), fontWeight: 800, lineHeight: 1.18 }),
+        ...(C.sous ? [text({ name: "Sous", x: x0 + aw * 0.1, y: bas - h * 0.15, w: aw * 0.8, h: h * 0.11, text: C.sous, color: t, fontSize: ajuste(26 * f, C.sous, h * 0.11, 1.4, aw * 0.8), fontWeight: 500, lineHeight: 1.4, opacity: 0.92 })] : []),
+        ...(C.meta ? [text({ name: "Méta", x: w * 0.1, y: h * 0.86, w: w * 0.8, h: 54 * f, text: C.meta, color: P.ink, fontSize: ajuste(28 * f, C.meta, 54 * f, 1.15, w * 0.8), fontWeight: 700, letterSpacing: 6 * f })] : []),
       ],
     };
   },
@@ -895,10 +935,10 @@ const MEP: Record<string, (c: Ctx) => Bati> = {
       layers: [
         shape({ name: "Bande haute", x: 0, y: 0, w, h: h * 0.19, fill: P.acc }),
         shape({ name: "Bande basse", x: 0, y: h * 0.81, w, h: h * 0.19, fill: P.acc }),
-        ...(C.sur ? [text({ name: "Sur", x: w * 0.08, y: h * 0.06, w: w * 0.84, h: 62 * f, text: C.sur, color: t, fontSize: 32 * f, fontWeight: 800, letterSpacing: 10 * f, uppercase: true })] : []),
-        text({ name: "Titre", x: w * 0.08, y: h * 0.31, w: w * 0.84, h: h * 0.22, text: C.titre ?? "", color: P.ink, fontFamily: font(13), fontSize: 88 * f, fontWeight: 900, lineHeight: 1.12 }),
-        ...(C.sous ? [text({ name: "Sous", x: w * 0.14, y: h * 0.58, w: w * 0.72, h: h * 0.14, text: C.sous, color: P.sub, fontSize: 34 * f, fontWeight: 500, lineHeight: 1.45 })] : []),
-        ...(C.meta ? [text({ name: "Méta", x: w * 0.08, y: h * 0.87, w: w * 0.84, h: 58 * f, text: C.meta, color: t, fontSize: 30 * f, fontWeight: 700, letterSpacing: 5 * f })] : []),
+        ...(C.sur ? [text({ name: "Sur", x: w * 0.08, y: h * 0.06, w: w * 0.84, h: 62 * f, text: C.sur, color: t, fontSize: ajuste(32 * f, C.sur, 62 * f, 1.15, w * 0.84), fontWeight: 800, letterSpacing: 10 * f, uppercase: true })] : []),
+        text({ name: "Titre", x: w * 0.08, y: h * 0.31, w: w * 0.84, h: h * 0.22, text: C.titre ?? "", color: P.ink, fontFamily: font(13), fontSize: ajuste(88 * f, C.titre ?? "", h * 0.22, 1.12, w * 0.84), fontWeight: 900, lineHeight: 1.12 }),
+        ...(C.sous ? [text({ name: "Sous", x: w * 0.14, y: h * 0.58, w: w * 0.72, h: h * 0.14, text: C.sous, color: P.sub, fontSize: ajuste(34 * f, C.sous, h * 0.14, 1.45, w * 0.72), fontWeight: 500, lineHeight: 1.45 })] : []),
+        ...(C.meta ? [text({ name: "Méta", x: w * 0.08, y: h * 0.87, w: w * 0.84, h: 58 * f, text: C.meta, color: t, fontSize: ajuste(30 * f, C.meta, 58 * f, 1.15, w * 0.84), fontWeight: 700, letterSpacing: 5 * f })] : []),
       ],
     };
   },
@@ -911,10 +951,10 @@ const MEP: Record<string, (c: Ctx) => Bati> = {
       layers: [
         shape({ name: "Tirage", x: x0, y: y0, w: cw, h: ch, fill: "#ffffff", radius: 6 * f, shadow: ombre(50 * f, 0.38, 22 * f) }),
         shape({ name: "Image", x: x0 + cw * 0.06, y: y0 + cw * 0.06, w: cw * 0.88, h: ch * 0.7, fill: P.acc, gradient: { type: "linear", angle: 150, from: P.acc, to: P.acc2 } }),
-        ...(C.emoji ? [text({ name: "Emoji", x: x0 + cw * 0.06, y: y0 + ch * 0.24, w: cw * 0.88, h: cw * 0.4, text: C.emoji, fontSize: cw * 0.3, fontWeight: 400 })] : []),
-        ...(C.sur ? [text({ name: "Sur", x: x0 + cw * 0.1, y: y0 + cw * 0.12, w: cw * 0.8, h: 54 * f, text: C.sur, color: sur(P.acc), fontSize: 26 * f, fontWeight: 800, letterSpacing: 7 * f, uppercase: true })] : []),
-        text({ name: "Légende", x: x0 + cw * 0.06, y: y0 + ch * 0.79, w: cw * 0.88, h: ch * 0.14, text: C.titre ?? "", color: "#1f2937", fontFamily: font(17), fontSize: 38 * f, fontWeight: 700, lineHeight: 1.2 }),
-        ...(C.meta ? [text({ name: "Méta", x: w * 0.1, y: y0 + ch + h * 0.04, w: w * 0.8, h: 54 * f, text: C.meta, color: P.sub, fontSize: 28 * f, fontWeight: 600, letterSpacing: 4 * f })] : []),
+        ...(C.emoji ? [text({ name: "Emoji", x: x0 + cw * 0.06, y: y0 + ch * 0.24, w: cw * 0.88, h: cw * 0.4, text: C.emoji, fontSize: ajuste(cw * 0.3, C.emoji, cw * 0.4, 1.15, cw * 0.88), fontWeight: 400 })] : []),
+        ...(C.sur ? [text({ name: "Sur", x: x0 + cw * 0.1, y: y0 + cw * 0.12, w: cw * 0.8, h: 54 * f, text: C.sur, color: sur(P.acc), fontSize: ajuste(26 * f, C.sur, 54 * f, 1.15, cw * 0.8), fontWeight: 800, letterSpacing: 7 * f, uppercase: true })] : []),
+        text({ name: "Légende", x: x0 + cw * 0.06, y: y0 + ch * 0.79, w: cw * 0.88, h: ch * 0.14, text: C.titre ?? "", color: "#1f2937", fontFamily: font(17), fontSize: ajuste(38 * f, C.titre ?? "", ch * 0.14, 1.2, cw * 0.88), fontWeight: 700, lineHeight: 1.2 }),
+        ...(C.meta ? [text({ name: "Méta", x: w * 0.1, y: y0 + ch + h * 0.04, w: w * 0.8, h: 54 * f, text: C.meta, color: P.sub, fontSize: ajuste(28 * f, C.meta, 54 * f, 1.15, w * 0.8), fontWeight: 600, letterSpacing: 4 * f })] : []),
       ],
     };
   },
@@ -927,10 +967,10 @@ const MEP: Record<string, (c: Ctx) => Bati> = {
       bg: P.bg, bgg: P.bg2 ? { type: "linear", angle: 200, from: P.bg, to: P.bg2 } : null,
       layers: [
         shape({ name: "Bulle", shape: "message", x: x0, y: y0, w: bw, h: bh, fill: P.acc, gradient: { type: "linear", angle: 145, from: P.acc, to: P.acc2 }, shadow: ombre(40 * f, 0.3, 16 * f) }),
-        ...(C.sur ? [text({ name: "Sur", x: x0 + bw * 0.08, y: y0 + bh * 0.12, w: bw * 0.84, h: 54 * f, text: C.sur, color: t, fontSize: 26 * f, fontWeight: 800, letterSpacing: 7 * f, uppercase: true, opacity: 0.9 })] : []),
-        text({ name: "Réplique", x: x0 + bw * 0.08, y: y0 + bh * 0.26, w: bw * 0.84, h: bh * 0.42, text: C.titre ?? "", color: t, fontSize: 52 * f, fontWeight: 800, lineHeight: 1.25 }),
-        text({ name: "Nom", x: w * 0.1, y: h * 0.76, w: w * 0.8, h: 60 * f, text: C.auteur ?? "", color: P.ink, fontSize: 34 * f, fontWeight: 800 }),
-        ...(C.sous ? [text({ name: "Rôle", x: w * 0.14, y: h * 0.83, w: w * 0.72, h: 54 * f, text: C.sous, color: P.sub, fontSize: 27 * f, fontWeight: 500 })] : []),
+        ...(C.sur ? [text({ name: "Sur", x: x0 + bw * 0.08, y: y0 + bh * 0.12, w: bw * 0.84, h: 54 * f, text: C.sur, color: t, fontSize: ajuste(26 * f, C.sur, 54 * f, 1.15, bw * 0.84), fontWeight: 800, letterSpacing: 7 * f, uppercase: true, opacity: 0.9 })] : []),
+        text({ name: "Réplique", x: x0 + bw * 0.08, y: y0 + bh * 0.26, w: bw * 0.84, h: bh * 0.42, text: C.titre ?? "", color: t, fontSize: ajuste(52 * f, C.titre ?? "", bh * 0.42, 1.25, bw * 0.84), fontWeight: 800, lineHeight: 1.25 }),
+        text({ name: "Nom", x: w * 0.1, y: h * 0.76, w: w * 0.8, h: 60 * f, text: C.auteur ?? "", color: P.ink, fontSize: ajuste(34 * f, C.auteur ?? "", 60 * f, 1.15, w * 0.8), fontWeight: 800 }),
+        ...(C.sous ? [text({ name: "Rôle", x: w * 0.14, y: h * 0.83, w: w * 0.72, h: 54 * f, text: C.sous, color: P.sub, fontSize: ajuste(27 * f, C.sous, 54 * f, 1.15, w * 0.72), fontWeight: 500 })] : []),
       ],
     };
   },
@@ -942,11 +982,11 @@ const MEP: Record<string, (c: Ctx) => Bati> = {
       bg: P.bg, bgg: null,
       layers: [
         shape({ name: "Moitié", x: 0, y: 0, w, h: h * 0.5, fill: P.acc, gradient: { type: "linear", angle: 135, from: P.acc, to: P.acc2 } }),
-        ...(C.sur ? [text({ name: "Sur", x: w * 0.08, y: h * 0.1, w: w * 0.84, h: 58 * f, text: C.sur, color: t, fontSize: 30 * f, fontWeight: 700, letterSpacing: 10 * f, uppercase: true, opacity: 0.88 })] : []),
-        text({ name: "Mot", x: w * 0.06, y: h * 0.19, w: w * 0.88, h: h * 0.24, text: C.gros ?? C.titre ?? "", color: t, fontFamily: font(14), fontSize: 128 * f, fontWeight: 900, lineHeight: 1.02, uppercase: true }),
-        text({ name: "Titre", x: w * 0.08, y: h * 0.57, w: w * 0.84, h: h * 0.14, text: C.titre ?? "", color: P.ink, fontSize: 56 * f, fontWeight: 800, lineHeight: 1.15 }),
-        ...(C.sous ? [text({ name: "Sous", x: w * 0.12, y: h * 0.72, w: w * 0.76, h: h * 0.12, text: C.sous, color: P.sub, fontSize: 31 * f, fontWeight: 500, lineHeight: 1.45 })] : []),
-        ...(C.meta ? [text({ name: "Méta", x: w * 0.12, y: h * 0.89, w: w * 0.76, h: 52 * f, text: C.meta, color: lis(P.acc, P.bg, P.ink), fontSize: 27 * f, fontWeight: 700 })] : []),
+        ...(C.sur ? [text({ name: "Sur", x: w * 0.08, y: h * 0.1, w: w * 0.84, h: 58 * f, text: C.sur, color: t, fontSize: ajuste(30 * f, C.sur, 58 * f, 1.15, w * 0.84), fontWeight: 700, letterSpacing: 10 * f, uppercase: true, opacity: 0.88 })] : []),
+        text({ name: "Mot", x: w * 0.06, y: h * 0.19, w: w * 0.88, h: h * 0.24, text: C.gros ?? C.titre ?? "", color: t, fontFamily: font(14), fontSize: ajuste(128 * f, C.gros ?? C.titre ?? "", h * 0.24, 1.02, w * 0.88), fontWeight: 900, lineHeight: 1.02, uppercase: true }),
+        text({ name: "Titre", x: w * 0.08, y: h * 0.57, w: w * 0.84, h: h * 0.14, text: C.titre ?? "", color: P.ink, fontSize: ajuste(56 * f, C.titre ?? "", h * 0.14, 1.15, w * 0.84), fontWeight: 800, lineHeight: 1.15 }),
+        ...(C.sous ? [text({ name: "Sous", x: w * 0.12, y: h * 0.72, w: w * 0.76, h: h * 0.12, text: C.sous, color: P.sub, fontSize: ajuste(31 * f, C.sous, h * 0.12, 1.45, w * 0.76), fontWeight: 500, lineHeight: 1.45 })] : []),
+        ...(C.meta ? [text({ name: "Méta", x: w * 0.12, y: h * 0.89, w: w * 0.76, h: 52 * f, text: C.meta, color: lis(P.acc, P.bg, P.ink), fontSize: ajuste(27 * f, C.meta, 52 * f, 1.15, w * 0.76), fontWeight: 700 })] : []),
       ],
     };
   },
@@ -958,17 +998,17 @@ const MEP: Record<string, (c: Ctx) => Bati> = {
     return {
       bg: P.bg, bgg: null,
       layers: [
-        text({ name: "Titre", x: w * 0.07, y: h * 0.1, w: w * 0.86, h: h * 0.11, text: C.titre ?? "", color: P.ink, fontSize: 64 * f, fontWeight: 900, align: "left", lineHeight: 1.1 }),
-        ...(C.sous ? [text({ name: "Sous", x: w * 0.07, y: h * 0.2, w: w * 0.86, h: 56 * f, text: C.sous, color: P.sub, fontSize: 29 * f, fontWeight: 500, align: "left" })] : []),
+        text({ name: "Titre", x: w * 0.07, y: h * 0.1, w: w * 0.86, h: h * 0.11, text: C.titre ?? "", color: P.ink, fontSize: ajuste(64 * f, C.titre ?? "", h * 0.11, 1.1, w * 0.86), fontWeight: 900, align: "left", lineHeight: 1.1 }),
+        ...(C.sous ? [text({ name: "Sous", x: w * 0.07, y: h * 0.2, w: w * 0.86, h: 56 * f, text: C.sous, color: P.sub, fontSize: ajuste(29 * f, C.sous, 56 * f, 1.15, w * 0.86), fontWeight: 500, align: "left" })] : []),
         ...it.flatMap((s, i) => {
           const c = i % 2 ? P.acc2 : P.acc;
           const y = y0 + i * bh;
           return [
             shape({ name: `Barre ${i + 1}`, x: w * 0.07, y, w: w * 0.86 * (1 - i * 0.06), h: bh * 0.82, fill: c, radius: 14 * f }),
-            text({ name: `Ligne ${i + 1}`, x: w * 0.1, y: y + bh * 0.24, w: w * 0.8 * (1 - i * 0.06), h: bh * 0.5, text: s, color: sur(c), fontSize: 32 * f, fontWeight: 700, align: "left" }),
+            text({ name: `Ligne ${i + 1}`, x: w * 0.1, y: y + bh * 0.24, w: w * 0.8 * (1 - i * 0.06), h: bh * 0.5, text: s, color: sur(c), fontSize: ajuste(32 * f, s, bh * 0.5, 1.15, w * 0.8 * (1 - i * 0.06)), fontWeight: 700, align: "left" }),
           ];
         }),
-        ...(C.meta ? [text({ name: "Pied", x: w * 0.07, y: h * 0.92, w: w * 0.86, h: 50 * f, text: C.meta, color: P.sub, fontSize: 26 * f, fontWeight: 600, align: "left" })] : []),
+        ...(C.meta ? [text({ name: "Pied", x: w * 0.07, y: h * 0.92, w: w * 0.86, h: 50 * f, text: C.meta, color: P.sub, fontSize: ajuste(26 * f, C.meta, 50 * f, 1.15, w * 0.86), fontWeight: 600, align: "left" })] : []),
       ],
     };
   },
@@ -980,10 +1020,10 @@ const MEP: Record<string, (c: Ctx) => Bati> = {
       bg: P.bg, bgg: null,
       layers: [
         shape({ name: "Disque", shape: "ellipse", x: w * 0.5 - d * 0.42, y: h * 0.5 - d * 0.5, w: d, h: d, fill: P.acc, gradient: { type: "radial", angle: 0, from: P.acc2, to: P.acc } }),
-        ...(C.sur ? [text({ name: "Sur", x: w * 0.1, y: h * 0.28, w: w * 0.8, h: 58 * f, text: C.sur, color: sur(P.acc), fontSize: 29 * f, fontWeight: 800, letterSpacing: 9 * f, uppercase: true, opacity: 0.9 })] : []),
-        text({ name: "Titre", x: w * 0.1, y: h * 0.37, w: w * 0.8, h: h * 0.22, text: C.titre ?? "", color: sur(P.acc), fontFamily: font(5), fontSize: 78 * f, fontWeight: 900, lineHeight: 1.12 }),
-        ...(C.sous ? [text({ name: "Sous", x: w * 0.16, y: h * 0.62, w: w * 0.68, h: h * 0.1, text: C.sous, color: sur(P.acc), fontSize: 30 * f, fontWeight: 500, lineHeight: 1.4, opacity: 0.92 })] : []),
-        ...(C.meta ? [text({ name: "Méta", x: w * 0.5 - d * 0.4, y: h * 0.5 + d * 0.3, w: d * 0.8, h: 52 * f, text: C.meta, color: sur(P.acc), fontSize: 27 * f, fontWeight: 700, letterSpacing: 5 * f, opacity: 0.9 })] : []),
+        ...(C.sur ? [text({ name: "Sur", x: w * 0.1, y: h * 0.28, w: w * 0.8, h: 58 * f, text: C.sur, color: sur(P.acc), fontSize: ajuste(29 * f, C.sur, 58 * f, 1.15, w * 0.8), fontWeight: 800, letterSpacing: 9 * f, uppercase: true, opacity: 0.9 })] : []),
+        text({ name: "Titre", x: w * 0.1, y: h * 0.37, w: w * 0.8, h: h * 0.22, text: C.titre ?? "", color: sur(P.acc), fontFamily: font(5), fontSize: ajuste(78 * f, C.titre ?? "", h * 0.22, 1.12, w * 0.8), fontWeight: 900, lineHeight: 1.12 }),
+        ...(C.sous ? [text({ name: "Sous", x: w * 0.16, y: h * 0.62, w: w * 0.68, h: h * 0.1, text: C.sous, color: sur(P.acc), fontSize: ajuste(30 * f, C.sous, h * 0.1, 1.4, w * 0.68), fontWeight: 500, lineHeight: 1.4, opacity: 0.92 })] : []),
+        ...(C.meta ? [text({ name: "Méta", x: w * 0.5 - d * 0.4, y: h * 0.5 + d * 0.3, w: d * 0.8, h: 52 * f, text: C.meta, color: sur(P.acc), fontSize: ajuste(27 * f, C.meta, 52 * f, 1.15, d * 0.8), fontWeight: 700, letterSpacing: 5 * f, opacity: 0.9 })] : []),
       ],
     };
   },
@@ -995,15 +1035,15 @@ const MEP: Record<string, (c: Ctx) => Bati> = {
     return {
       bg: P.bg, bgg: null,
       layers: [
-        text({ name: "Titre", x: w * 0.06, y: h * 0.1, w: w * 0.88, h: h * 0.1, text: C.titre ?? "", color: P.ink, fontSize: 60 * f, fontWeight: 900, lineHeight: 1.1 }),
+        text({ name: "Titre", x: w * 0.06, y: h * 0.1, w: w * 0.88, h: h * 0.1, text: C.titre ?? "", color: P.ink, fontSize: ajuste(60 * f, C.titre ?? "", h * 0.1, 1.1, w * 0.88), fontWeight: 900, lineHeight: 1.1 }),
         shape({ name: "Avant", x: w * 0.05, y: y0, w: pw, h: ph, fill: P.sub, opacity: 0.28, radius: 24 * f }),
         shape({ name: "Après", x: w * 0.53, y: y0, w: pw, h: ph, fill: P.acc, gradient: { type: "linear", angle: 150, from: P.acc, to: P.acc2 }, radius: 24 * f }),
-        text({ name: "Ét. avant", x: w * 0.05, y: y0 + ph * 0.08, w: pw, h: 54 * f, text: C.sur ?? "AVANT", color: P.ink, fontSize: 27 * f, fontWeight: 800, letterSpacing: 7 * f, uppercase: true }),
-        text({ name: "Ét. après", x: w * 0.53, y: y0 + ph * 0.08, w: pw, h: 54 * f, text: C.cta ?? "APRÈS", color: sur(P.acc), fontSize: 27 * f, fontWeight: 800, letterSpacing: 7 * f, uppercase: true }),
-        text({ name: "Texte avant", x: w * 0.07, y: y0 + ph * 0.32, w: pw - w * 0.04, h: ph * 0.5, text: it[0] ?? "", color: P.ink, fontSize: 30 * f, fontWeight: 600, lineHeight: 1.4 }),
-        text({ name: "Texte après", x: w * 0.55, y: y0 + ph * 0.32, w: pw - w * 0.04, h: ph * 0.5, text: it[1] ?? "", color: sur(P.acc), fontSize: 30 * f, fontWeight: 700, lineHeight: 1.4 }),
-        ...(C.sous ? [text({ name: "Verdict", x: w * 0.08, y: h * 0.79, w: w * 0.84, h: h * 0.1, text: C.sous, color: P.sub, fontSize: 30 * f, fontWeight: 500, lineHeight: 1.4 })] : []),
-        ...(C.meta ? [text({ name: "Méta", x: w * 0.08, y: h * 0.91, w: w * 0.84, h: 50 * f, text: C.meta, color: lis(P.acc, P.bg, P.ink), fontSize: 26 * f, fontWeight: 700 })] : []),
+        text({ name: "Ét. avant", x: w * 0.05, y: y0 + ph * 0.08, w: pw, h: 54 * f, text: C.sur ?? "AVANT", color: P.ink, fontSize: ajuste(27 * f, C.sur ?? "AVANT", 54 * f, 1.15, pw), fontWeight: 800, letterSpacing: 7 * f, uppercase: true }),
+        text({ name: "Ét. après", x: w * 0.53, y: y0 + ph * 0.08, w: pw, h: 54 * f, text: C.cta ?? "APRÈS", color: sur(P.acc), fontSize: ajuste(27 * f, C.cta ?? "APRÈS", 54 * f, 1.15, pw), fontWeight: 800, letterSpacing: 7 * f, uppercase: true }),
+        text({ name: "Texte avant", x: w * 0.07, y: y0 + ph * 0.32, w: pw - w * 0.04, h: ph * 0.5, text: it[0] ?? "", color: P.ink, fontSize: ajuste(30 * f, it[0] ?? "", ph * 0.5, 1.4, pw - w * 0.04), fontWeight: 600, lineHeight: 1.4 }),
+        text({ name: "Texte après", x: w * 0.55, y: y0 + ph * 0.32, w: pw - w * 0.04, h: ph * 0.5, text: it[1] ?? "", color: sur(P.acc), fontSize: ajuste(30 * f, it[1] ?? "", ph * 0.5, 1.4, pw - w * 0.04), fontWeight: 700, lineHeight: 1.4 }),
+        ...(C.sous ? [text({ name: "Verdict", x: w * 0.08, y: h * 0.79, w: w * 0.84, h: h * 0.1, text: C.sous, color: P.sub, fontSize: ajuste(30 * f, C.sous, h * 0.1, 1.4, w * 0.84), fontWeight: 500, lineHeight: 1.4 })] : []),
+        ...(C.meta ? [text({ name: "Méta", x: w * 0.08, y: h * 0.91, w: w * 0.84, h: 50 * f, text: C.meta, color: lis(P.acc, P.bg, P.ink), fontSize: ajuste(26 * f, C.meta, 50 * f, 1.15, w * 0.84), fontWeight: 700 })] : []),
       ],
     };
   },
@@ -1016,17 +1056,17 @@ const MEP: Record<string, (c: Ctx) => Bati> = {
     return {
       bg: P.bg, bgg: P.bg2 ? { type: "linear", angle: 145, from: P.bg, to: P.bg2 } : null,
       layers: [
-        ...(C.sur ? [text({ name: "Sur", x: w * 0.08, y: h * 0.13, w: w * 0.84, h: 60 * f, text: C.sur, color: lis(P.acc, P.bg, P.ink), fontSize: 32 * f, fontWeight: 800, letterSpacing: 10 * f, uppercase: true })] : []),
-        text({ name: "Titre", x: w * 0.07, y: h * 0.21, w: w * 0.86, h: h * 0.14, text: C.titre ?? "", color: P.ink, fontSize: 64 * f, fontWeight: 900, lineHeight: 1.12 }),
-        text({ name: "Ancien prix", x: w * 0.07, y: h * 0.42, w: w * 0.86, h: 70 * f, text: ancien, color: P.sub, fontSize: 46 * f, fontWeight: 600 }),
+        ...(C.sur ? [text({ name: "Sur", x: w * 0.08, y: h * 0.13, w: w * 0.84, h: 60 * f, text: C.sur, color: lis(P.acc, P.bg, P.ink), fontSize: ajuste(32 * f, C.sur, 60 * f, 1.15, w * 0.84), fontWeight: 800, letterSpacing: 10 * f, uppercase: true })] : []),
+        text({ name: "Titre", x: w * 0.07, y: h * 0.21, w: w * 0.86, h: h * 0.14, text: C.titre ?? "", color: P.ink, fontSize: ajuste(64 * f, C.titre ?? "", h * 0.14, 1.12, w * 0.86), fontWeight: 900, lineHeight: 1.12 }),
+        text({ name: "Ancien prix", x: w * 0.07, y: h * 0.42, w: w * 0.86, h: 70 * f, text: ancien, color: P.sub, fontSize: ajuste(46 * f, ancien, 70 * f, 1.15, w * 0.86), fontWeight: 600 }),
         /* Barré : un calque « ligne » se trace au milieu de sa boîte, donc une
            hauteur nulle le pose exactement sur le y demandé. */
         ...(ancien ? [line({ x: (w - lw) / 2, y: h * 0.42 + 35 * f, w: lw, h: 0, stroke: P.sub, strokeWidth: 5 * f })] : []),
-        text({ name: "Nouveau prix", x: w * 0.06, y: h * 0.5, w: w * 0.88, h: h * 0.18, text: nouveau, color: lis(P.acc, P.bg, P.ink), fontFamily: font(13), fontSize: 156 * f, fontWeight: 900, shadow: ombre(30 * f, 0.22, 12 * f) }),
-        ...(C.sous ? [text({ name: "Sous", x: w * 0.12, y: h * 0.71, w: w * 0.76, h: h * 0.1, text: C.sous, color: P.ink, fontSize: 32 * f, fontWeight: 600, lineHeight: 1.4 })] : []),
+        text({ name: "Nouveau prix", x: w * 0.06, y: h * 0.5, w: w * 0.88, h: h * 0.18, text: nouveau, color: lis(P.acc, P.bg, P.ink), fontFamily: font(13), fontSize: ajuste(156 * f, nouveau, h * 0.18, 1.15, w * 0.88), fontWeight: 900, shadow: ombre(30 * f, 0.22, 12 * f) }),
+        ...(C.sous ? [text({ name: "Sous", x: w * 0.12, y: h * 0.71, w: w * 0.76, h: h * 0.1, text: C.sous, color: P.ink, fontSize: ajuste(32 * f, C.sous, h * 0.1, 1.4, w * 0.76), fontWeight: 600, lineHeight: 1.4 })] : []),
         ...(C.meta ? [
           shape({ name: "Bandeau code", x: w * 0.16, y: h * 0.84, w: w * 0.68, h: 88 * f, fill: P.acc, radius: 16 * f }),
-          text({ name: "Code", x: w * 0.16, y: h * 0.84 + 24 * f, w: w * 0.68, h: 54 * f, text: C.meta, color: sur(P.acc), fontSize: 30 * f, fontWeight: 800, letterSpacing: 6 * f }),
+          text({ name: "Code", x: w * 0.16, y: h * 0.84 + 24 * f, w: w * 0.68, h: 54 * f, text: C.meta, color: sur(P.acc), fontSize: ajuste(30 * f, C.meta, 54 * f, 1.15, w * 0.68), fontWeight: 800, letterSpacing: 6 * f }),
         ] : []),
       ],
     };
@@ -1040,18 +1080,18 @@ const MEP: Record<string, (c: Ctx) => Bati> = {
       bg: P.bg, bgg: null,
       layers: [
         shape({ name: "Cadre", x: w * 0.06, y: h * 0.05, w: w * 0.88, h: h * 0.9, fill: "transparent", stroke: P.acc, strokeWidth: 3 * f, radius: 18 * f }),
-        ...(C.sur ? [text({ name: "Sur", x: w * 0.1, y: h * 0.12, w: w * 0.8, h: 56 * f, text: C.sur, color: lis(P.acc, P.bg, P.ink), fontSize: 27 * f, fontWeight: 800, letterSpacing: 9 * f, uppercase: true })] : []),
-        text({ name: "Titre", x: w * 0.1, y: h * 0.18, w: w * 0.8, h: h * 0.1, text: C.titre ?? "", color: P.ink, fontFamily: font(10), fontSize: 58 * f, fontWeight: 800 }),
+        ...(C.sur ? [text({ name: "Sur", x: w * 0.1, y: h * 0.12, w: w * 0.8, h: 56 * f, text: C.sur, color: lis(P.acc, P.bg, P.ink), fontSize: ajuste(27 * f, C.sur, 56 * f, 1.15, w * 0.8), fontWeight: 800, letterSpacing: 9 * f, uppercase: true })] : []),
+        text({ name: "Titre", x: w * 0.1, y: h * 0.18, w: w * 0.8, h: h * 0.1, text: C.titre ?? "", color: P.ink, fontFamily: font(10), fontSize: ajuste(58 * f, C.titre ?? "", h * 0.1, 1.15, w * 0.8), fontWeight: 800 }),
         ...it.flatMap((s, i) => {
           const [j, hr] = s.split("|");
           const y = y0 + i * dy;
           return [
-            text({ name: `Jour ${i + 1}`, x: w * 0.12, y, w: w * 0.38, h: dy * 0.7, text: j ?? "", color: P.ink, fontSize: 32 * f, fontWeight: 600, align: "left" }),
-            text({ name: `Heures ${i + 1}`, x: w * 0.5, y, w: w * 0.38, h: dy * 0.7, text: hr ?? "", color: P.sub, fontSize: 32 * f, fontWeight: 500, align: "right" }),
+            text({ name: `Jour ${i + 1}`, x: w * 0.12, y, w: w * 0.38, h: dy * 0.7, text: j ?? "", color: P.ink, fontSize: ajuste(32 * f, j ?? "", dy * 0.7, 1.15, w * 0.38), fontWeight: 600, align: "left" }),
+            text({ name: `Heures ${i + 1}`, x: w * 0.5, y, w: w * 0.38, h: dy * 0.7, text: hr ?? "", color: P.sub, fontSize: ajuste(32 * f, hr ?? "", dy * 0.7, 1.15, w * 0.38), fontWeight: 500, align: "right" }),
             ...(i < it.length - 1 ? [line({ x: w * 0.12, y: y + dy * 0.72, w: w * 0.76, stroke: P.sub, strokeWidth: 1.5 * f, opacity: 0.4, dash: "dotted" })] : []),
           ];
         }),
-        ...(C.meta ? [text({ name: "Pied", x: w * 0.1, y: h * 0.87, w: w * 0.8, h: 52 * f, text: C.meta, color: lis(P.acc, P.bg, P.ink), fontSize: 26 * f, fontWeight: 700 })] : []),
+        ...(C.meta ? [text({ name: "Pied", x: w * 0.1, y: h * 0.87, w: w * 0.8, h: 52 * f, text: C.meta, color: lis(P.acc, P.bg, P.ink), fontSize: ajuste(26 * f, C.meta, 52 * f, 1.15, w * 0.8), fontWeight: 700 })] : []),
       ],
     };
   },
@@ -1064,17 +1104,17 @@ const MEP: Record<string, (c: Ctx) => Bati> = {
       bg: P.bg, bgg: P.bg2 ? { type: "linear", angle: 160, from: P.bg, to: P.bg2 } : null,
       layers: [
         shape({ name: "Angle", x: 0, y: 0, w: w * 0.34, h: h * 0.02 + 12 * f, fill: P.acc }),
-        ...(C.sur ? [text({ name: "Sur", x: w * 0.08, y: h * 0.13, w: w * 0.84, h: 56 * f, text: C.sur, color: lis(P.acc, P.bg, P.ink), fontSize: 27 * f, fontWeight: 800, align: "left", letterSpacing: 9 * f, uppercase: true })] : []),
-        text({ name: "Titre", x: w * 0.07, y: h * 0.19, w: w * 0.86, h: h * 0.14, text: C.titre ?? "", color: P.ink, fontSize: 66 * f, fontWeight: 900, align: "left", lineHeight: 1.1 }),
-        ...(C.sous ? [text({ name: "Sous", x: w * 0.07, y: h * 0.33, w: w * 0.86, h: 58 * f, text: C.sous, color: P.sub, fontSize: 29 * f, fontWeight: 500, align: "left" })] : []),
+        ...(C.sur ? [text({ name: "Sur", x: w * 0.08, y: h * 0.13, w: w * 0.84, h: 56 * f, text: C.sur, color: lis(P.acc, P.bg, P.ink), fontSize: ajuste(27 * f, C.sur, 56 * f, 1.15, w * 0.84), fontWeight: 800, align: "left", letterSpacing: 9 * f, uppercase: true })] : []),
+        text({ name: "Titre", x: w * 0.07, y: h * 0.19, w: w * 0.86, h: h * 0.14, text: C.titre ?? "", color: P.ink, fontSize: ajuste(66 * f, C.titre ?? "", h * 0.14, 1.1, w * 0.86), fontWeight: 900, align: "left", lineHeight: 1.1 }),
+        ...(C.sous ? [text({ name: "Sous", x: w * 0.07, y: h * 0.33, w: w * 0.86, h: 58 * f, text: C.sous, color: P.sub, fontSize: ajuste(29 * f, C.sous, 58 * f, 1.15, w * 0.86), fontWeight: 500, align: "left" })] : []),
         ...it.flatMap((s, i) => {
           const y = y0 + i * dy;
           return [
             shape({ name: `Puce ${i + 1}`, shape: "ellipse", x: w * 0.08, y: y + dy * 0.08, w: 44 * f, h: 44 * f, fill: P.acc }),
-            text({ name: `Contact ${i + 1}`, x: w * 0.08 + 68 * f, y, w: w * 0.84 - 68 * f, h: dy * 0.8, text: s, color: P.ink, fontSize: 32 * f, fontWeight: 600, align: "left" }),
+            text({ name: `Contact ${i + 1}`, x: w * 0.08 + 68 * f, y, w: w * 0.84 - 68 * f, h: dy * 0.8, text: s, color: P.ink, fontSize: ajuste(32 * f, s, dy * 0.8, 1.15, w * 0.84 - 68 * f), fontWeight: 600, align: "left" }),
           ];
         }),
-        ...(C.meta ? [text({ name: "Pied", x: w * 0.07, y: h * 0.89, w: w * 0.86, h: 52 * f, text: C.meta, color: P.sub, fontSize: 26 * f, fontWeight: 600, align: "left" })] : []),
+        ...(C.meta ? [text({ name: "Pied", x: w * 0.07, y: h * 0.89, w: w * 0.86, h: 52 * f, text: C.meta, color: P.sub, fontSize: ajuste(26 * f, C.meta, 52 * f, 1.15, w * 0.86), fontWeight: 600, align: "left" })] : []),
       ],
     };
   },
@@ -1084,14 +1124,14 @@ const MEP: Record<string, (c: Ctx) => Bati> = {
     bg: P.bg, bgg: null,
     layers: [
       shape({ name: "Filet", x: 0, y: 0, w, h: 18 * f, fill: P.acc, gradient: { type: "linear", angle: 0, from: P.acc, to: P.acc2 } }),
-      text({ name: "Nom", x: w * 0.08, y: h * 0.06, w: w * 0.5, h: h * 0.05, text: C.titre ?? "", color: P.ink, fontFamily: font(10), fontSize: 46 * f, fontWeight: 800, align: "left", letterSpacing: 3 * f }),
-      ...(C.sur ? [text({ name: "Activité", x: w * 0.08, y: h * 0.11, w: w * 0.5, h: 42 * f, text: C.sur, color: lis(P.acc, P.bg, P.sub), fontSize: 22 * f, fontWeight: 700, align: "left", letterSpacing: 5 * f, uppercase: true })] : []),
-      ...(C.sous ? [text({ name: "Coordonnées", x: w * 0.5, y: h * 0.06, w: w * 0.42, h: h * 0.09, text: C.sous, color: P.sub, fontSize: 21 * f, fontWeight: 500, align: "right", lineHeight: 1.6 })] : []),
+      text({ name: "Nom", x: w * 0.08, y: h * 0.06, w: w * 0.5, h: h * 0.05, text: C.titre ?? "", color: P.ink, fontFamily: font(10), fontSize: ajuste(46 * f, C.titre ?? "", h * 0.05, 1.15, w * 0.5), fontWeight: 800, align: "left", letterSpacing: 3 * f }),
+      ...(C.sur ? [text({ name: "Activité", x: w * 0.08, y: h * 0.11, w: w * 0.5, h: 42 * f, text: C.sur, color: lis(P.acc, P.bg, P.sub), fontSize: ajuste(22 * f, C.sur, 42 * f, 1.15, w * 0.5), fontWeight: 700, align: "left", letterSpacing: 5 * f, uppercase: true })] : []),
+      ...(C.sous ? [text({ name: "Coordonnées", x: w * 0.5, y: h * 0.06, w: w * 0.42, h: h * 0.09, text: C.sous, color: P.sub, fontSize: ajuste(21 * f, C.sous, h * 0.09, 1.6, w * 0.42), fontWeight: 500, align: "right", lineHeight: 1.6 })] : []),
       line({ x: w * 0.08, y: h * 0.17, w: w * 0.84, stroke: P.acc, strokeWidth: 2 * f }),
-      ...(C.meta ? [text({ name: "Objet", x: w * 0.08, y: h * 0.22, w: w * 0.84, h: 52 * f, text: C.meta, color: P.ink, fontSize: 26 * f, fontWeight: 700, align: "left" })] : []),
-      ...(C.items ?? []).slice(0, 6).map((s, i) => text({ name: `Ligne ${i + 1}`, x: w * 0.08, y: h * 0.29 + i * h * 0.055, w: w * 0.84, h: h * 0.05, text: s, color: P.sub, fontSize: 22 * f, fontWeight: 400, align: "left", lineHeight: 1.6 })),
+      ...(C.meta ? [text({ name: "Objet", x: w * 0.08, y: h * 0.22, w: w * 0.84, h: 52 * f, text: C.meta, color: P.ink, fontSize: ajuste(26 * f, C.meta, 52 * f, 1.15, w * 0.84), fontWeight: 700, align: "left" })] : []),
+      ...(C.items ?? []).slice(0, 6).map((s, i) => text({ name: `Ligne ${i + 1}`, x: w * 0.08, y: h * 0.29 + i * h * 0.055, w: w * 0.84, h: h * 0.05, text: s, color: P.sub, fontSize: ajuste(22 * f, s, h * 0.05, 1.6, w * 0.84), fontWeight: 400, align: "left", lineHeight: 1.6 })),
       line({ x: w * 0.08, y: h * 0.93, w: w * 0.84, stroke: P.sub, strokeWidth: 1 * f, opacity: 0.5 }),
-      ...(C.cta ? [text({ name: "Pied", x: w * 0.08, y: h * 0.95, w: w * 0.84, h: 40 * f, text: C.cta, color: P.sub, fontSize: 18 * f, fontWeight: 500 })] : []),
+      ...(C.cta ? [text({ name: "Pied", x: w * 0.08, y: h * 0.95, w: w * 0.84, h: 40 * f, text: C.cta, color: P.sub, fontSize: ajuste(18 * f, C.cta, 40 * f, 1.15, w * 0.84), fontWeight: 500 })] : []),
     ],
   }),
 
@@ -1102,19 +1142,19 @@ const MEP: Record<string, (c: Ctx) => Bati> = {
     return {
       bg: P.bg, bgg: null,
       layers: [
-        ...(C.sur ? [text({ name: "Sur", x: w * 0.1, y: h * 0.12, w: w * 0.8, h: 56 * f, text: C.sur, color: lis(P.acc, P.bg, P.ink), fontSize: 26 * f, fontWeight: 800, align: "left", letterSpacing: 10 * f, uppercase: true })] : []),
-        text({ name: "Titre", x: w * 0.09, y: h * 0.17, w: w * 0.82, h: h * 0.1, text: C.titre ?? "", color: P.ink, fontFamily: font(10), fontSize: 66 * f, fontWeight: 800, align: "left" }),
+        ...(C.sur ? [text({ name: "Sur", x: w * 0.1, y: h * 0.12, w: w * 0.8, h: 56 * f, text: C.sur, color: lis(P.acc, P.bg, P.ink), fontSize: ajuste(26 * f, C.sur, 56 * f, 1.15, w * 0.8), fontWeight: 800, align: "left", letterSpacing: 10 * f, uppercase: true })] : []),
+        text({ name: "Titre", x: w * 0.09, y: h * 0.17, w: w * 0.82, h: h * 0.1, text: C.titre ?? "", color: P.ink, fontFamily: font(10), fontSize: ajuste(66 * f, C.titre ?? "", h * 0.1, 1.15, w * 0.82), fontWeight: 800, align: "left" }),
         line({ x: w * 0.1, y: h * 0.27, w: w * 0.8, stroke: P.acc, strokeWidth: 3 * f }),
         ...it.flatMap((s, i) => {
           const [t, p] = s.split("|");
           const y = y0 + i * dy;
           return [
-            text({ name: `Entrée ${i + 1}`, x: w * 0.1, y, w: w * 0.6, h: dy * 0.7, text: t ?? "", color: P.ink, fontSize: 30 * f, fontWeight: 600, align: "left" }),
+            text({ name: `Entrée ${i + 1}`, x: w * 0.1, y, w: w * 0.6, h: dy * 0.7, text: t ?? "", color: P.ink, fontSize: ajuste(30 * f, t ?? "", dy * 0.7, 1.15, w * 0.6), fontWeight: 600, align: "left" }),
             line({ x: w * 0.1, y: y + dy * 0.42, w: w * 0.8, stroke: P.sub, strokeWidth: 1.5 * f, opacity: 0.35, dash: "dotted" }),
-            text({ name: `Page ${i + 1}`, x: w * 0.72, y, w: w * 0.18, h: dy * 0.7, text: p ?? "", color: lis(P.acc, P.bg, P.ink), fontSize: 30 * f, fontWeight: 800, align: "right" }),
+            text({ name: `Page ${i + 1}`, x: w * 0.72, y, w: w * 0.18, h: dy * 0.7, text: p ?? "", color: lis(P.acc, P.bg, P.ink), fontSize: ajuste(30 * f, p ?? "", dy * 0.7, 1.15, w * 0.18), fontWeight: 800, align: "right" }),
           ];
         }),
-        ...(C.meta ? [text({ name: "Pied", x: w * 0.1, y: h * 0.9, w: w * 0.8, h: 50 * f, text: C.meta, color: P.sub, fontSize: 24 * f, fontWeight: 500, align: "left" })] : []),
+        ...(C.meta ? [text({ name: "Pied", x: w * 0.1, y: h * 0.9, w: w * 0.8, h: 50 * f, text: C.meta, color: P.sub, fontSize: ajuste(24 * f, C.meta, 50 * f, 1.15, w * 0.8), fontWeight: 500, align: "left" })] : []),
       ],
     };
   },
@@ -1123,12 +1163,12 @@ const MEP: Record<string, (c: Ctx) => Bati> = {
   chapitre: ({ w, h, P, C, f }) => ({
     bg: P.bg, bgg: P.bg2 ? { type: "linear", angle: 200, from: P.bg, to: P.bg2 } : null,
     layers: [
-      text({ name: "Numéro fantôme", x: w * 0.5, y: h * 0.04, w: w * 0.46, h: h * 0.4, text: C.gros ?? "", color: P.acc, fontFamily: font(13), fontSize: 300 * f, fontWeight: 900, align: "right", opacity: 0.18 }),
-      text({ name: "Chapitre", x: w * 0.09, y: h * 0.3, w: w * 0.82, h: 58 * f, text: C.sur ?? "", color: lis(P.acc, P.bg, P.ink), fontSize: 28 * f, fontWeight: 800, align: "left", letterSpacing: 12 * f, uppercase: true }),
-      text({ name: "Titre", x: w * 0.08, y: h * 0.37, w: w * 0.84, h: h * 0.26, text: C.titre ?? "", color: P.ink, fontFamily: font(10), fontSize: 92 * f, fontWeight: 800, align: "left", lineHeight: 1.12 }),
+      text({ name: "Numéro fantôme", x: w * 0.5, y: h * 0.04, w: w * 0.46, h: h * 0.4, text: C.gros ?? "", color: P.acc, fontFamily: font(13), fontSize: ajuste(300 * f, C.gros ?? "", h * 0.4, 1.15, w * 0.46), fontWeight: 900, align: "right", opacity: 0.18 }),
+      text({ name: "Chapitre", x: w * 0.09, y: h * 0.3, w: w * 0.82, h: 58 * f, text: C.sur ?? "", color: lis(P.acc, P.bg, P.ink), fontSize: ajuste(28 * f, C.sur ?? "", 58 * f, 1.15, w * 0.82), fontWeight: 800, align: "left", letterSpacing: 12 * f, uppercase: true }),
+      text({ name: "Titre", x: w * 0.08, y: h * 0.37, w: w * 0.84, h: h * 0.26, text: C.titre ?? "", color: P.ink, fontFamily: font(10), fontSize: ajuste(92 * f, C.titre ?? "", h * 0.26, 1.12, w * 0.84), fontWeight: 800, align: "left", lineHeight: 1.12 }),
       line({ x: w * 0.09, y: h * 0.68, w: w * 0.22, stroke: P.acc, strokeWidth: 6 * f }),
-      ...(C.sous ? [text({ name: "Chapeau", x: w * 0.09, y: h * 0.73, w: w * 0.7, h: h * 0.14, text: C.sous, color: P.sub, fontSize: 30 * f, fontWeight: 500, align: "left", lineHeight: 1.5 })] : []),
-      ...(C.meta ? [text({ name: "Pied", x: w * 0.09, y: h * 0.92, w: w * 0.82, h: 46 * f, text: C.meta, color: P.sub, fontSize: 22 * f, fontWeight: 600, align: "left", letterSpacing: 4 * f })] : []),
+      ...(C.sous ? [text({ name: "Chapeau", x: w * 0.09, y: h * 0.73, w: w * 0.7, h: h * 0.14, text: C.sous, color: P.sub, fontSize: ajuste(30 * f, C.sous, h * 0.14, 1.5, w * 0.7), fontWeight: 500, align: "left", lineHeight: 1.5 })] : []),
+      ...(C.meta ? [text({ name: "Pied", x: w * 0.09, y: h * 0.92, w: w * 0.82, h: 46 * f, text: C.meta, color: P.sub, fontSize: ajuste(22 * f, C.meta, 46 * f, 1.15, w * 0.82), fontWeight: 600, align: "left", letterSpacing: 4 * f })] : []),
     ],
   }),
 
@@ -1137,12 +1177,12 @@ const MEP: Record<string, (c: Ctx) => Bati> = {
     bg: P.bg, bgg: null,
     layers: [
       shape({ name: "Pavé", x: w * 0.07, y: h * 0.12, w: w * 0.86, h: h * 0.34, fill: P.acc, opacity: 0.14, radius: 32 * f }),
-      text({ name: "Note", x: w * 0.09, y: h * 0.16, w: w * 0.36, h: h * 0.22, text: C.gros ?? "4,9", color: lis(P.acc, P.bg, P.ink), fontFamily: font(13), fontSize: 150 * f, fontWeight: 900 }),
-      text({ name: "Étoiles", x: w * 0.46, y: h * 0.2, w: w * 0.46, h: 70 * f, text: "★★★★★", color: lis(P.acc2, P.bg, P.ink), fontSize: 46 * f, fontWeight: 700, letterSpacing: 6 * f, align: "left" }),
-      ...(C.sur ? [text({ name: "Base", x: w * 0.46, y: h * 0.29, w: w * 0.46, h: 56 * f, text: C.sur, color: P.sub, fontSize: 26 * f, fontWeight: 600, align: "left" })] : []),
-      text({ name: "Avis", x: w * 0.09, y: h * 0.54, w: w * 0.82, h: h * 0.22, text: C.titre ?? "", color: P.ink, fontSize: 40 * f, fontWeight: 600, italic: true, align: "left", lineHeight: 1.4 }),
-      text({ name: "Auteur", x: w * 0.09, y: h * 0.79, w: w * 0.82, h: 56 * f, text: C.auteur ?? "", color: P.ink, fontSize: 30 * f, fontWeight: 800, align: "left" }),
-      ...(C.meta ? [text({ name: "Source", x: w * 0.09, y: h * 0.86, w: w * 0.82, h: 50 * f, text: C.meta, color: P.sub, fontSize: 25 * f, fontWeight: 500, align: "left" })] : []),
+      text({ name: "Note", x: w * 0.09, y: h * 0.16, w: w * 0.36, h: h * 0.22, text: C.gros ?? "4,9", color: lis(P.acc, P.bg, P.ink), fontFamily: font(13), fontSize: ajuste(150 * f, C.gros ?? "4,9", h * 0.22, 1.15, w * 0.36), fontWeight: 900 }),
+      text({ name: "Étoiles", x: w * 0.46, y: h * 0.2, w: w * 0.46, h: 70 * f, text: "★★★★★", color: lis(P.acc2, P.bg, P.ink), fontSize: ajuste(46 * f, "★★★★★", 70 * f, 1.15, w * 0.46), fontWeight: 700, letterSpacing: 6 * f, align: "left" }),
+      ...(C.sur ? [text({ name: "Base", x: w * 0.46, y: h * 0.29, w: w * 0.46, h: 56 * f, text: C.sur, color: P.sub, fontSize: ajuste(26 * f, C.sur, 56 * f, 1.15, w * 0.46), fontWeight: 600, align: "left" })] : []),
+      text({ name: "Avis", x: w * 0.09, y: h * 0.54, w: w * 0.82, h: h * 0.22, text: C.titre ?? "", color: P.ink, fontSize: ajuste(40 * f, C.titre ?? "", h * 0.22, 1.4, w * 0.82), fontWeight: 600, italic: true, align: "left", lineHeight: 1.4 }),
+      text({ name: "Auteur", x: w * 0.09, y: h * 0.79, w: w * 0.82, h: 56 * f, text: C.auteur ?? "", color: P.ink, fontSize: ajuste(30 * f, C.auteur ?? "", 56 * f, 1.15, w * 0.82), fontWeight: 800, align: "left" }),
+      ...(C.meta ? [text({ name: "Source", x: w * 0.09, y: h * 0.86, w: w * 0.82, h: 50 * f, text: C.meta, color: P.sub, fontSize: ajuste(25 * f, C.meta, 50 * f, 1.15, w * 0.82), fontWeight: 500, align: "left" })] : []),
     ],
   }),
 
@@ -1153,20 +1193,20 @@ const MEP: Record<string, (c: Ctx) => Bati> = {
     return {
       bg: P.bg, bgg: null,
       layers: [
-        text({ name: "Titre", x: w * 0.06, y: h * 0.09, w: w * 0.88, h: h * 0.1, text: C.titre ?? "", color: P.ink, fontSize: 60 * f, fontWeight: 900, lineHeight: 1.1 }),
+        text({ name: "Titre", x: w * 0.06, y: h * 0.09, w: w * 0.88, h: h * 0.1, text: C.titre ?? "", color: P.ink, fontSize: ajuste(60 * f, C.titre ?? "", h * 0.1, 1.1, w * 0.88), fontWeight: 900, lineHeight: 1.1 }),
         shape({ name: "Colonne A", x: xa, y: h * 0.24, w: cw, h: h * 0.66, fill: P.sub, opacity: 0.14, radius: 24 * f }),
         shape({ name: "Colonne B", x: xb, y: h * 0.22, w: cw, h: h * 0.7, fill: P.acc, gradient: { type: "linear", angle: 165, from: P.acc, to: P.acc2 }, radius: 24 * f, shadow: ombre(36 * f, 0.28, 14 * f) }),
-        text({ name: "Titre A", x: xa, y: h * 0.27, w: cw, h: 60 * f, text: C.sur ?? "", color: P.ink, fontSize: 30 * f, fontWeight: 800, uppercase: true, letterSpacing: 3 * f }),
-        text({ name: "Titre B", x: xb, y: h * 0.26, w: cw, h: 60 * f, text: C.cta ?? "", color: sur(P.acc), fontSize: 30 * f, fontWeight: 800, uppercase: true, letterSpacing: 3 * f }),
+        text({ name: "Titre A", x: xa, y: h * 0.27, w: cw, h: 60 * f, text: C.sur ?? "", color: P.ink, fontSize: ajuste(30 * f, C.sur ?? "", 60 * f, 1.15, cw), fontWeight: 800, uppercase: true, letterSpacing: 3 * f }),
+        text({ name: "Titre B", x: xb, y: h * 0.26, w: cw, h: 60 * f, text: C.cta ?? "", color: sur(P.acc), fontSize: ajuste(30 * f, C.cta ?? "", 60 * f, 1.15, cw), fontWeight: 800, uppercase: true, letterSpacing: 3 * f }),
         ...it.flatMap((s, i) => {
           const [a, b] = s.split("|");
           const y = y0 + i * dy;
           return [
-            text({ name: `A${i + 1}`, x: xa + cw * 0.06, y, w: cw * 0.88, h: dy * 0.82, text: a ?? "", color: P.ink, fontSize: 25 * f, fontWeight: 500, lineHeight: 1.3 }),
-            text({ name: `B${i + 1}`, x: xb + cw * 0.06, y, w: cw * 0.88, h: dy * 0.82, text: b ?? "", color: sur(P.acc), fontSize: 25 * f, fontWeight: 700, lineHeight: 1.3 }),
+            text({ name: `A${i + 1}`, x: xa + cw * 0.06, y, w: cw * 0.88, h: dy * 0.82, text: a ?? "", color: P.ink, fontSize: ajuste(25 * f, a ?? "", dy * 0.82, 1.3, cw * 0.88), fontWeight: 500, lineHeight: 1.3 }),
+            text({ name: `B${i + 1}`, x: xb + cw * 0.06, y, w: cw * 0.88, h: dy * 0.82, text: b ?? "", color: sur(P.acc), fontSize: ajuste(25 * f, b ?? "", dy * 0.82, 1.3, cw * 0.88), fontWeight: 700, lineHeight: 1.3 }),
           ];
         }),
-        ...(C.meta ? [text({ name: "Pied", x: w * 0.06, y: h * 0.94, w: w * 0.88, h: 46 * f, text: C.meta, color: P.sub, fontSize: 24 * f, fontWeight: 500 })] : []),
+        ...(C.meta ? [text({ name: "Pied", x: w * 0.06, y: h * 0.94, w: w * 0.88, h: 46 * f, text: C.meta, color: P.sub, fontSize: ajuste(24 * f, C.meta, 46 * f, 1.15, w * 0.88), fontWeight: 500 })] : []),
       ],
     };
   },
@@ -1178,19 +1218,19 @@ const MEP: Record<string, (c: Ctx) => Bati> = {
     return {
       bg: P.bg, bgg: P.bg2 ? { type: "linear", angle: 160, from: P.bg, to: P.bg2 } : null,
       layers: [
-        text({ name: "Titre", x: w * 0.08, y: h * 0.12, w: w * 0.84, h: h * 0.12, text: C.titre ?? "", color: P.ink, fontSize: 60 * f, fontWeight: 900, lineHeight: 1.1 }),
-        ...(C.sous ? [text({ name: "Sous", x: w * 0.14, y: h * 0.26, w: w * 0.72, h: 56 * f, text: C.sous, color: P.sub, fontSize: 28 * f, fontWeight: 500 })] : []),
+        text({ name: "Titre", x: w * 0.08, y: h * 0.12, w: w * 0.84, h: h * 0.12, text: C.titre ?? "", color: P.ink, fontSize: ajuste(60 * f, C.titre ?? "", h * 0.12, 1.1, w * 0.84), fontWeight: 900, lineHeight: 1.1 }),
+        ...(C.sous ? [text({ name: "Sous", x: w * 0.14, y: h * 0.26, w: w * 0.72, h: 56 * f, text: C.sous, color: P.sub, fontSize: ajuste(28 * f, C.sous, 56 * f, 1.15, w * 0.72), fontWeight: 500 })] : []),
         shape({ name: "Rail", x: w * 0.08, y: h * 0.52, w: w * 0.84, h: 6 * f, fill: P.acc, opacity: 0.35 }),
         ...it.flatMap((s, i) => {
           const [d, t] = s.split("|");
           const cx = x0 + i * pas;
           return [
             shape({ name: `Jalon ${i + 1}`, shape: "ellipse", x: cx - 26 * f, y: h * 0.52 - 23 * f, w: 52 * f, h: 52 * f, fill: P.acc, shadow: ombre(18 * f, 0.3, 6 * f) }),
-            text({ name: `Date ${i + 1}`, x: cx - pas * 0.46, y: h * 0.4, w: pas * 0.92, h: 56 * f, text: d ?? "", color: lis(P.acc, P.bg, P.ink), fontSize: 28 * f, fontWeight: 800 }),
-            text({ name: `Jalon txt ${i + 1}`, x: cx - pas * 0.46, y: h * 0.6, w: pas * 0.92, h: h * 0.2, text: t ?? "", color: P.ink, fontSize: 25 * f, fontWeight: 600, lineHeight: 1.35 }),
+            text({ name: `Date ${i + 1}`, x: cx - pas * 0.46, y: h * 0.4, w: pas * 0.92, h: 56 * f, text: d ?? "", color: lis(P.acc, P.bg, P.ink), fontSize: ajuste(28 * f, d ?? "", 56 * f, 1.15, pas * 0.92), fontWeight: 800 }),
+            text({ name: `Jalon txt ${i + 1}`, x: cx - pas * 0.46, y: h * 0.6, w: pas * 0.92, h: h * 0.2, text: t ?? "", color: P.ink, fontSize: ajuste(25 * f, t ?? "", h * 0.2, 1.35, pas * 0.92), fontWeight: 600, lineHeight: 1.35 }),
           ];
         }),
-        ...(C.meta ? [text({ name: "Pied", x: w * 0.08, y: h * 0.88, w: w * 0.84, h: 50 * f, text: C.meta, color: P.sub, fontSize: 25 * f, fontWeight: 500 })] : []),
+        ...(C.meta ? [text({ name: "Pied", x: w * 0.08, y: h * 0.88, w: w * 0.84, h: 50 * f, text: C.meta, color: P.sub, fontSize: ajuste(25 * f, C.meta, 50 * f, 1.15, w * 0.84), fontWeight: 500 })] : []),
       ],
     };
   },
@@ -1202,19 +1242,19 @@ const MEP: Record<string, (c: Ctx) => Bati> = {
     return {
       bg: P.bg, bgg: null,
       layers: [
-        text({ name: "Titre", x: w * 0.07, y: h * 0.1, w: w * 0.86, h: h * 0.11, text: C.titre ?? "", color: P.ink, fontSize: 62 * f, fontWeight: 900, align: "left", lineHeight: 1.1 }),
-        ...(C.sous ? [text({ name: "Sous", x: w * 0.07, y: h * 0.21, w: w * 0.86, h: 54 * f, text: C.sous, color: P.sub, fontSize: 28 * f, fontWeight: 500, align: "left" })] : []),
+        text({ name: "Titre", x: w * 0.07, y: h * 0.1, w: w * 0.86, h: h * 0.11, text: C.titre ?? "", color: P.ink, fontSize: ajuste(62 * f, C.titre ?? "", h * 0.11, 1.1, w * 0.86), fontWeight: 900, align: "left", lineHeight: 1.1 }),
+        ...(C.sous ? [text({ name: "Sous", x: w * 0.07, y: h * 0.21, w: w * 0.86, h: 54 * f, text: C.sous, color: P.sub, fontSize: ajuste(28 * f, C.sous, 54 * f, 1.15, w * 0.86), fontWeight: 500, align: "left" })] : []),
         shape({ name: "Rail", x: w * 0.3, y: y0, w: 4 * f, h: dy * Math.max(0, it.length - 1) + 20 * f, fill: P.acc, opacity: 0.35 }),
         ...it.flatMap((s, i) => {
           const [d, t] = s.split("|");
           const y = y0 + i * dy;
           return [
-            text({ name: `Date ${i + 1}`, x: w * 0.06, y, w: w * 0.2, h: 56 * f, text: d ?? "", color: lis(P.acc, P.bg, P.ink), fontSize: 28 * f, fontWeight: 800, align: "right" }),
+            text({ name: `Date ${i + 1}`, x: w * 0.06, y, w: w * 0.2, h: 56 * f, text: d ?? "", color: lis(P.acc, P.bg, P.ink), fontSize: ajuste(28 * f, d ?? "", 56 * f, 1.15, w * 0.2), fontWeight: 800, align: "right" }),
             shape({ name: `Point ${i + 1}`, shape: "ellipse", x: w * 0.3 - 14 * f, y: y + 6 * f, w: 32 * f, h: 32 * f, fill: P.acc }),
-            text({ name: `Fait ${i + 1}`, x: w * 0.36, y, w: w * 0.57, h: dy * 0.86, text: t ?? "", color: P.ink, fontSize: 30 * f, fontWeight: 600, align: "left", lineHeight: 1.35 }),
+            text({ name: `Fait ${i + 1}`, x: w * 0.36, y, w: w * 0.57, h: dy * 0.86, text: t ?? "", color: P.ink, fontSize: ajuste(30 * f, t ?? "", dy * 0.86, 1.35, w * 0.57), fontWeight: 600, align: "left", lineHeight: 1.35 }),
           ];
         }),
-        ...(C.meta ? [text({ name: "Pied", x: w * 0.07, y: h * 0.92, w: w * 0.86, h: 48 * f, text: C.meta, color: P.sub, fontSize: 25 * f, fontWeight: 500, align: "left" })] : []),
+        ...(C.meta ? [text({ name: "Pied", x: w * 0.07, y: h * 0.92, w: w * 0.86, h: 48 * f, text: C.meta, color: P.sub, fontSize: ajuste(25 * f, C.meta, 48 * f, 1.15, w * 0.86), fontWeight: 500, align: "left" })] : []),
       ],
     };
   },
@@ -1224,12 +1264,12 @@ const MEP: Record<string, (c: Ctx) => Bati> = {
     bg: P.bg, bgg: P.bg2 ? { type: "linear", angle: 155, from: P.bg, to: P.bg2 } : null,
     layers: [
       shape({ name: "Pastille", x: w * 0.08, y: h * 0.1, w: w * 0.2, h: 70 * f, fill: P.acc, radius: 40 * f }),
-      text({ name: "Rang", x: w * 0.08, y: h * 0.1 + 18 * f, w: w * 0.2, h: 44 * f, text: C.meta ?? "1/6", color: sur(P.acc), fontSize: 28 * f, fontWeight: 800 }),
-      ...(C.sur ? [text({ name: "Sur", x: w * 0.08, y: h * 0.24, w: w * 0.84, h: 56 * f, text: C.sur, color: lis(P.acc, P.bg, P.ink), fontSize: 27 * f, fontWeight: 800, align: "left", letterSpacing: 8 * f, uppercase: true })] : []),
-      text({ name: "Titre", x: w * 0.07, y: h * 0.31, w: w * 0.86, h: h * 0.26, text: C.titre ?? "", color: P.ink, fontSize: 76 * f, fontWeight: 900, align: "left", lineHeight: 1.14 }),
-      ...(C.sous ? [text({ name: "Corps", x: w * 0.07, y: h * 0.6, w: w * 0.8, h: h * 0.2, text: C.sous, color: P.sub, fontSize: 32 * f, fontWeight: 500, align: "left", lineHeight: 1.5 })] : []),
+      text({ name: "Rang", x: w * 0.08, y: h * 0.1 + 18 * f, w: w * 0.2, h: 44 * f, text: C.meta ?? "1/6", color: sur(P.acc), fontSize: ajuste(28 * f, C.meta ?? "1/6", 44 * f, 1.15, w * 0.2), fontWeight: 800 }),
+      ...(C.sur ? [text({ name: "Sur", x: w * 0.08, y: h * 0.24, w: w * 0.84, h: 56 * f, text: C.sur, color: lis(P.acc, P.bg, P.ink), fontSize: ajuste(27 * f, C.sur, 56 * f, 1.15, w * 0.84), fontWeight: 800, align: "left", letterSpacing: 8 * f, uppercase: true })] : []),
+      text({ name: "Titre", x: w * 0.07, y: h * 0.31, w: w * 0.86, h: h * 0.26, text: C.titre ?? "", color: P.ink, fontSize: ajuste(76 * f, C.titre ?? "", h * 0.26, 1.14, w * 0.86), fontWeight: 900, align: "left", lineHeight: 1.14 }),
+      ...(C.sous ? [text({ name: "Corps", x: w * 0.07, y: h * 0.6, w: w * 0.8, h: h * 0.2, text: C.sous, color: P.sub, fontSize: ajuste(32 * f, C.sous, h * 0.2, 1.5, w * 0.8), fontWeight: 500, align: "left", lineHeight: 1.5 })] : []),
       shape({ name: "Flèche", shape: "arrow", x: w * 0.78, y: h * 0.86, w: 90 * f, h: 60 * f, fill: P.acc }),
-      ...(C.cta ? [text({ name: "CTA", x: w * 0.07, y: h * 0.87, w: w * 0.6, h: 54 * f, text: C.cta, color: P.ink, fontSize: 28 * f, fontWeight: 700, align: "left" })] : []),
+      ...(C.cta ? [text({ name: "CTA", x: w * 0.07, y: h * 0.87, w: w * 0.6, h: 54 * f, text: C.cta, color: P.ink, fontSize: ajuste(28 * f, C.cta, 54 * f, 1.15, w * 0.6), fontWeight: 700, align: "left" })] : []),
     ],
   }),
 
@@ -1240,13 +1280,13 @@ const MEP: Record<string, (c: Ctx) => Bati> = {
     return {
       bg: P.bg, bgg: null,
       layers: [
-        ...(C.sur ? [text({ name: "Sur", x: w * 0.08, y: h * 0.16, w: w * 0.84, h: 56 * f, text: C.sur, color: lis(P.acc, P.bg, P.ink), fontSize: 28 * f, fontWeight: 800, align: "left", letterSpacing: 9 * f, uppercase: true })] : []),
-        text({ name: "Titre", x: w * 0.07, y: h * 0.23, w: w * 0.86, h: h * 0.16, text: C.titre ?? "", color: P.ink, fontSize: 66 * f, fontWeight: 900, align: "left", lineHeight: 1.12 }),
+        ...(C.sur ? [text({ name: "Sur", x: w * 0.08, y: h * 0.16, w: w * 0.84, h: 56 * f, text: C.sur, color: lis(P.acc, P.bg, P.ink), fontSize: ajuste(28 * f, C.sur, 56 * f, 1.15, w * 0.84), fontWeight: 800, align: "left", letterSpacing: 9 * f, uppercase: true })] : []),
+        text({ name: "Titre", x: w * 0.07, y: h * 0.23, w: w * 0.86, h: h * 0.16, text: C.titre ?? "", color: P.ink, fontSize: ajuste(66 * f, C.titre ?? "", h * 0.16, 1.12, w * 0.86), fontWeight: 900, align: "left", lineHeight: 1.12 }),
         shape({ name: "Rail", x: w * 0.08, y: h * 0.5, w: bw, h: bh, fill: P.sub, opacity: 0.22, radius: bh / 2 }),
         shape({ name: "Jauge", x: w * 0.08, y: h * 0.5, w: Math.max(bh, bw * pct / 100), h: bh, fill: P.acc, gradient: { type: "linear", angle: 0, from: P.acc, to: P.acc2 }, radius: bh / 2 }),
-        text({ name: "Pourcentage", x: w * 0.08, y: h * 0.59, w: bw, h: h * 0.14, text: `${pct} %`, color: lis(P.acc, P.bg, P.ink), fontFamily: font(13), fontSize: 108 * f, fontWeight: 900, align: "left" }),
-        ...(C.sous ? [text({ name: "Sous", x: w * 0.08, y: h * 0.75, w: w * 0.84, h: h * 0.12, text: C.sous, color: P.sub, fontSize: 32 * f, fontWeight: 500, align: "left", lineHeight: 1.45 })] : []),
-        ...(C.meta ? [text({ name: "Pied", x: w * 0.08, y: h * 0.9, w: w * 0.84, h: 50 * f, text: C.meta, color: P.ink, fontSize: 26 * f, fontWeight: 700, align: "left" })] : []),
+        text({ name: "Pourcentage", x: w * 0.08, y: h * 0.59, w: bw, h: h * 0.14, text: `${pct} %`, color: lis(P.acc, P.bg, P.ink), fontFamily: font(13), fontSize: ajuste(108 * f, `${pct} %`, h * 0.14, 1.15, bw), fontWeight: 900, align: "left" }),
+        ...(C.sous ? [text({ name: "Sous", x: w * 0.08, y: h * 0.75, w: w * 0.84, h: h * 0.12, text: C.sous, color: P.sub, fontSize: ajuste(32 * f, C.sous, h * 0.12, 1.45, w * 0.84), fontWeight: 500, align: "left", lineHeight: 1.45 })] : []),
+        ...(C.meta ? [text({ name: "Pied", x: w * 0.08, y: h * 0.9, w: w * 0.84, h: 50 * f, text: C.meta, color: P.ink, fontSize: ajuste(26 * f, C.meta, 50 * f, 1.15, w * 0.84), fontWeight: 700, align: "left" })] : []),
       ],
     };
   },
@@ -1258,21 +1298,21 @@ const MEP: Record<string, (c: Ctx) => Bati> = {
     return {
       bg: P.bg, bgg: null,
       layers: [
-        text({ name: "Titre", x: w * 0.07, y: h * 0.12, w: w * 0.86, h: h * 0.11, text: C.titre ?? "", color: P.ink, fontSize: 60 * f, fontWeight: 900, align: "left", lineHeight: 1.1 }),
-        ...(C.sous ? [text({ name: "Sous", x: w * 0.07, y: h * 0.23, w: w * 0.86, h: 54 * f, text: C.sous, color: P.sub, fontSize: 27 * f, fontWeight: 500, align: "left" })] : []),
+        text({ name: "Titre", x: w * 0.07, y: h * 0.12, w: w * 0.86, h: h * 0.11, text: C.titre ?? "", color: P.ink, fontSize: ajuste(60 * f, C.titre ?? "", h * 0.11, 1.1, w * 0.86), fontWeight: 900, align: "left", lineHeight: 1.1 }),
+        ...(C.sous ? [text({ name: "Sous", x: w * 0.07, y: h * 0.23, w: w * 0.86, h: 54 * f, text: C.sous, color: P.sub, fontSize: ajuste(27 * f, C.sous, 54 * f, 1.15, w * 0.86), fontWeight: 500, align: "left" })] : []),
         shape({ name: "En-tête", x: w * 0.07, y: y0, w: w * 0.86, h: dy * 0.92, fill: P.acc, radius: 12 * f }),
-        text({ name: "Col 1", x: w * 0.1, y: y0 + dy * 0.24, w: w * 0.46, h: dy * 0.6, text: (C.sur ?? "|").split("|")[0], color: sur(P.acc), fontSize: 26 * f, fontWeight: 800, align: "left", uppercase: true, letterSpacing: 3 * f }),
-        text({ name: "Col 2", x: w * 0.56, y: y0 + dy * 0.24, w: w * 0.34, h: dy * 0.6, text: (C.sur ?? "|").split("|")[1] ?? "", color: sur(P.acc), fontSize: 26 * f, fontWeight: 800, align: "right", uppercase: true, letterSpacing: 3 * f }),
+        text({ name: "Col 1", x: w * 0.1, y: y0 + dy * 0.24, w: w * 0.46, h: dy * 0.6, text: (C.sur ?? "|").split("|")[0], color: sur(P.acc), fontSize: ajuste(26 * f, (C.sur ?? "|").split("|")[0], dy * 0.6, 1.15, w * 0.46), fontWeight: 800, align: "left", uppercase: true, letterSpacing: 3 * f }),
+        text({ name: "Col 2", x: w * 0.56, y: y0 + dy * 0.24, w: w * 0.34, h: dy * 0.6, text: (C.sur ?? "|").split("|")[1] ?? "", color: sur(P.acc), fontSize: ajuste(26 * f, (C.sur ?? "|").split("|")[1] ?? "", dy * 0.6, 1.15, w * 0.34), fontWeight: 800, align: "right", uppercase: true, letterSpacing: 3 * f }),
         ...it.flatMap((s, i) => {
           const [a, b] = s.split("|");
           const y = y0 + (i + 1) * dy;
           return [
             ...(i % 2 === 0 ? [shape({ name: `Zèbre ${i + 1}`, x: w * 0.07, y, w: w * 0.86, h: dy * 0.92, fill: P.sub, opacity: 0.12, radius: 8 * f })] : []),
-            text({ name: `Cel A${i + 1}`, x: w * 0.1, y: y + dy * 0.22, w: w * 0.46, h: dy * 0.6, text: a ?? "", color: P.ink, fontSize: 27 * f, fontWeight: 600, align: "left" }),
-            text({ name: `Cel B${i + 1}`, x: w * 0.56, y: y + dy * 0.22, w: w * 0.34, h: dy * 0.6, text: b ?? "", color: P.ink, fontSize: 27 * f, fontWeight: 700, align: "right" }),
+            text({ name: `Cel A${i + 1}`, x: w * 0.1, y: y + dy * 0.22, w: w * 0.46, h: dy * 0.6, text: a ?? "", color: P.ink, fontSize: ajuste(27 * f, a ?? "", dy * 0.6, 1.15, w * 0.46), fontWeight: 600, align: "left" }),
+            text({ name: `Cel B${i + 1}`, x: w * 0.56, y: y + dy * 0.22, w: w * 0.34, h: dy * 0.6, text: b ?? "", color: P.ink, fontSize: ajuste(27 * f, b ?? "", dy * 0.6, 1.15, w * 0.34), fontWeight: 700, align: "right" }),
           ];
         }),
-        ...(C.meta ? [text({ name: "Pied", x: w * 0.07, y: h * 0.9, w: w * 0.86, h: 48 * f, text: C.meta, color: P.sub, fontSize: 24 * f, fontWeight: 500, align: "left" })] : []),
+        ...(C.meta ? [text({ name: "Pied", x: w * 0.07, y: h * 0.9, w: w * 0.86, h: 48 * f, text: C.meta, color: P.sub, fontSize: ajuste(24 * f, C.meta, 48 * f, 1.15, w * 0.86), fontWeight: 500, align: "left" })] : []),
       ],
     };
   },
@@ -1286,11 +1326,11 @@ const MEP: Record<string, (c: Ctx) => Bati> = {
       shape({ name: "Bloc 1", x: w * 0.06, y: h * 0.14, w: w * 0.7, h: h * 0.16, fill: P.acc }),
       shape({ name: "Bloc 2", x: w * 0.18, y: h * 0.31, w: w * 0.7, h: h * 0.16, fill: P.ink }),
       shape({ name: "Bloc 3", x: w * 0.06, y: h * 0.48, w: w * 0.52, h: h * 0.16, fill: P.acc2 }),
-      text({ name: "Mot 1", x: w * 0.08, y: h * 0.17, w: w * 0.66, h: h * 0.1, text: (C.titre ?? "").split("\n")[0] ?? "", color: sur(P.acc), fontFamily: font(14), fontSize: 76 * f, fontWeight: 900, align: "left", uppercase: true }),
-      text({ name: "Mot 2", x: w * 0.2, y: h * 0.34, w: w * 0.66, h: h * 0.1, text: (C.titre ?? "").split("\n")[1] ?? "", color: P.bg, fontFamily: font(14), fontSize: 76 * f, fontWeight: 900, align: "left", uppercase: true }),
-      text({ name: "Mot 3", x: w * 0.08, y: h * 0.51, w: w * 0.48, h: h * 0.1, text: (C.titre ?? "").split("\n")[2] ?? "", color: sur(P.acc2), fontFamily: font(14), fontSize: 76 * f, fontWeight: 900, align: "left", uppercase: true }),
-      ...(C.sous ? [text({ name: "Sous", x: w * 0.06, y: h * 0.7, w: w * 0.8, h: h * 0.14, text: C.sous, color: P.ink, fontSize: 32 * f, fontWeight: 600, align: "left", lineHeight: 1.4 })] : []),
-      ...(C.meta ? [text({ name: "Méta", x: w * 0.06, y: h * 0.89, w: w * 0.8, h: 52 * f, text: C.meta, color: P.sub, fontSize: 26 * f, fontWeight: 700, align: "left", letterSpacing: 5 * f })] : []),
+      text({ name: "Mot 1", x: w * 0.08, y: h * 0.17, w: w * 0.66, h: h * 0.1, text: (C.titre ?? "").split("\n")[0] ?? "", color: sur(P.acc), fontFamily: font(14), fontSize: ajuste(76 * f, (C.titre ?? "").split("\n")[0] ?? "", h * 0.1, 1.15, w * 0.66), fontWeight: 900, align: "left", uppercase: true }),
+      text({ name: "Mot 2", x: w * 0.2, y: h * 0.34, w: w * 0.66, h: h * 0.1, text: (C.titre ?? "").split("\n")[1] ?? "", color: P.bg, fontFamily: font(14), fontSize: ajuste(76 * f, (C.titre ?? "").split("\n")[1] ?? "", h * 0.1, 1.15, w * 0.66), fontWeight: 900, align: "left", uppercase: true }),
+      text({ name: "Mot 3", x: w * 0.08, y: h * 0.51, w: w * 0.48, h: h * 0.1, text: (C.titre ?? "").split("\n")[2] ?? "", color: sur(P.acc2), fontFamily: font(14), fontSize: ajuste(76 * f, (C.titre ?? "").split("\n")[2] ?? "", h * 0.1, 1.15, w * 0.48), fontWeight: 900, align: "left", uppercase: true }),
+      ...(C.sous ? [text({ name: "Sous", x: w * 0.06, y: h * 0.7, w: w * 0.8, h: h * 0.14, text: C.sous, color: P.ink, fontSize: ajuste(32 * f, C.sous, h * 0.14, 1.4, w * 0.8), fontWeight: 600, align: "left", lineHeight: 1.4 })] : []),
+      ...(C.meta ? [text({ name: "Méta", x: w * 0.06, y: h * 0.89, w: w * 0.8, h: 52 * f, text: C.meta, color: P.sub, fontSize: ajuste(26 * f, C.meta, 52 * f, 1.15, w * 0.8), fontWeight: 700, align: "left", letterSpacing: 5 * f })] : []),
     ],
   }),
 
@@ -1298,16 +1338,20 @@ const MEP: Record<string, (c: Ctx) => Bati> = {
   souligne: ({ w, h, P, C, f }) => {
     const li = (C.titre ?? "").split("\n").slice(0, 3);
     const y0 = h * 0.3, dy = h * 0.14;
+    /* Un surligneur couvre le bas des lettres, pas l'espace en dessous ; et sa
+       largeur suit le corps réellement employé, pas une valeur nominale. */
+    const corps = ajuste(68 * f, li[0] ?? "", dy * 0.9, 1.15);
+    const large = (s: string) => Math.min(w * 0.86, largeurTexte(s, corps) * 1.02);
     return {
       bg: P.bg, bgg: null,
       layers: [
-        ...(C.sur ? [text({ name: "Sur", x: w * 0.08, y: h * 0.17, w: w * 0.84, h: 58 * f, text: C.sur, color: P.sub, fontSize: 29 * f, fontWeight: 700, align: "left", letterSpacing: 9 * f, uppercase: true })] : []),
+        ...(C.sur ? [text({ name: "Sur", x: w * 0.08, y: h * 0.17, w: w * 0.84, h: 58 * f, text: C.sur, color: P.sub, fontSize: ajuste(29 * f, C.sur, 58 * f, 1.15, w * 0.84), fontWeight: 700, align: "left", letterSpacing: 9 * f, uppercase: true })] : []),
         ...li.flatMap((s, i) => [
-          shape({ name: `Trait ${i + 1}`, x: w * 0.07, y: y0 + i * dy + dy * 0.42, w: Math.min(w * 0.86, s.length * 34 * f), h: dy * 0.42, fill: i === 1 ? P.acc2 : P.acc, opacity: 0.55 }),
-          text({ name: `Ligne ${i + 1}`, x: w * 0.07, y: y0 + i * dy, w: w * 0.86, h: dy * 0.9, text: s, color: P.ink, fontSize: 68 * f, fontWeight: 900, align: "left" }),
+          shape({ name: `Trait ${i + 1}`, x: w * 0.07, y: y0 + i * dy + dy * 0.45 - corps * 0.15, w: large(s), h: corps * 0.56, fill: i === 1 ? P.acc2 : P.acc, opacity: 0.55 }),
+          text({ name: `Ligne ${i + 1}`, x: w * 0.07, y: y0 + i * dy, w: w * 0.86, h: dy * 0.9, text: s, color: P.ink, fontSize: corps, fontWeight: 900, align: "left" }),
         ]),
-        ...(C.sous ? [text({ name: "Sous", x: w * 0.07, y: h * 0.75, w: w * 0.8, h: h * 0.13, text: C.sous, color: P.sub, fontSize: 31 * f, fontWeight: 500, align: "left", lineHeight: 1.45 })] : []),
-        ...(C.meta ? [text({ name: "Méta", x: w * 0.07, y: h * 0.9, w: w * 0.8, h: 50 * f, text: C.meta, color: P.ink, fontSize: 26 * f, fontWeight: 700, align: "left" })] : []),
+        ...(C.sous ? [text({ name: "Sous", x: w * 0.07, y: h * 0.75, w: w * 0.8, h: h * 0.13, text: C.sous, color: P.sub, fontSize: ajuste(31 * f, C.sous, h * 0.13, 1.45, w * 0.8), fontWeight: 500, align: "left", lineHeight: 1.45 })] : []),
+        ...(C.meta ? [text({ name: "Méta", x: w * 0.07, y: h * 0.9, w: w * 0.8, h: 50 * f, text: C.meta, color: P.ink, fontSize: ajuste(26 * f, C.meta, 50 * f, 1.15, w * 0.8), fontWeight: 700, align: "left" })] : []),
       ],
     };
   },
@@ -1316,11 +1360,11 @@ const MEP: Record<string, (c: Ctx) => Bati> = {
   contour: ({ w, h, P, C, f }) => ({
     bg: P.bg, bgg: P.bg2 ? { type: "linear", angle: 145, from: P.bg, to: P.bg2 } : null,
     layers: [
-      text({ name: "Titre creux", x: w * 0.05, y: h * 0.24, w: w * 0.9, h: h * 0.3, text: C.gros ?? C.titre ?? "", color: P.bg, strokeColor: P.ink, strokeWidth: 3 * f, fontFamily: font(14), fontSize: 150 * f, fontWeight: 900, lineHeight: 1.02, uppercase: true }),
-      ...(C.sur ? [text({ name: "Sur", x: w * 0.1, y: h * 0.16, w: w * 0.8, h: 58 * f, text: C.sur, color: lis(P.acc, P.bg, P.ink), fontSize: 30 * f, fontWeight: 800, letterSpacing: 12 * f, uppercase: true })] : []),
-      text({ name: "Titre", x: w * 0.1, y: h * 0.6, w: w * 0.8, h: h * 0.12, text: C.titre ?? "", color: P.ink, fontSize: 52 * f, fontWeight: 800, lineHeight: 1.15 }),
-      ...(C.sous ? [text({ name: "Sous", x: w * 0.14, y: h * 0.74, w: w * 0.72, h: h * 0.1, text: C.sous, color: P.sub, fontSize: 30 * f, fontWeight: 500, lineHeight: 1.45 })] : []),
-      ...(C.meta ? [text({ name: "Méta", x: w * 0.14, y: h * 0.89, w: w * 0.72, h: 50 * f, text: C.meta, color: lis(P.acc, P.bg, P.ink), fontSize: 26 * f, fontWeight: 700, letterSpacing: 5 * f })] : []),
+      text({ name: "Titre creux", x: w * 0.05, y: h * 0.24, w: w * 0.9, h: h * 0.3, text: C.gros ?? C.titre ?? "", color: P.bg, strokeColor: P.ink, strokeWidth: 3 * f, fontFamily: font(14), fontSize: ajuste(150 * f, C.gros ?? C.titre ?? "", h * 0.3, 1.02, w * 0.9), fontWeight: 900, lineHeight: 1.02, uppercase: true }),
+      ...(C.sur ? [text({ name: "Sur", x: w * 0.1, y: h * 0.16, w: w * 0.8, h: 58 * f, text: C.sur, color: lis(P.acc, P.bg, P.ink), fontSize: ajuste(30 * f, C.sur, 58 * f, 1.15, w * 0.8), fontWeight: 800, letterSpacing: 12 * f, uppercase: true })] : []),
+      text({ name: "Titre", x: w * 0.1, y: h * 0.6, w: w * 0.8, h: h * 0.12, text: C.titre ?? "", color: P.ink, fontSize: ajuste(52 * f, C.titre ?? "", h * 0.12, 1.15, w * 0.8), fontWeight: 800, lineHeight: 1.15 }),
+      ...(C.sous ? [text({ name: "Sous", x: w * 0.14, y: h * 0.74, w: w * 0.72, h: h * 0.1, text: C.sous, color: P.sub, fontSize: ajuste(30 * f, C.sous, h * 0.1, 1.45, w * 0.72), fontWeight: 500, lineHeight: 1.45 })] : []),
+      ...(C.meta ? [text({ name: "Méta", x: w * 0.14, y: h * 0.89, w: w * 0.72, h: 50 * f, text: C.meta, color: lis(P.acc, P.bg, P.ink), fontSize: ajuste(26 * f, C.meta, 50 * f, 1.15, w * 0.72), fontWeight: 700, letterSpacing: 5 * f })] : []),
     ],
   }),
 
@@ -1328,11 +1372,11 @@ const MEP: Record<string, (c: Ctx) => Bati> = {
   ombredure: ({ w, h, P, C, f }) => ({
     bg: P.bg, bgg: null,
     layers: [
-      text({ name: "Ombre", x: w * 0.08 + 14 * f, y: h * 0.32 + 14 * f, w: w * 0.84, h: h * 0.26, text: C.titre ?? "", color: P.acc, fontFamily: font(14), fontSize: 112 * f, fontWeight: 900, lineHeight: 1.06, uppercase: true }),
-      text({ name: "Titre", x: w * 0.08, y: h * 0.32, w: w * 0.84, h: h * 0.26, text: C.titre ?? "", color: P.ink, fontFamily: font(14), fontSize: 112 * f, fontWeight: 900, lineHeight: 1.06, uppercase: true }),
-      ...(C.sur ? [text({ name: "Sur", x: w * 0.08, y: h * 0.2, w: w * 0.84, h: 58 * f, text: C.sur, color: P.sub, fontSize: 30 * f, fontWeight: 700, letterSpacing: 10 * f, uppercase: true })] : []),
-      ...(C.sous ? [text({ name: "Sous", x: w * 0.12, y: h * 0.66, w: w * 0.76, h: h * 0.14, text: C.sous, color: P.sub, fontSize: 32 * f, fontWeight: 500, lineHeight: 1.45 })] : []),
-      ...(C.meta ? [text({ name: "Méta", x: w * 0.12, y: h * 0.88, w: w * 0.76, h: 52 * f, text: C.meta, color: P.ink, fontSize: 27 * f, fontWeight: 800, letterSpacing: 4 * f })] : []),
+      text({ name: "Ombre", x: w * 0.08 + 14 * f, y: h * 0.32 + 14 * f, w: w * 0.84, h: h * 0.26, text: C.titre ?? "", color: P.acc, fontFamily: font(14), fontSize: ajuste(112 * f, C.titre ?? "", h * 0.26, 1.06, w * 0.84), fontWeight: 900, lineHeight: 1.06, uppercase: true }),
+      text({ name: "Titre", x: w * 0.08, y: h * 0.32, w: w * 0.84, h: h * 0.26, text: C.titre ?? "", color: P.ink, fontFamily: font(14), fontSize: ajuste(112 * f, C.titre ?? "", h * 0.26, 1.06, w * 0.84), fontWeight: 900, lineHeight: 1.06, uppercase: true }),
+      ...(C.sur ? [text({ name: "Sur", x: w * 0.08, y: h * 0.2, w: w * 0.84, h: 58 * f, text: C.sur, color: P.sub, fontSize: ajuste(30 * f, C.sur, 58 * f, 1.15, w * 0.84), fontWeight: 700, letterSpacing: 10 * f, uppercase: true })] : []),
+      ...(C.sous ? [text({ name: "Sous", x: w * 0.12, y: h * 0.66, w: w * 0.76, h: h * 0.14, text: C.sous, color: P.sub, fontSize: ajuste(32 * f, C.sous, h * 0.14, 1.45, w * 0.76), fontWeight: 500, lineHeight: 1.45 })] : []),
+      ...(C.meta ? [text({ name: "Méta", x: w * 0.12, y: h * 0.88, w: w * 0.76, h: 52 * f, text: C.meta, color: P.ink, fontSize: ajuste(27 * f, C.meta, 52 * f, 1.15, w * 0.76), fontWeight: 800, letterSpacing: 4 * f })] : []),
     ],
   }),
 
@@ -1350,10 +1394,10 @@ const MEP: Record<string, (c: Ctx) => Bati> = {
         ...eq(w * (1 - m), h * m, -1, 1, 2),
         ...eq(w * m, h * (1 - m), 1, -1, 3),
         ...eq(w * (1 - m), h * (1 - m), -1, -1, 4),
-        ...(C.sur ? [text({ name: "Sur", x: w * 0.12, y: h * 0.28, w: w * 0.76, h: 58 * f, text: C.sur, color: lis(P.acc, P.bg, P.ink), fontSize: 28 * f, fontWeight: 800, letterSpacing: 11 * f, uppercase: true })] : []),
-        text({ name: "Titre", x: w * 0.1, y: h * 0.36, w: w * 0.8, h: h * 0.24, text: C.titre ?? "", color: P.ink, fontFamily: font(5), fontSize: 80 * f, fontWeight: 800, lineHeight: 1.15 }),
-        ...(C.sous ? [text({ name: "Sous", x: w * 0.16, y: h * 0.63, w: w * 0.68, h: h * 0.12, text: C.sous, color: P.sub, fontSize: 30 * f, fontWeight: 500, lineHeight: 1.45 })] : []),
-        ...(C.meta ? [text({ name: "Méta", x: w * 0.16, y: h * 0.79, w: w * 0.68, h: 52 * f, text: C.meta, color: P.ink, fontSize: 26 * f, fontWeight: 700, letterSpacing: 5 * f })] : []),
+        ...(C.sur ? [text({ name: "Sur", x: w * 0.12, y: h * 0.28, w: w * 0.76, h: 58 * f, text: C.sur, color: lis(P.acc, P.bg, P.ink), fontSize: ajuste(28 * f, C.sur, 58 * f, 1.15, w * 0.76), fontWeight: 800, letterSpacing: 11 * f, uppercase: true })] : []),
+        text({ name: "Titre", x: w * 0.1, y: h * 0.36, w: w * 0.8, h: h * 0.24, text: C.titre ?? "", color: P.ink, fontFamily: font(5), fontSize: ajuste(80 * f, C.titre ?? "", h * 0.24, 1.15, w * 0.8), fontWeight: 800, lineHeight: 1.15 }),
+        ...(C.sous ? [text({ name: "Sous", x: w * 0.16, y: h * 0.63, w: w * 0.68, h: h * 0.12, text: C.sous, color: P.sub, fontSize: ajuste(30 * f, C.sous, h * 0.12, 1.45, w * 0.68), fontWeight: 500, lineHeight: 1.45 })] : []),
+        ...(C.meta ? [text({ name: "Méta", x: w * 0.16, y: h * 0.79, w: w * 0.68, h: 52 * f, text: C.meta, color: P.ink, fontSize: ajuste(26 * f, C.meta, 52 * f, 1.15, w * 0.68), fontWeight: 700, letterSpacing: 5 * f })] : []),
       ],
     };
   },
@@ -1371,10 +1415,10 @@ const MEP: Record<string, (c: Ctx) => Bati> = {
       layers: [
         ...pts.map((p) => shape({ name: `Pois ${p.i + 1}`, shape: "ellipse", x: p.x, y: p.y, w: d, h: d, fill: p.i % 3 ? P.acc : P.acc2, opacity: 0.3 })),
         shape({ name: "Carte", x: w * 0.1, y: h * 0.28, w: w * 0.8, h: h * 0.44, fill: P.bg, radius: 32 * f, shadow: ombre(50 * f, 0.22, 20 * f) }),
-        ...(C.sur ? [text({ name: "Sur", x: w * 0.14, y: h * 0.34, w: w * 0.72, h: 56 * f, text: C.sur, color: lis(P.acc, P.bg, P.ink), fontSize: 27 * f, fontWeight: 800, letterSpacing: 9 * f, uppercase: true })] : []),
-        text({ name: "Titre", x: w * 0.14, y: h * 0.41, w: w * 0.72, h: h * 0.16, text: C.titre ?? "", color: P.ink, fontSize: 62 * f, fontWeight: 900, lineHeight: 1.14 }),
-        ...(C.sous ? [text({ name: "Sous", x: w * 0.16, y: h * 0.59, w: w * 0.68, h: h * 0.1, text: C.sous, color: P.sub, fontSize: 29 * f, fontWeight: 500, lineHeight: 1.4 })] : []),
-        ...(C.meta ? [text({ name: "Méta", x: w * 0.1, y: h * 0.8, w: w * 0.8, h: 54 * f, text: C.meta, color: P.ink, fontSize: 28 * f, fontWeight: 700 })] : []),
+        ...(C.sur ? [text({ name: "Sur", x: w * 0.14, y: h * 0.34, w: w * 0.72, h: 56 * f, text: C.sur, color: lis(P.acc, P.bg, P.ink), fontSize: ajuste(27 * f, C.sur, 56 * f, 1.15, w * 0.72), fontWeight: 800, letterSpacing: 9 * f, uppercase: true })] : []),
+        text({ name: "Titre", x: w * 0.14, y: h * 0.41, w: w * 0.72, h: h * 0.16, text: C.titre ?? "", color: P.ink, fontSize: ajuste(62 * f, C.titre ?? "", h * 0.16, 1.14, w * 0.72), fontWeight: 900, lineHeight: 1.14 }),
+        ...(C.sous ? [text({ name: "Sous", x: w * 0.16, y: h * 0.59, w: w * 0.68, h: h * 0.1, text: C.sous, color: P.sub, fontSize: ajuste(29 * f, C.sous, h * 0.1, 1.4, w * 0.68), fontWeight: 500, lineHeight: 1.4 })] : []),
+        ...(C.meta ? [text({ name: "Méta", x: w * 0.1, y: h * 0.8, w: w * 0.8, h: 54 * f, text: C.meta, color: P.ink, fontSize: ajuste(28 * f, C.meta, 54 * f, 1.15, w * 0.8), fontWeight: 700 })] : []),
       ],
     };
   },
@@ -1390,10 +1434,10 @@ const MEP: Record<string, (c: Ctx) => Bati> = {
           fill: i % 2 ? P.acc : P.acc2, opacity: 0.18, rotation: 22,
         })),
         shape({ name: "Bandeau", x: 0, y: h * 0.3, w, h: h * 0.4, fill: P.bg, opacity: 0.94 }),
-        ...(C.sur ? [text({ name: "Sur", x: w * 0.08, y: h * 0.34, w: w * 0.84, h: 58 * f, text: C.sur, color: lis(P.acc, P.bg, P.ink), fontSize: 29 * f, fontWeight: 800, letterSpacing: 10 * f, uppercase: true })] : []),
-        text({ name: "Titre", x: w * 0.07, y: h * 0.41, w: w * 0.86, h: h * 0.18, text: C.titre ?? "", color: P.ink, fontFamily: font(13), fontSize: 90 * f, fontWeight: 900, lineHeight: 1.08, uppercase: true }),
-        ...(C.sous ? [text({ name: "Sous", x: w * 0.12, y: h * 0.74, w: w * 0.76, h: h * 0.1, text: C.sous, color: P.ink, fontSize: 32 * f, fontWeight: 600, lineHeight: 1.4 })] : []),
-        ...(C.meta ? [text({ name: "Méta", x: w * 0.12, y: h * 0.87, w: w * 0.76, h: 52 * f, text: C.meta, color: P.sub, fontSize: 27 * f, fontWeight: 700, letterSpacing: 5 * f })] : []),
+        ...(C.sur ? [text({ name: "Sur", x: w * 0.08, y: h * 0.34, w: w * 0.84, h: 58 * f, text: C.sur, color: lis(P.acc, P.bg, P.ink), fontSize: ajuste(29 * f, C.sur, 58 * f, 1.15, w * 0.84), fontWeight: 800, letterSpacing: 10 * f, uppercase: true })] : []),
+        text({ name: "Titre", x: w * 0.07, y: h * 0.41, w: w * 0.86, h: h * 0.18, text: C.titre ?? "", color: P.ink, fontFamily: font(13), fontSize: ajuste(90 * f, C.titre ?? "", h * 0.18, 1.08, w * 0.86), fontWeight: 900, lineHeight: 1.08, uppercase: true }),
+        ...(C.sous ? [text({ name: "Sous", x: w * 0.12, y: h * 0.74, w: w * 0.76, h: h * 0.1, text: C.sous, color: P.ink, fontSize: ajuste(32 * f, C.sous, h * 0.1, 1.4, w * 0.76), fontWeight: 600, lineHeight: 1.4 })] : []),
+        ...(C.meta ? [text({ name: "Méta", x: w * 0.12, y: h * 0.87, w: w * 0.76, h: 52 * f, text: C.meta, color: P.sub, fontSize: ajuste(27 * f, C.meta, 52 * f, 1.15, w * 0.76), fontWeight: 700, letterSpacing: 5 * f })] : []),
       ],
     };
   },
@@ -1407,10 +1451,10 @@ const MEP: Record<string, (c: Ctx) => Bati> = {
         shape({ name: "Onde 3", shape: "ellipse", x: -w * 0.25, y: h * 0.62, w: d, h: d * 0.5, fill: P.acc2, opacity: 0.4 }),
         shape({ name: "Onde 2", shape: "ellipse", x: -w * 0.25, y: h * 0.7, w: d, h: d * 0.5, fill: P.acc, opacity: 0.6 }),
         shape({ name: "Onde 1", shape: "ellipse", x: -w * 0.25, y: h * 0.78, w: d, h: d * 0.5, fill: P.acc }),
-        ...(C.sur ? [text({ name: "Sur", x: w * 0.1, y: h * 0.16, w: w * 0.8, h: 58 * f, text: C.sur, color: lis(P.acc, P.bg, P.ink), fontSize: 29 * f, fontWeight: 800, letterSpacing: 10 * f, uppercase: true })] : []),
-        text({ name: "Titre", x: w * 0.08, y: h * 0.24, w: w * 0.84, h: h * 0.22, text: C.titre ?? "", color: P.ink, fontSize: 78 * f, fontWeight: 900, lineHeight: 1.14 }),
-        ...(C.sous ? [text({ name: "Sous", x: w * 0.14, y: h * 0.5, w: w * 0.72, h: h * 0.12, text: C.sous, color: P.sub, fontSize: 31 * f, fontWeight: 500, lineHeight: 1.45 })] : []),
-        ...(C.meta ? [text({ name: "Méta", x: w * 0.1, y: h * 0.88, w: w * 0.8, h: 54 * f, text: C.meta, color: sur(P.acc), fontSize: 28 * f, fontWeight: 700, letterSpacing: 4 * f })] : []),
+        ...(C.sur ? [text({ name: "Sur", x: w * 0.1, y: h * 0.16, w: w * 0.8, h: 58 * f, text: C.sur, color: lis(P.acc, P.bg, P.ink), fontSize: ajuste(29 * f, C.sur, 58 * f, 1.15, w * 0.8), fontWeight: 800, letterSpacing: 10 * f, uppercase: true })] : []),
+        text({ name: "Titre", x: w * 0.08, y: h * 0.24, w: w * 0.84, h: h * 0.22, text: C.titre ?? "", color: P.ink, fontSize: ajuste(78 * f, C.titre ?? "", h * 0.22, 1.14, w * 0.84), fontWeight: 900, lineHeight: 1.14 }),
+        ...(C.sous ? [text({ name: "Sous", x: w * 0.14, y: h * 0.5, w: w * 0.72, h: h * 0.12, text: C.sous, color: P.sub, fontSize: ajuste(31 * f, C.sous, h * 0.12, 1.45, w * 0.72), fontWeight: 500, lineHeight: 1.45 })] : []),
+        ...(C.meta ? [text({ name: "Méta", x: w * 0.1, y: h * 0.88, w: w * 0.8, h: 54 * f, text: C.meta, color: sur(P.acc), fontSize: ajuste(28 * f, C.meta, 54 * f, 1.15, w * 0.8), fontWeight: 700, letterSpacing: 4 * f })] : []),
       ],
     };
   },
@@ -1424,10 +1468,10 @@ const MEP: Record<string, (c: Ctx) => Bati> = {
       shape({ name: "Crête 2", shape: "triangle", x: w * 0.3, y: h * 0.5, w: w * 0.8, h: h * 0.4, fill: P.acc, opacity: 0.7 }),
       shape({ name: "Crête 1", shape: "triangle", x: w * 0.05, y: h * 0.58, w: w * 0.7, h: h * 0.32, fill: P.acc }),
       shape({ name: "Sol", x: 0, y: h * 0.89, w, h: h * 0.11, fill: P.acc }),
-      ...(C.sur ? [text({ name: "Sur", x: w * 0.08, y: h * 0.1, w: w * 0.84, h: 56 * f, text: C.sur, color: lis(P.acc, P.bg, P.ink), fontSize: 28 * f, fontWeight: 800, letterSpacing: 10 * f, uppercase: true })] : []),
-      text({ name: "Titre", x: w * 0.07, y: h * 0.17, w: w * 0.86, h: h * 0.2, text: C.titre ?? "", color: P.ink, fontFamily: font(5), fontSize: 82 * f, fontWeight: 900, lineHeight: 1.12 }),
-      ...(C.sous ? [text({ name: "Sous", x: w * 0.14, y: h * 0.37, w: w * 0.72, h: h * 0.08, text: C.sous, color: P.sub, fontSize: 29 * f, fontWeight: 500 })] : []),
-      ...(C.meta ? [text({ name: "Méta", x: w * 0.1, y: h * 0.91, w: w * 0.8, h: 52 * f, text: C.meta, color: sur(P.acc), fontSize: 27 * f, fontWeight: 700, letterSpacing: 5 * f })] : []),
+      ...(C.sur ? [text({ name: "Sur", x: w * 0.08, y: h * 0.1, w: w * 0.84, h: 56 * f, text: C.sur, color: lis(P.acc, P.bg, P.ink), fontSize: ajuste(28 * f, C.sur, 56 * f, 1.15, w * 0.84), fontWeight: 800, letterSpacing: 10 * f, uppercase: true })] : []),
+      text({ name: "Titre", x: w * 0.07, y: h * 0.17, w: w * 0.86, h: h * 0.2, text: C.titre ?? "", color: P.ink, fontFamily: font(5), fontSize: ajuste(82 * f, C.titre ?? "", h * 0.2, 1.12, w * 0.86), fontWeight: 900, lineHeight: 1.12 }),
+      ...(C.sous ? [text({ name: "Sous", x: w * 0.14, y: h * 0.37, w: w * 0.72, h: h * 0.08, text: C.sous, color: P.sub, fontSize: ajuste(29 * f, C.sous, h * 0.08, 1.15, w * 0.72), fontWeight: 500 })] : []),
+      ...(C.meta ? [text({ name: "Méta", x: w * 0.1, y: h * 0.91, w: w * 0.8, h: 52 * f, text: C.meta, color: sur(P.acc), fontSize: ajuste(27 * f, C.meta, 52 * f, 1.15, w * 0.8), fontWeight: 700, letterSpacing: 5 * f })] : []),
     ],
   }),
 
@@ -1439,13 +1483,13 @@ const MEP: Record<string, (c: Ctx) => Bati> = {
       layers: [
         ...Array.from({ length: n }, (_, i) => shape({
           name: `Rayon ${i + 1}`, x: w * 0.5 - L * 0.03, y: h * 0.5 - L / 2, w: L * 0.06, h: L,
-          fill: i % 2 ? P.acc : P.acc2, opacity: 0.16, rotation: (180 / n) * i,
+          fill: i % 2 ? P.acc : P.acc2, opacity: 0.1, rotation: (180 / n) * i,
         })),
         shape({ name: "Cœur", shape: "ellipse", x: w * 0.5 - Math.min(w, h) * 0.34, y: h * 0.5 - Math.min(w, h) * 0.34, w: Math.min(w, h) * 0.68, h: Math.min(w, h) * 0.68, fill: P.acc2, gradient: { type: "radial", angle: 0, from: P.acc2, to: P.acc } }),
-        ...(C.sur ? [text({ name: "Sur", x: w * 0.2, y: h * 0.36, w: w * 0.6, h: 56 * f, text: C.sur, color: sur(P.acc2), fontSize: 27 * f, fontWeight: 800, letterSpacing: 9 * f, uppercase: true, opacity: 0.9 })] : []),
-        text({ name: "Titre", x: w * 0.18, y: h * 0.43, w: w * 0.64, h: h * 0.16, text: C.titre ?? "", color: sur(P.acc2), fontFamily: font(13), fontSize: 72 * f, fontWeight: 900, lineHeight: 1.1 }),
-        ...(C.sous ? [text({ name: "Sous", x: w * 0.22, y: h * 0.59, w: w * 0.56, h: h * 0.08, text: C.sous, color: sur(P.acc2), fontSize: 26 * f, fontWeight: 500, opacity: 0.92 })] : []),
-        ...(C.meta ? [text({ name: "Méta", x: w * 0.1, y: h * 0.88, w: w * 0.8, h: 54 * f, text: C.meta, color: P.ink, fontSize: 28 * f, fontWeight: 700, letterSpacing: 5 * f })] : []),
+        ...(C.sur ? [text({ name: "Sur", x: w * 0.2, y: h * 0.36, w: w * 0.6, h: 56 * f, text: C.sur, color: sur(P.acc2), fontSize: ajuste(27 * f, C.sur, 56 * f, 1.15, w * 0.6), fontWeight: 800, letterSpacing: 9 * f, uppercase: true, opacity: 0.9 })] : []),
+        text({ name: "Titre", x: w * 0.18, y: h * 0.43, w: w * 0.64, h: h * 0.16, text: C.titre ?? "", color: sur(P.acc2), fontFamily: font(13), fontSize: ajuste(72 * f, C.titre ?? "", h * 0.16, 1.1, w * 0.64), fontWeight: 900, lineHeight: 1.1 }),
+        ...(C.sous ? [text({ name: "Sous", x: w * 0.22, y: h * 0.59, w: w * 0.56, h: h * 0.08, text: C.sous, color: sur(P.acc2), fontSize: ajuste(26 * f, C.sous, h * 0.08, 1.15, w * 0.56), fontWeight: 500, opacity: 0.92 })] : []),
+        ...(C.meta ? [text({ name: "Méta", x: w * 0.1, y: h * 0.88, w: w * 0.8, h: 54 * f, text: C.meta, color: sur(P.bg), fontSize: ajuste(28 * f, C.meta, 54 * f, 1.15, w * 0.8), fontWeight: 700, letterSpacing: 5 * f })] : []),
       ],
     };
   },
@@ -1463,10 +1507,10 @@ const MEP: Record<string, (c: Ctx) => Bati> = {
           fill: P.acc, opacity: 0.13,
         })),
         shape({ name: "Cartouche", x: w * 0.08, y: h * 0.3, w: w * 0.84, h: h * 0.4, fill: P.acc, gradient: { type: "linear", angle: 150, from: P.acc, to: P.acc2 }, radius: 20 * f, shadow: ombre(44 * f, 0.32, 18 * f) }),
-        ...(C.sur ? [text({ name: "Sur", x: w * 0.12, y: h * 0.35, w: w * 0.76, h: 56 * f, text: C.sur, color: sur(P.acc), fontSize: 27 * f, fontWeight: 800, letterSpacing: 9 * f, uppercase: true, opacity: 0.9 })] : []),
-        text({ name: "Titre", x: w * 0.12, y: h * 0.42, w: w * 0.76, h: h * 0.16, text: C.titre ?? "", color: sur(P.acc), fontFamily: font(14), fontSize: 74 * f, fontWeight: 900, lineHeight: 1.1, uppercase: true }),
-        ...(C.sous ? [text({ name: "Sous", x: w * 0.14, y: h * 0.59, w: w * 0.72, h: h * 0.08, text: C.sous, color: sur(P.acc), fontSize: 27 * f, fontWeight: 500, opacity: 0.92 })] : []),
-        ...(C.meta ? [text({ name: "Méta", x: w * 0.1, y: h * 0.78, w: w * 0.8, h: 54 * f, text: C.meta, color: P.ink, fontSize: 28 * f, fontWeight: 700, letterSpacing: 5 * f })] : []),
+        ...(C.sur ? [text({ name: "Sur", x: w * 0.12, y: h * 0.35, w: w * 0.76, h: 56 * f, text: C.sur, color: sur(P.acc), fontSize: ajuste(27 * f, C.sur, 56 * f, 1.15, w * 0.76), fontWeight: 800, letterSpacing: 9 * f, uppercase: true, opacity: 0.9 })] : []),
+        text({ name: "Titre", x: w * 0.12, y: h * 0.42, w: w * 0.76, h: h * 0.16, text: C.titre ?? "", color: sur(P.acc), fontFamily: font(14), fontSize: ajuste(74 * f, C.titre ?? "", h * 0.16, 1.1, w * 0.76), fontWeight: 900, lineHeight: 1.1, uppercase: true }),
+        ...(C.sous ? [text({ name: "Sous", x: w * 0.14, y: h * 0.59, w: w * 0.72, h: h * 0.08, text: C.sous, color: sur(P.acc), fontSize: ajuste(27 * f, C.sous, h * 0.08, 1.15, w * 0.72), fontWeight: 500, opacity: 0.92 })] : []),
+        ...(C.meta ? [text({ name: "Méta", x: w * 0.1, y: h * 0.78, w: w * 0.8, h: 54 * f, text: C.meta, color: P.ink, fontSize: ajuste(28 * f, C.meta, 54 * f, 1.15, w * 0.8), fontWeight: 700, letterSpacing: 5 * f })] : []),
       ],
     };
   },
@@ -1475,17 +1519,21 @@ const MEP: Record<string, (c: Ctx) => Bati> = {
 
   /* Étiquette de prix : le carton, l'œillet, la ficelle sous-entendue. */
   etiquette: ({ w, h, P, C, f }) => {
-    const tw = Math.min(w * 0.66, h * 0.5), th = tw * 1.35, x0 = (w - tw) / 2, y0 = h * 0.16;
+    const y0 = h * 0.12;
+    const tw = Math.min(w * 0.66, h * 0.44);
+    /* Le carton ne descend jamais au-delà des trois quarts de la page : la
+       légende et la mention ont besoin de la place qui reste. */
+    const th = Math.min(tw * 1.35, h * 0.62), x0 = (w - tw) / 2;
     return {
       bg: P.bg, bgg: P.bg2 ? { type: "linear", angle: 155, from: P.bg, to: P.bg2 } : null,
       layers: [
         shape({ name: "Carton", x: x0, y: y0, w: tw, h: th, fill: P.acc, gradient: { type: "linear", angle: 150, from: P.acc, to: P.acc2 }, radius: 24 * f, shadow: ombre(40 * f, 0.32, 16 * f) }),
         shape({ name: "Œillet", shape: "ellipse", x: x0 + tw / 2 - 22 * f, y: y0 + 30 * f, w: 44 * f, h: 44 * f, fill: P.bg }),
-        ...(C.sur ? [text({ name: "Sur", x: x0, y: y0 + th * 0.22, w: tw, h: 54 * f, text: C.sur, color: sur(P.acc), fontSize: 26 * f, fontWeight: 800, letterSpacing: 8 * f, uppercase: true, opacity: 0.9 })] : []),
-        text({ name: "Prix", x: x0, y: y0 + th * 0.34, w: tw, h: th * 0.26, text: C.gros ?? "", color: sur(P.acc), fontFamily: font(13), fontSize: 116 * f, fontWeight: 900 }),
-        text({ name: "Article", x: x0 + tw * 0.08, y: y0 + th * 0.66, w: tw * 0.84, h: th * 0.22, text: C.titre ?? "", color: sur(P.acc), fontSize: 34 * f, fontWeight: 700, lineHeight: 1.25 }),
-        ...(C.sous ? [text({ name: "Sous", x: w * 0.1, y: y0 + th + h * 0.04, w: w * 0.8, h: h * 0.1, text: C.sous, color: P.ink, fontSize: 30 * f, fontWeight: 600, lineHeight: 1.4 })] : []),
-        ...(C.meta ? [text({ name: "Méta", x: w * 0.1, y: h * 0.92, w: w * 0.8, h: 50 * f, text: C.meta, color: P.sub, fontSize: 26 * f, fontWeight: 700, letterSpacing: 5 * f })] : []),
+        ...(C.sur ? [text({ name: "Sur", x: x0, y: y0 + th * 0.22, w: tw, h: 54 * f, text: C.sur, color: sur(P.acc), fontSize: ajuste(26 * f, C.sur, 54 * f, 1.15, tw), fontWeight: 800, letterSpacing: 8 * f, uppercase: true, opacity: 0.9 })] : []),
+        text({ name: "Prix", x: x0, y: y0 + th * 0.34, w: tw, h: th * 0.26, text: C.gros ?? "", color: sur(P.acc), fontFamily: font(13), fontSize: ajuste(116 * f, C.gros ?? "", th * 0.26, 1.15, tw), fontWeight: 900 }),
+        text({ name: "Article", x: x0 + tw * 0.08, y: y0 + th * 0.66, w: tw * 0.84, h: th * 0.22, text: C.titre ?? "", color: sur(P.acc), fontSize: ajuste(34 * f, C.titre ?? "", th * 0.22, 1.25, tw * 0.84), fontWeight: 700, lineHeight: 1.25 }),
+        ...(C.sous ? [text({ name: "Sous", x: w * 0.1, y: y0 + th + h * 0.025, w: w * 0.8, h: h * 0.09, text: C.sous, color: P.ink, fontSize: ajuste(30 * f, C.sous, h * 0.1, 1.4, w * 0.8), fontWeight: 600, lineHeight: 1.4 })] : []),
+        ...(C.meta ? [text({ name: "Méta", x: w * 0.1, y: y0 + th + h * 0.13, w: w * 0.8, h: 50 * f, text: C.meta, color: P.sub, fontSize: ajuste(26 * f, C.meta, 50 * f, 1.15, w * 0.8), fontWeight: 700, letterSpacing: 5 * f })] : []),
       ],
     };
   },
@@ -1498,11 +1546,11 @@ const MEP: Record<string, (c: Ctx) => Bati> = {
       layers: [
         shape({ name: "Cachet", shape: "seal", x: x0, y: y0, w: d, h: d, fill: P.acc, gradient: { type: "linear", angle: 140, from: P.acc, to: P.acc2 }, shadow: ombre(38 * f, 0.3, 14 * f) }),
         shape({ name: "Anneau", shape: "ring", x: x0 + d * 0.11, y: y0 + d * 0.11, w: d * 0.78, h: d * 0.78, fill: sur(P.acc), opacity: 0.55 }),
-        text({ name: "Mention", x: x0, y: y0 + d * 0.28, w: d, h: 54 * f, text: C.sur ?? "", color: sur(P.acc), fontSize: 24 * f, fontWeight: 800, letterSpacing: 6 * f, uppercase: true }),
-        text({ name: "Sigle", x: x0, y: y0 + d * 0.4, w: d, h: d * 0.26, text: C.gros ?? "", color: sur(P.acc), fontFamily: font(13), fontSize: d * 0.22, fontWeight: 900 }),
-        text({ name: "Année", x: x0, y: y0 + d * 0.66, w: d, h: 50 * f, text: C.meta ?? "", color: sur(P.acc), fontSize: 24 * f, fontWeight: 700, letterSpacing: 5 * f }),
-        text({ name: "Titre", x: w * 0.08, y: y0 + d + h * 0.05, w: w * 0.84, h: h * 0.1, text: C.titre ?? "", color: P.ink, fontSize: 50 * f, fontWeight: 800, lineHeight: 1.15 }),
-        ...(C.sous ? [text({ name: "Sous", x: w * 0.14, y: h * 0.9, w: w * 0.72, h: 54 * f, text: C.sous, color: P.sub, fontSize: 27 * f, fontWeight: 500 })] : []),
+        text({ name: "Mention", x: x0, y: y0 + d * 0.28, w: d, h: 54 * f, text: C.sur ?? "", color: sur(P.acc), fontSize: ajuste(24 * f, C.sur ?? "", 54 * f, 1.15, d), fontWeight: 800, letterSpacing: 6 * f, uppercase: true }),
+        text({ name: "Sigle", x: x0, y: y0 + d * 0.4, w: d, h: d * 0.26, text: C.gros ?? "", color: sur(P.acc), fontFamily: font(13), fontSize: ajuste(d * 0.22, C.gros ?? "", d * 0.26, 1.15, d), fontWeight: 900 }),
+        text({ name: "Année", x: x0, y: y0 + d * 0.66, w: d, h: 50 * f, text: C.meta ?? "", color: sur(P.acc), fontSize: ajuste(24 * f, C.meta ?? "", 50 * f, 1.15, d), fontWeight: 700, letterSpacing: 5 * f }),
+        text({ name: "Titre", x: w * 0.08, y: y0 + d + h * 0.05, w: w * 0.84, h: h * 0.1, text: C.titre ?? "", color: P.ink, fontSize: ajuste(50 * f, C.titre ?? "", h * 0.1, 1.15, w * 0.84), fontWeight: 800, lineHeight: 1.15 }),
+        ...(C.sous ? [text({ name: "Sous", x: w * 0.14, y: h * 0.9, w: w * 0.72, h: 54 * f, text: C.sous, color: P.sub, fontSize: ajuste(27 * f, C.sous, 54 * f, 1.15, w * 0.72), fontWeight: 500 })] : []),
       ],
     };
   },
@@ -1514,11 +1562,11 @@ const MEP: Record<string, (c: Ctx) => Bati> = {
       bg: P.bg, bgg: null,
       layers: [
         shape({ name: "Blason", shape: "shield", x: x0, y: y0, w: bw, h: bh, fill: P.acc, gradient: { type: "linear", angle: 160, from: P.acc, to: P.acc2 }, shadow: ombre(36 * f, 0.3, 14 * f) }),
-        text({ name: "Sigle", x: x0, y: y0 + bh * 0.24, w: bw, h: bh * 0.34, text: C.gros ?? "", color: sur(P.acc), fontFamily: font(13), fontSize: bw * 0.34, fontWeight: 900 }),
-        ...(C.meta ? [text({ name: "Année", x: x0, y: y0 + bh * 0.62, w: bw, h: 50 * f, text: C.meta, color: sur(P.acc), fontSize: 24 * f, fontWeight: 700, letterSpacing: 5 * f })] : []),
-        text({ name: "Nom", x: w * 0.06, y: y0 + bh + h * 0.05, w: w * 0.88, h: h * 0.09, text: C.titre ?? "", color: P.ink, fontFamily: font(10), fontSize: 56 * f, fontWeight: 800, letterSpacing: 6 * f, uppercase: true }),
+        text({ name: "Sigle", x: x0, y: y0 + bh * 0.24, w: bw, h: bh * 0.34, text: C.gros ?? "", color: sur(P.acc), fontFamily: font(13), fontSize: ajuste(bw * 0.34, C.gros ?? "", bh * 0.34, 1.15, bw), fontWeight: 900 }),
+        ...(C.meta ? [text({ name: "Année", x: x0, y: y0 + bh * 0.62, w: bw, h: 50 * f, text: C.meta, color: sur(P.acc), fontSize: ajuste(24 * f, C.meta, 50 * f, 1.15, bw), fontWeight: 700, letterSpacing: 5 * f })] : []),
+        text({ name: "Nom", x: w * 0.06, y: y0 + bh + h * 0.05, w: w * 0.88, h: h * 0.09, text: C.titre ?? "", color: P.ink, fontFamily: font(10), fontSize: ajuste(56 * f, C.titre ?? "", h * 0.09, 1.15, w * 0.88), fontWeight: 800, letterSpacing: 6 * f, uppercase: true }),
         line({ x: (w - w * 0.24) / 2, y: y0 + bh + h * 0.16, w: w * 0.24, stroke: P.acc, strokeWidth: 4 * f }),
-        ...(C.sous ? [text({ name: "Devise", x: w * 0.12, y: y0 + bh + h * 0.19, w: w * 0.76, h: 56 * f, text: C.sous, color: P.sub, fontSize: 27 * f, fontWeight: 600, letterSpacing: 4 * f, italic: true })] : []),
+        ...(C.sous ? [text({ name: "Devise", x: w * 0.12, y: y0 + bh + h * 0.19, w: w * 0.76, h: 56 * f, text: C.sous, color: P.sub, fontSize: ajuste(27 * f, C.sous, 56 * f, 1.15, w * 0.76), fontWeight: 600, letterSpacing: 4 * f, italic: true })] : []),
       ],
     };
   },
@@ -1530,10 +1578,10 @@ const MEP: Record<string, (c: Ctx) => Bati> = {
       bg: P.bg, bgg: P.bg2 ? { type: "linear", angle: 150, from: P.bg, to: P.bg2 } : null,
       layers: [
         shape({ name: "Filet", x: (w - d) / 2, y: h * 0.5 - d * 0.55, w: d, h: d * 1.1, fill: "transparent", stroke: P.acc, strokeWidth: 3 * f }),
-        text({ name: "Lettres", x: (w - d) / 2, y: h * 0.5 - d * 0.28, w: d, h: d * 0.6, text: C.gros ?? "AB", color: P.ink, fontFamily: font(10), fontSize: d * 0.5, fontWeight: 700, letterSpacing: 6 * f }),
+        text({ name: "Lettres", x: (w - d) / 2, y: h * 0.5 - d * 0.28, w: d, h: d * 0.6, text: C.gros ?? "AB", color: P.ink, fontFamily: font(10), fontSize: ajuste(d * 0.5, C.gros ?? "AB", d * 0.6, 1.15, d), fontWeight: 700, letterSpacing: 6 * f }),
         line({ x: (w - d * 0.4) / 2, y: h * 0.5 + d * 0.16, w: d * 0.4, stroke: P.acc, strokeWidth: 2 * f }),
-        text({ name: "Nom", x: w * 0.08, y: h * 0.5 + d * 0.62, w: w * 0.84, h: h * 0.07, text: C.titre ?? "", color: P.ink, fontSize: 40 * f, fontWeight: 600, letterSpacing: 12 * f, uppercase: true }),
-        ...(C.sous ? [text({ name: "Baseline", x: w * 0.14, y: h * 0.5 + d * 0.76, w: w * 0.72, h: 50 * f, text: C.sous, color: P.sub, fontSize: 24 * f, fontWeight: 500, letterSpacing: 6 * f })] : []),
+        text({ name: "Nom", x: w * 0.08, y: h * 0.5 + d * 0.62, w: w * 0.84, h: h * 0.07, text: C.titre ?? "", color: P.ink, fontSize: ajuste(40 * f, C.titre ?? "", h * 0.07, 1.15, w * 0.84), fontWeight: 600, letterSpacing: 12 * f, uppercase: true }),
+        ...(C.sous ? [text({ name: "Baseline", x: w * 0.14, y: h * 0.5 + d * 0.76, w: w * 0.72, h: 50 * f, text: C.sous, color: P.sub, fontSize: ajuste(24 * f, C.sous, 50 * f, 1.15, w * 0.72), fontWeight: 500, letterSpacing: 6 * f })] : []),
       ],
     };
   },
@@ -1547,13 +1595,13 @@ const MEP: Record<string, (c: Ctx) => Bati> = {
       bg: P.bg, bgg: null,
       layers: [
         shape({ name: "Bandeau", x: 0, y: 0, w, h: h * 0.2, fill: P.acc, gradient: { type: "linear", angle: 140, from: P.acc, to: P.acc2 } }),
-        text({ name: "Titre", x: w * 0.06, y: h * 0.05, w: w * 0.88, h: h * 0.1, text: C.titre ?? "", color: sur(P.acc), fontFamily: font(10), fontSize: 62 * f, fontWeight: 800, lineHeight: 1.1 }),
-        ...(C.meta ? [text({ name: "Repères", x: w * 0.06, y: h * 0.15, w: w * 0.88, h: 52 * f, text: C.meta, color: sur(P.acc), fontSize: 25 * f, fontWeight: 600, letterSpacing: 3 * f, opacity: 0.92 })] : []),
-        text({ name: "Titre ingrédients", x: w * 0.07, y: h * 0.26, w: w * 0.38, h: 56 * f, text: C.sur ?? "INGRÉDIENTS", color: lis(P.acc, P.bg, P.ink), fontSize: 26 * f, fontWeight: 800, align: "left", letterSpacing: 5 * f, uppercase: true }),
-        text({ name: "Titre étapes", x: w * 0.53, y: h * 0.26, w: w * 0.4, h: 56 * f, text: C.cta ?? "PRÉPARATION", color: lis(P.acc, P.bg, P.ink), fontSize: 26 * f, fontWeight: 800, align: "left", letterSpacing: 5 * f, uppercase: true }),
-        ...ing.map((s, i) => text({ name: `Ingrédient ${i + 1}`, x: w * 0.07, y: h * 0.33 + i * h * 0.075, w: w * 0.38, h: h * 0.07, text: `•  ${s}`, color: P.ink, fontSize: 26 * f, fontWeight: 500, align: "left", lineHeight: 1.35 })),
-        ...etp.map((s, i) => text({ name: `Étape ${i + 1}`, x: w * 0.53, y: h * 0.33 + i * h * 0.11, w: w * 0.4, h: h * 0.1, text: `${i + 1}.  ${s}`, color: P.ink, fontSize: 26 * f, fontWeight: 500, align: "left", lineHeight: 1.4 })),
-        ...(C.sous ? [text({ name: "Astuce", x: w * 0.07, y: h * 0.9, w: w * 0.86, h: 54 * f, text: C.sous, color: P.sub, fontSize: 25 * f, fontWeight: 500, align: "left", italic: true })] : []),
+        text({ name: "Titre", x: w * 0.06, y: h * 0.05, w: w * 0.88, h: h * 0.1, text: C.titre ?? "", color: sur(P.acc), fontFamily: font(10), fontSize: ajuste(62 * f, C.titre ?? "", h * 0.1, 1.1, w * 0.88), fontWeight: 800, lineHeight: 1.1 }),
+        ...(C.meta ? [text({ name: "Repères", x: w * 0.06, y: h * 0.15, w: w * 0.88, h: 52 * f, text: C.meta, color: sur(P.acc), fontSize: ajuste(25 * f, C.meta, 52 * f, 1.15, w * 0.88), fontWeight: 600, letterSpacing: 3 * f, opacity: 0.92 })] : []),
+        text({ name: "Titre ingrédients", x: w * 0.07, y: h * 0.26, w: w * 0.38, h: 56 * f, text: C.sur ?? "INGRÉDIENTS", color: lis(P.acc, P.bg, P.ink), fontSize: ajuste(26 * f, C.sur ?? "INGRÉDIENTS", 56 * f, 1.15, w * 0.38), fontWeight: 800, align: "left", letterSpacing: 5 * f, uppercase: true }),
+        text({ name: "Titre étapes", x: w * 0.53, y: h * 0.26, w: w * 0.4, h: 56 * f, text: C.cta ?? "PRÉPARATION", color: lis(P.acc, P.bg, P.ink), fontSize: ajuste(26 * f, C.cta ?? "PRÉPARATION", 56 * f, 1.15, w * 0.4), fontWeight: 800, align: "left", letterSpacing: 5 * f, uppercase: true }),
+        ...ing.map((s, i) => text({ name: `Ingrédient ${i + 1}`, x: w * 0.07, y: h * 0.33 + i * h * 0.075, w: w * 0.38, h: h * 0.07, text: `•  ${s}`, color: P.ink, fontSize: ajuste(26 * f, `•  ${s}`, h * 0.07, 1.35, w * 0.38), fontWeight: 500, align: "left", lineHeight: 1.35 })),
+        ...etp.map((s, i) => text({ name: `Étape ${i + 1}`, x: w * 0.53, y: h * 0.33 + i * h * 0.11, w: w * 0.4, h: h * 0.1, text: `${i + 1}.  ${s}`, color: P.ink, fontSize: ajuste(26 * f, `${i + 1}.  ${s}`, h * 0.1, 1.4, w * 0.4), fontWeight: 500, align: "left", lineHeight: 1.4 })),
+        ...(C.sous ? [text({ name: "Astuce", x: w * 0.07, y: h * 0.9, w: w * 0.86, h: 54 * f, text: C.sous, color: P.sub, fontSize: ajuste(25 * f, C.sous, 54 * f, 1.15, w * 0.86), fontWeight: 500, align: "left", italic: true })] : []),
       ],
     };
   },
@@ -1565,18 +1613,18 @@ const MEP: Record<string, (c: Ctx) => Bati> = {
     return {
       bg: P.bg, bgg: null,
       layers: [
-        ...(C.sur ? [text({ name: "Sur", x: w * 0.07, y: h * 0.1, w: w * 0.86, h: 56 * f, text: C.sur, color: lis(P.acc, P.bg, P.ink), fontSize: 27 * f, fontWeight: 800, align: "left", letterSpacing: 9 * f, uppercase: true })] : []),
-        text({ name: "Titre", x: w * 0.07, y: h * 0.16, w: w * 0.86, h: h * 0.1, text: C.titre ?? "", color: P.ink, fontSize: 62 * f, fontWeight: 900, align: "left", lineHeight: 1.1 }),
+        ...(C.sur ? [text({ name: "Sur", x: w * 0.07, y: h * 0.1, w: w * 0.86, h: 56 * f, text: C.sur, color: lis(P.acc, P.bg, P.ink), fontSize: ajuste(27 * f, C.sur, 56 * f, 1.15, w * 0.86), fontWeight: 800, align: "left", letterSpacing: 9 * f, uppercase: true })] : []),
+        text({ name: "Titre", x: w * 0.07, y: h * 0.16, w: w * 0.86, h: h * 0.1, text: C.titre ?? "", color: P.ink, fontSize: ajuste(62 * f, C.titre ?? "", h * 0.1, 1.1, w * 0.86), fontWeight: 900, align: "left", lineHeight: 1.1 }),
         ...it.flatMap((s, i) => {
           const [q, r] = s.split("|");
           const y = y0 + i * dy;
           return [
             shape({ name: `Marque ${i + 1}`, x: w * 0.07, y: y + 6 * f, w: 6 * f, h: dy * 0.7, fill: P.acc }),
-            text({ name: `Question ${i + 1}`, x: w * 0.11, y, w: w * 0.82, h: dy * 0.32, text: q ?? "", color: P.ink, fontSize: 34 * f, fontWeight: 800, align: "left", lineHeight: 1.25 }),
-            text({ name: `Réponse ${i + 1}`, x: w * 0.11, y: y + dy * 0.34, w: w * 0.82, h: dy * 0.5, text: r ?? "", color: P.sub, fontSize: 27 * f, fontWeight: 500, align: "left", lineHeight: 1.4 }),
+            text({ name: `Question ${i + 1}`, x: w * 0.11, y, w: w * 0.82, h: dy * 0.32, text: q ?? "", color: P.ink, fontSize: ajuste(34 * f, q ?? "", dy * 0.32, 1.25, w * 0.82), fontWeight: 800, align: "left", lineHeight: 1.25 }),
+            text({ name: `Réponse ${i + 1}`, x: w * 0.11, y: y + dy * 0.34, w: w * 0.82, h: dy * 0.5, text: r ?? "", color: P.sub, fontSize: ajuste(27 * f, r ?? "", dy * 0.5, 1.4, w * 0.82), fontWeight: 500, align: "left", lineHeight: 1.4 }),
           ];
         }),
-        ...(C.meta ? [text({ name: "Pied", x: w * 0.07, y: h * 0.91, w: w * 0.86, h: 50 * f, text: C.meta, color: P.ink, fontSize: 26 * f, fontWeight: 700, align: "left" })] : []),
+        ...(C.meta ? [text({ name: "Pied", x: w * 0.07, y: h * 0.91, w: w * 0.86, h: 50 * f, text: C.meta, color: P.ink, fontSize: ajuste(26 * f, C.meta, 50 * f, 1.15, w * 0.86), fontWeight: 700, align: "left" })] : []),
       ],
     };
   },
@@ -1589,19 +1637,19 @@ const MEP: Record<string, (c: Ctx) => Bati> = {
     return {
       bg: P.bg, bgg: P.bg2 ? { type: "linear", angle: 160, from: P.bg, to: P.bg2 } : null,
       layers: [
-        text({ name: "Titre", x: w * 0.07, y: h * 0.13, w: w * 0.86, h: h * 0.12, text: C.titre ?? "", color: P.ink, fontSize: 64 * f, fontWeight: 900, align: "left", lineHeight: 1.1 }),
-        ...(C.sous ? [text({ name: "Sous", x: w * 0.07, y: h * 0.25, w: w * 0.86, h: 56 * f, text: C.sous, color: P.sub, fontSize: 29 * f, fontWeight: 500, align: "left" })] : []),
+        text({ name: "Titre", x: w * 0.07, y: h * 0.13, w: w * 0.86, h: h * 0.12, text: C.titre ?? "", color: P.ink, fontSize: ajuste(64 * f, C.titre ?? "", h * 0.12, 1.1, w * 0.86), fontWeight: 900, align: "left", lineHeight: 1.1 }),
+        ...(C.sous ? [text({ name: "Sous", x: w * 0.07, y: h * 0.25, w: w * 0.86, h: 56 * f, text: C.sous, color: P.sub, fontSize: ajuste(29 * f, C.sous, 56 * f, 1.15, w * 0.86), fontWeight: 500, align: "left" })] : []),
         ...it.flatMap((s, i) => {
           const [t, d2] = s.split("|");
           const y = y0 + i * dy;
           return [
             shape({ name: `Rond ${i + 1}`, shape: "ellipse", x: w * 0.07, y, w: d, h: d, fill: P.acc, opacity: 0.16 }),
             shape({ name: `Icône ${i + 1}`, shape: formes[i % formes.length], x: w * 0.07 + d * 0.26, y: y + d * 0.26, w: d * 0.48, h: d * 0.48, fill: P.acc }),
-            text({ name: `Titre ${i + 1}`, x: w * 0.07 + d + 30 * f, y: y + d * 0.06, w: w * 0.86 - d - 30 * f, h: dy * 0.3, text: t ?? "", color: P.ink, fontSize: 36 * f, fontWeight: 800, align: "left" }),
-            text({ name: `Détail ${i + 1}`, x: w * 0.07 + d + 30 * f, y: y + d * 0.4, w: w * 0.86 - d - 30 * f, h: dy * 0.5, text: d2 ?? "", color: P.sub, fontSize: 27 * f, fontWeight: 500, align: "left", lineHeight: 1.4 }),
+            text({ name: `Titre ${i + 1}`, x: w * 0.07 + d + 30 * f, y: y + d * 0.06, w: w * 0.86 - d - 30 * f, h: dy * 0.3, text: t ?? "", color: P.ink, fontSize: ajuste(36 * f, t ?? "", dy * 0.3, 1.15, w * 0.86 - d - 30 * f), fontWeight: 800, align: "left" }),
+            text({ name: `Détail ${i + 1}`, x: w * 0.07 + d + 30 * f, y: y + d * 0.4, w: w * 0.86 - d - 30 * f, h: dy * 0.5, text: d2 ?? "", color: P.sub, fontSize: ajuste(27 * f, d2 ?? "", dy * 0.5, 1.4, w * 0.86 - d - 30 * f), fontWeight: 500, align: "left", lineHeight: 1.4 }),
           ];
         }),
-        ...(C.meta ? [text({ name: "Pied", x: w * 0.07, y: h * 0.88, w: w * 0.86, h: 52 * f, text: C.meta, color: lis(P.acc, P.bg, P.ink), fontSize: 27 * f, fontWeight: 700, align: "left" })] : []),
+        ...(C.meta ? [text({ name: "Pied", x: w * 0.07, y: h * 0.88, w: w * 0.86, h: 52 * f, text: C.meta, color: lis(P.acc, P.bg, P.ink), fontSize: ajuste(27 * f, C.meta, 52 * f, 1.15, w * 0.86), fontWeight: 700, align: "left" })] : []),
       ],
     };
   },
@@ -1613,12 +1661,12 @@ const MEP: Record<string, (c: Ctx) => Bati> = {
       bg: P.bg, bgg: P.bg2 ? { type: "linear", angle: 170, from: P.bg2, to: P.bg } : null,
       layers: [
         shape({ name: "Aplat", shape: "ellipse", x: w * 0.18, y: h * 0.24, w: w * 0.7, h: w * 0.7, fill: P.acc, opacity: 0.28 }),
-        text({ name: "Titre de tête", x: w * 0.05, y: h * 0.05, w: w * 0.9, h: h * 0.11, text: C.sur ?? "", color: P.ink, fontFamily: font(10), fontSize: 118 * f, fontWeight: 900, letterSpacing: 6 * f, uppercase: true }),
+        text({ name: "Titre de tête", x: w * 0.05, y: h * 0.05, w: w * 0.9, h: h * 0.11, text: C.sur ?? "", color: P.ink, fontFamily: font(10), fontSize: ajuste(118 * f, C.sur ?? "", h * 0.11, 1.15, w * 0.9), fontWeight: 900, letterSpacing: 6 * f, uppercase: true }),
         line({ x: w * 0.05, y: h * 0.17, w: w * 0.9, stroke: P.acc, strokeWidth: 4 * f }),
-        ...(C.meta ? [text({ name: "Numéro", x: w * 0.05, y: h * 0.185, w: w * 0.9, h: 48 * f, text: C.meta, color: P.sub, fontSize: 24 * f, fontWeight: 600, letterSpacing: 8 * f, uppercase: true })] : []),
-        text({ name: "Une", x: w * 0.06, y: h * 0.6, w: w * 0.76, h: h * 0.2, text: C.titre ?? "", color: P.ink, fontFamily: font(10), fontSize: 84 * f, fontWeight: 800, align: "left", lineHeight: 1.12 }),
-        ...(C.sous ? [text({ name: "Chapeau", x: w * 0.06, y: h * 0.81, w: w * 0.6, h: h * 0.08, text: C.sous, color: P.sub, fontSize: 28 * f, fontWeight: 500, align: "left", lineHeight: 1.4 })] : []),
-        ...it.map((s, i) => text({ name: `Accroche ${i + 1}`, x: w * 0.55, y: h * 0.26 + i * h * 0.08, w: w * 0.39, h: h * 0.07, text: s, color: P.ink, fontSize: 26 * f, fontWeight: 700, align: "right", lineHeight: 1.3 })),
+        ...(C.meta ? [text({ name: "Numéro", x: w * 0.05, y: h * 0.185, w: w * 0.9, h: 48 * f, text: C.meta, color: P.sub, fontSize: ajuste(24 * f, C.meta, 48 * f, 1.15, w * 0.9), fontWeight: 600, letterSpacing: 8 * f, uppercase: true })] : []),
+        text({ name: "Une", x: w * 0.06, y: h * 0.6, w: w * 0.76, h: h * 0.2, text: C.titre ?? "", color: P.ink, fontFamily: font(10), fontSize: ajuste(84 * f, C.titre ?? "", h * 0.2, 1.12, w * 0.76), fontWeight: 800, align: "left", lineHeight: 1.12 }),
+        ...(C.sous ? [text({ name: "Chapeau", x: w * 0.06, y: h * 0.81, w: w * 0.6, h: h * 0.08, text: C.sous, color: P.sub, fontSize: ajuste(28 * f, C.sous, h * 0.08, 1.4, w * 0.6), fontWeight: 500, align: "left", lineHeight: 1.4 })] : []),
+        ...it.map((s, i) => text({ name: `Accroche ${i + 1}`, x: w * 0.55, y: h * 0.26 + i * h * 0.08, w: w * 0.39, h: h * 0.07, text: s, color: P.ink, fontSize: ajuste(26 * f, s, h * 0.07, 1.3, w * 0.39), fontWeight: 700, align: "right", lineHeight: 1.3 })),
       ],
     };
   },
@@ -1630,18 +1678,18 @@ const MEP: Record<string, (c: Ctx) => Bati> = {
     return {
       bg: P.bg, bgg: null,
       layers: [
-        text({ name: "Manchette", x: w * 0.06, y: h * 0.04, w: w * 0.88, h: h * 0.07, text: C.sur ?? "", color: P.ink, fontFamily: font(10), fontSize: 88 * f, fontWeight: 900, letterSpacing: 4 * f, uppercase: true }),
+        text({ name: "Manchette", x: w * 0.06, y: h * 0.04, w: w * 0.88, h: h * 0.07, text: C.sur ?? "", color: P.ink, fontFamily: font(10), fontSize: ajuste(88 * f, C.sur ?? "", h * 0.07, 1.15, w * 0.88), fontWeight: 900, letterSpacing: 4 * f, uppercase: true }),
         line({ x: w * 0.06, y: h * 0.115, w: w * 0.88, stroke: P.ink, strokeWidth: 4 * f }),
         line({ x: w * 0.06, y: h * 0.125, w: w * 0.88, stroke: P.ink, strokeWidth: 1.5 * f }),
-        ...(C.meta ? [text({ name: "Ourse", x: w * 0.06, y: h * 0.135, w: w * 0.88, h: 44 * f, text: C.meta, color: P.sub, fontSize: 20 * f, fontWeight: 600, letterSpacing: 5 * f, uppercase: true })] : []),
-        text({ name: "Titre", x: w * 0.06, y: h * 0.19, w: w * 0.88, h: h * 0.14, text: C.titre ?? "", color: P.ink, fontFamily: font(10), fontSize: 72 * f, fontWeight: 800, lineHeight: 1.12 }),
-        ...(C.sous ? [text({ name: "Chapeau", x: w * 0.12, y: h * 0.34, w: w * 0.76, h: h * 0.08, text: C.sous, color: P.sub, fontSize: 27 * f, fontWeight: 600, italic: true, lineHeight: 1.4 })] : []),
+        ...(C.meta ? [text({ name: "Ourse", x: w * 0.06, y: h * 0.135, w: w * 0.88, h: 44 * f, text: C.meta, color: P.sub, fontSize: ajuste(20 * f, C.meta, 44 * f, 1.15, w * 0.88), fontWeight: 600, letterSpacing: 5 * f, uppercase: true })] : []),
+        text({ name: "Titre", x: w * 0.06, y: h * 0.19, w: w * 0.88, h: h * 0.14, text: C.titre ?? "", color: P.ink, fontFamily: font(10), fontSize: ajuste(72 * f, C.titre ?? "", h * 0.14, 1.12, w * 0.88), fontWeight: 800, lineHeight: 1.12 }),
+        ...(C.sous ? [text({ name: "Chapeau", x: w * 0.12, y: h * 0.34, w: w * 0.76, h: h * 0.08, text: C.sous, color: P.sub, fontSize: ajuste(27 * f, C.sous, h * 0.08, 1.4, w * 0.76), fontWeight: 600, italic: true, lineHeight: 1.4 })] : []),
         line({ x: w * 0.06, y: h * 0.44, w: w * 0.88, stroke: P.sub, strokeWidth: 1.5 * f, opacity: 0.5 }),
         ...it.map((s, i) => text({
           name: `Colonne ${i + 1}`, x: w * 0.06 + i * (cw + w * 0.03), y: h * 0.47, w: cw, h: h * 0.44,
-          text: s, color: P.ink, fontFamily: font(6), fontSize: 21 * f, fontWeight: 400, align: "left", lineHeight: 1.55,
+          text: s, color: P.ink, fontFamily: font(6), fontSize: ajuste(21 * f, s, h * 0.44, 1.55, cw), fontWeight: 400, align: "left", lineHeight: 1.55,
         })),
-        ...(C.cta ? [text({ name: "Pied", x: w * 0.06, y: h * 0.94, w: w * 0.88, h: 44 * f, text: C.cta, color: lis(P.acc, P.bg, P.ink), fontSize: 22 * f, fontWeight: 700, letterSpacing: 4 * f })] : []),
+        ...(C.cta ? [text({ name: "Pied", x: w * 0.06, y: h * 0.94, w: w * 0.88, h: 44 * f, text: C.cta, color: lis(P.acc, P.bg, P.ink), fontSize: ajuste(22 * f, C.cta, 44 * f, 1.15, w * 0.88), fontWeight: 700, letterSpacing: 4 * f })] : []),
       ],
     };
   },
@@ -1655,12 +1703,12 @@ const MEP: Record<string, (c: Ctx) => Bati> = {
         shape({ name: "Bon", x: x0, y: y0, w: cw, h: ch, fill: P.bg, radius: 20 * f, stroke: P.acc, strokeWidth: 3 * f, shadow: ombre(36 * f, 0.2, 14 * f) }),
         shape({ name: "Volet", x: x0, y: y0, w: cw * 0.42, h: ch, fill: P.acc, gradient: { type: "linear", angle: 160, from: P.acc, to: P.acc2 }, radius: 20 * f }),
         line({ x: coupe - ch * 0.5, y: y0 + ch / 2, w: ch, h: 0, stroke: P.acc, strokeWidth: 3 * f, dash: "dashed", rotation: 90 }),
-        text({ name: "Valeur", x: x0, y: y0 + ch * 0.3, w: cw * 0.42, h: ch * 0.28, text: C.gros ?? "", color: sur(P.acc), fontFamily: font(13), fontSize: 96 * f, fontWeight: 900 }),
-        ...(C.sur ? [text({ name: "Mention", x: x0, y: y0 + ch * 0.6, w: cw * 0.42, h: 52 * f, text: C.sur, color: sur(P.acc), fontSize: 24 * f, fontWeight: 700, letterSpacing: 5 * f, uppercase: true, opacity: 0.92 })] : []),
-        text({ name: "Titre", x: coupe + cw * 0.04, y: y0 + ch * 0.16, w: cw * 0.5, h: ch * 0.22, text: C.titre ?? "", color: P.ink, fontSize: 40 * f, fontWeight: 800, align: "left", lineHeight: 1.2 }),
-        ...(C.sous ? [text({ name: "Conditions", x: coupe + cw * 0.04, y: y0 + ch * 0.42, w: cw * 0.5, h: ch * 0.3, text: C.sous, color: P.sub, fontSize: 24 * f, fontWeight: 500, align: "left", lineHeight: 1.45 })] : []),
-        ...(C.meta ? [text({ name: "Code", x: coupe + cw * 0.04, y: y0 + ch * 0.76, w: cw * 0.5, h: 54 * f, text: C.meta, color: lis(P.acc, P.bg, P.ink), fontFamily: font(11), fontSize: 30 * f, fontWeight: 800, align: "left", letterSpacing: 4 * f })] : []),
-        ...(C.cta ? [text({ name: "Pied", x: w * 0.06, y: h * 0.86, w: w * 0.88, h: 50 * f, text: C.cta, color: P.sub, fontSize: 24 * f, fontWeight: 500 })] : []),
+        text({ name: "Valeur", x: x0, y: y0 + ch * 0.3, w: cw * 0.42, h: ch * 0.28, text: C.gros ?? "", color: sur(P.acc), fontFamily: font(13), fontSize: ajuste(96 * f, C.gros ?? "", ch * 0.28, 1.15, cw * 0.42), fontWeight: 900 }),
+        ...(C.sur ? [text({ name: "Mention", x: x0, y: y0 + ch * 0.6, w: cw * 0.42, h: 52 * f, text: C.sur, color: sur(P.acc), fontSize: ajuste(24 * f, C.sur, 52 * f, 1.15, cw * 0.42), fontWeight: 700, letterSpacing: 5 * f, uppercase: true, opacity: 0.92 })] : []),
+        text({ name: "Titre", x: coupe + cw * 0.04, y: y0 + ch * 0.16, w: cw * 0.5, h: ch * 0.22, text: C.titre ?? "", color: P.ink, fontSize: ajuste(40 * f, C.titre ?? "", ch * 0.22, 1.2, cw * 0.5), fontWeight: 800, align: "left", lineHeight: 1.2 }),
+        ...(C.sous ? [text({ name: "Conditions", x: coupe + cw * 0.04, y: y0 + ch * 0.42, w: cw * 0.5, h: ch * 0.3, text: C.sous, color: P.sub, fontSize: ajuste(24 * f, C.sous, ch * 0.3, 1.45, cw * 0.5), fontWeight: 500, align: "left", lineHeight: 1.45 })] : []),
+        ...(C.meta ? [text({ name: "Code", x: coupe + cw * 0.04, y: y0 + ch * 0.76, w: cw * 0.5, h: 54 * f, text: C.meta, color: lis(P.acc, P.bg, P.ink), fontFamily: font(11), fontSize: ajuste(30 * f, C.meta, 54 * f, 1.15, cw * 0.5), fontWeight: 800, align: "left", letterSpacing: 4 * f })] : []),
+        ...(C.cta ? [text({ name: "Pied", x: w * 0.06, y: h * 0.86, w: w * 0.88, h: 50 * f, text: C.cta, color: P.sub, fontSize: ajuste(24 * f, C.cta, 50 * f, 1.15, w * 0.88), fontWeight: 500 })] : []),
       ],
     };
   },
@@ -1674,11 +1722,11 @@ const MEP: Record<string, (c: Ctx) => Bati> = {
       layers: [
         shape({ name: "Carte", x: x0, y: y0, w: cw, h: ch, fill: P.acc, gradient: { type: "linear", angle: 145, from: P.acc, to: P.acc2 }, radius: 32 * f, shadow: ombre(48 * f, 0.35, 20 * f) }),
         shape({ name: "Ruban", x: x0 + cw * 0.5 - 12 * f, y: y0, w: 24 * f, h: ch, fill: t, opacity: 0.18 }),
-        ...(C.sur ? [text({ name: "Sur", x: x0 + cw * 0.06, y: y0 + ch * 0.12, w: cw * 0.88, h: 54 * f, text: C.sur, color: t, fontSize: 26 * f, fontWeight: 800, align: "left", letterSpacing: 8 * f, uppercase: true, opacity: 0.9 })] : []),
-        text({ name: "Montant", x: x0 + cw * 0.06, y: y0 + ch * 0.32, w: cw * 0.88, h: ch * 0.3, text: C.gros ?? "", color: t, fontFamily: font(13), fontSize: 108 * f, fontWeight: 900, align: "left" }),
-        text({ name: "Titre", x: x0 + cw * 0.06, y: y0 + ch * 0.68, w: cw * 0.88, h: ch * 0.2, text: C.titre ?? "", color: t, fontSize: 32 * f, fontWeight: 700, align: "left", lineHeight: 1.25 }),
-        ...(C.meta ? [text({ name: "Code", x: w * 0.08, y: y0 + ch + h * 0.04, w: w * 0.84, h: 56 * f, text: C.meta, color: P.ink, fontFamily: font(11), fontSize: 30 * f, fontWeight: 800, letterSpacing: 6 * f })] : []),
-        ...(C.sous ? [text({ name: "Validité", x: w * 0.12, y: h * 0.9, w: w * 0.76, h: 50 * f, text: C.sous, color: P.sub, fontSize: 25 * f, fontWeight: 500 })] : []),
+        ...(C.sur ? [text({ name: "Sur", x: x0 + cw * 0.06, y: y0 + ch * 0.12, w: cw * 0.88, h: 54 * f, text: C.sur, color: t, fontSize: ajuste(26 * f, C.sur, 54 * f, 1.15, cw * 0.88), fontWeight: 800, align: "left", letterSpacing: 8 * f, uppercase: true, opacity: 0.9 })] : []),
+        text({ name: "Montant", x: x0 + cw * 0.06, y: y0 + ch * 0.32, w: cw * 0.88, h: ch * 0.3, text: C.gros ?? "", color: t, fontFamily: font(13), fontSize: ajuste(108 * f, C.gros ?? "", ch * 0.3, 1.15, cw * 0.88), fontWeight: 900, align: "left" }),
+        text({ name: "Titre", x: x0 + cw * 0.06, y: y0 + ch * 0.68, w: cw * 0.88, h: ch * 0.2, text: C.titre ?? "", color: t, fontSize: ajuste(32 * f, C.titre ?? "", ch * 0.2, 1.25, cw * 0.88), fontWeight: 700, align: "left", lineHeight: 1.25 }),
+        ...(C.meta ? [text({ name: "Code", x: w * 0.08, y: y0 + ch + h * 0.04, w: w * 0.84, h: 56 * f, text: C.meta, color: P.ink, fontFamily: font(11), fontSize: ajuste(30 * f, C.meta, 56 * f, 1.15, w * 0.84), fontWeight: 800, letterSpacing: 6 * f })] : []),
+        ...(C.sous ? [text({ name: "Validité", x: w * 0.12, y: h * 0.9, w: w * 0.76, h: 50 * f, text: C.sous, color: P.sub, fontSize: ajuste(25 * f, C.sous, 50 * f, 1.15, w * 0.76), fontWeight: 500 })] : []),
       ],
     };
   },
@@ -1690,17 +1738,17 @@ const MEP: Record<string, (c: Ctx) => Bati> = {
     return {
       bg: P.bg, bgg: null,
       layers: [
-        ...(C.sur ? [text({ name: "Sur", x: w * 0.08, y: h * 0.11, w: w * 0.84, h: 56 * f, text: C.sur, color: lis(P.acc, P.bg, P.ink), fontSize: 27 * f, fontWeight: 800, align: "left", letterSpacing: 9 * f, uppercase: true })] : []),
-        text({ name: "Titre", x: w * 0.08, y: h * 0.17, w: w * 0.84, h: h * 0.11, text: C.titre ?? "", color: P.ink, fontSize: 62 * f, fontWeight: 900, align: "left", lineHeight: 1.1 }),
+        ...(C.sur ? [text({ name: "Sur", x: w * 0.08, y: h * 0.11, w: w * 0.84, h: 56 * f, text: C.sur, color: lis(P.acc, P.bg, P.ink), fontSize: ajuste(27 * f, C.sur, 56 * f, 1.15, w * 0.84), fontWeight: 800, align: "left", letterSpacing: 9 * f, uppercase: true })] : []),
+        text({ name: "Titre", x: w * 0.08, y: h * 0.17, w: w * 0.84, h: h * 0.11, text: C.titre ?? "", color: P.ink, fontSize: ajuste(62 * f, C.titre ?? "", h * 0.11, 1.1, w * 0.84), fontWeight: 900, align: "left", lineHeight: 1.1 }),
         ...it.flatMap((s, i) => {
           const y = y0 + i * dy;
           return [
             shape({ name: `Case ${i + 1}`, x: w * 0.08, y, w: d, h: d, fill: "transparent", stroke: P.acc, strokeWidth: 3 * f, radius: 8 * f }),
             ...(i === 0 ? [shape({ name: "Coche", shape: "check", x: w * 0.08 + d * 0.16, y: y + d * 0.18, w: d * 0.68, h: d * 0.68, fill: P.acc })] : []),
-            text({ name: `Tâche ${i + 1}`, x: w * 0.08 + d + 26 * f, y: y + d * 0.08, w: w * 0.84 - d - 26 * f, h: dy * 0.7, text: s, color: P.ink, fontSize: 30 * f, fontWeight: 600, align: "left", lineHeight: 1.3 }),
+            text({ name: `Tâche ${i + 1}`, x: w * 0.08 + d + 26 * f, y: y + d * 0.08, w: w * 0.84 - d - 26 * f, h: dy * 0.7, text: s, color: P.ink, fontSize: ajuste(30 * f, s, dy * 0.7, 1.3, w * 0.84 - d - 26 * f), fontWeight: 600, align: "left", lineHeight: 1.3 }),
           ];
         }),
-        ...(C.meta ? [text({ name: "Pied", x: w * 0.08, y: h * 0.91, w: w * 0.84, h: 50 * f, text: C.meta, color: P.sub, fontSize: 25 * f, fontWeight: 500, align: "left" })] : []),
+        ...(C.meta ? [text({ name: "Pied", x: w * 0.08, y: h * 0.91, w: w * 0.84, h: 50 * f, text: C.meta, color: P.sub, fontSize: ajuste(25 * f, C.meta, 50 * f, 1.15, w * 0.84), fontWeight: 500, align: "left" })] : []),
       ],
     };
   },
@@ -1712,13 +1760,13 @@ const MEP: Record<string, (c: Ctx) => Bati> = {
     return {
       bg: P.bg, bgg: P.bg2 ? { type: "linear", angle: 160, from: P.bg, to: P.bg2 } : null,
       layers: [
-        ...(C.sur ? [text({ name: "Sur", x: w * 0.08, y: h * 0.12, w: w * 0.84, h: 58 * f, text: C.sur, color: lis(P.acc, P.bg, P.ink), fontSize: 29 * f, fontWeight: 800, letterSpacing: 10 * f, uppercase: true })] : []),
-        text({ name: "Équipe A", x: w * 0.04, y: h * 0.32, w: w * 0.36, h: h * 0.1, text: a ?? "", color: P.ink, fontSize: 44 * f, fontWeight: 800, lineHeight: 1.15 }),
-        text({ name: "Équipe B", x: w * 0.6, y: h * 0.32, w: w * 0.36, h: h * 0.1, text: b ?? "", color: P.ink, fontSize: 44 * f, fontWeight: 800, lineHeight: 1.15 }),
+        ...(C.sur ? [text({ name: "Sur", x: w * 0.08, y: h * 0.12, w: w * 0.84, h: 58 * f, text: C.sur, color: lis(P.acc, P.bg, P.ink), fontSize: ajuste(29 * f, C.sur, 58 * f, 1.15, w * 0.84), fontWeight: 800, letterSpacing: 10 * f, uppercase: true })] : []),
+        text({ name: "Équipe A", x: w * 0.04, y: h * 0.32, w: w * 0.36, h: h * 0.1, text: a ?? "", color: P.ink, fontSize: ajuste(44 * f, a ?? "", h * 0.1, 1.15, w * 0.36), fontWeight: 800, lineHeight: 1.15 }),
+        text({ name: "Équipe B", x: w * 0.6, y: h * 0.32, w: w * 0.36, h: h * 0.1, text: b ?? "", color: P.ink, fontSize: ajuste(44 * f, b ?? "", h * 0.1, 1.15, w * 0.36), fontWeight: 800, lineHeight: 1.15 }),
         shape({ name: "Pavé score", x: w * 0.16, y: h * 0.45, w: w * 0.68, h: h * 0.2, fill: P.acc, gradient: { type: "linear", angle: 140, from: P.acc, to: P.acc2 }, radius: 24 * f, shadow: ombre(34 * f, 0.3, 14 * f) }),
-        text({ name: "Score", x: w * 0.16, y: h * 0.47, w: w * 0.68, h: h * 0.16, text: `${sa ?? "0"} – ${sb ?? "0"}`, color: sur(P.acc), fontFamily: font(13), fontSize: 112 * f, fontWeight: 900 }),
-        ...(C.titre ? [text({ name: "Titre", x: w * 0.08, y: h * 0.7, w: w * 0.84, h: h * 0.1, text: C.titre, color: P.ink, fontSize: 46 * f, fontWeight: 800, lineHeight: 1.15 })] : []),
-        ...(C.meta ? [text({ name: "Méta", x: w * 0.1, y: h * 0.85, w: w * 0.8, h: 56 * f, text: C.meta, color: P.sub, fontSize: 28 * f, fontWeight: 600, letterSpacing: 4 * f })] : []),
+        text({ name: "Score", x: w * 0.16, y: h * 0.47, w: w * 0.68, h: h * 0.16, text: `${sa ?? "0"} – ${sb ?? "0"}`, color: sur(P.acc), fontFamily: font(13), fontSize: ajuste(112 * f, `${sa ?? "0"} – ${sb ?? "0"}`, h * 0.16, 1.15, w * 0.68), fontWeight: 900 }),
+        ...(C.titre ? [text({ name: "Titre", x: w * 0.08, y: h * 0.7, w: w * 0.84, h: h * 0.1, text: C.titre, color: P.ink, fontSize: ajuste(46 * f, C.titre, h * 0.1, 1.15, w * 0.84), fontWeight: 800, lineHeight: 1.15 })] : []),
+        ...(C.meta ? [text({ name: "Méta", x: w * 0.1, y: h * 0.85, w: w * 0.8, h: 56 * f, text: C.meta, color: P.sub, fontSize: ajuste(28 * f, C.meta, 56 * f, 1.15, w * 0.8), fontWeight: 600, letterSpacing: 4 * f })] : []),
       ],
     };
   },
@@ -1734,19 +1782,19 @@ const MEP: Record<string, (c: Ctx) => Bati> = {
       bg: P.bg, bgg: P.bg2 ? { type: "linear", angle: 175, from: P.bg, to: P.bg2 } : null,
       layers: [
         shape({ name: "Pochette", x: w * 0.07, y: h * 0.08, w: pd, h: pd, fill: P.acc, gradient: { type: "linear", angle: 140, from: P.acc, to: P.acc2 }, radius: 16 * f }),
-        ...(C.emoji ? [text({ name: "Emoji", x: w * 0.07, y: h * 0.08 + pd * 0.22, w: pd, h: pd * 0.6, text: C.emoji, fontSize: pd * 0.5, fontWeight: 400 })] : []),
-        text({ name: "Titre", x: w * 0.31, y: h * 0.1, w: w * 0.62, h: h * 0.1, text: C.titre ?? "", color: P.ink, fontSize: 54 * f, fontWeight: 900, align: "left", lineHeight: 1.12 }),
-        ...(C.sous ? [text({ name: "Sous", x: w * 0.31, y: h * 0.21, w: w * 0.62, h: 54 * f, text: C.sous, color: P.sub, fontSize: 27 * f, fontWeight: 500, align: "left" })] : []),
+        ...(C.emoji ? [text({ name: "Emoji", x: w * 0.07, y: h * 0.08 + pd * 0.22, w: pd, h: pd * 0.6, text: C.emoji, color: sur(P.acc), fontSize: ajuste(pd * 0.5, C.emoji, pd * 0.6, 1.15, pd), fontWeight: 400 })] : []),
+        text({ name: "Titre", x: w * 0.31, y: h * 0.1, w: w * 0.62, h: h * 0.1, text: C.titre ?? "", color: P.ink, fontSize: ajuste(54 * f, C.titre ?? "", h * 0.1, 1.12, w * 0.62), fontWeight: 900, align: "left", lineHeight: 1.12 }),
+        ...(C.sous ? [text({ name: "Sous", x: w * 0.31, y: h * 0.21, w: w * 0.62, h: 54 * f, text: C.sous, color: P.sub, fontSize: ajuste(27 * f, C.sous, 54 * f, 1.15, w * 0.62), fontWeight: 500, align: "left" })] : []),
         ...it.flatMap((s, i) => {
           const [t, d] = s.split("|");
           const y = y0 + i * dy;
           return [
-            text({ name: `Rang ${i + 1}`, x: w * 0.07, y, w: w * 0.06, h: dy * 0.7, text: String(i + 1), color: lis(P.acc, P.bg, P.ink), fontSize: 28 * f, fontWeight: 800, align: "left" }),
-            text({ name: `Morceau ${i + 1}`, x: w * 0.15, y, w: w * 0.6, h: dy * 0.7, text: t ?? "", color: P.ink, fontSize: 30 * f, fontWeight: 600, align: "left" }),
-            text({ name: `Durée ${i + 1}`, x: w * 0.77, y, w: w * 0.16, h: dy * 0.7, text: d ?? "", color: P.sub, fontSize: 27 * f, fontWeight: 500, align: "right" }),
+            text({ name: `Rang ${i + 1}`, x: w * 0.07, y, w: w * 0.06, h: dy * 0.7, text: String(i + 1), color: lis(P.acc, P.bg, P.ink), fontSize: ajuste(28 * f, String(i + 1), dy * 0.7, 1.15, w * 0.06), fontWeight: 800, align: "left" }),
+            text({ name: `Morceau ${i + 1}`, x: w * 0.15, y, w: w * 0.6, h: dy * 0.7, text: t ?? "", color: P.ink, fontSize: ajuste(30 * f, t ?? "", dy * 0.7, 1.15, w * 0.6), fontWeight: 600, align: "left" }),
+            text({ name: `Durée ${i + 1}`, x: w * 0.77, y, w: w * 0.16, h: dy * 0.7, text: d ?? "", color: P.sub, fontSize: ajuste(27 * f, d ?? "", dy * 0.7, 1.15, w * 0.16), fontWeight: 500, align: "right" }),
           ];
         }),
-        ...(C.meta ? [text({ name: "Pied", x: w * 0.07, y: h * 0.9, w: w * 0.86, h: 50 * f, text: C.meta, color: P.sub, fontSize: 25 * f, fontWeight: 600, align: "left" })] : []),
+        ...(C.meta ? [text({ name: "Pied", x: w * 0.07, y: h * 0.9, w: w * 0.86, h: 50 * f, text: C.meta, color: P.sub, fontSize: ajuste(25 * f, C.meta, 50 * f, 1.15, w * 0.86), fontWeight: 600, align: "left" })] : []),
       ],
     };
   },
@@ -2083,7 +2131,7 @@ const ROWS: Row[] = [
   ["calendrier", "slide", 1, "Présentation", "Diapositive jalon", { sur: "DÉCEMBRE 2026", gros: "15", titre: "Mise en\nproduction", items: ["Gel des développements le 1er", "Recette du 2 au 10", "Bascule le 15 au soir", "Astreinte pendant deux semaines"] }],
   ["colonnes", "slide", 16, "Présentation", "Diapositive texte", { sur: "Contexte", titre: "D'où l'on\npart", sous: "Trois ans d'empilement d'outils, sans schéma d'ensemble.", items: ["Sept applications se partagent aujourd'hui les mêmes données, sans source de vérité. Chaque équipe a construit ses contournements, et personne ne peut dire quel chiffre fait foi.", "Le coût n'est pas seulement financier : il se paie en temps de réconciliation, en erreurs de facturation et en confiance perdue auprès des clients."], meta: "DIAGNOSTIC — FÉVRIER 2026" }],
   ["ruban", "slide", 9, "Présentation", "Diapositive annonce", { sur: "Décision", titre: "ON Y VA", sous: "Le projet est validé, le budget est engagé, l'équipe est constituée.", meta: "DÉMARRAGE LE 2 MAI" }],
-  ["fiche", "slide", 17, "Présentation", "Diapositive comparaison", { titre: "Faire ou acheter", meta: "Arbitrage à rendre avant fin mars", sur: "FAIRE", sous: "ACHETER", items: ["Contrôle total du produit", "Coût étalé sur trois ans", "Dépend du recrutement", "Disponible en six semaines", "Abonnement annuel fixe", "Dépendance à l'éditeur"] }],
+  ["fiche", "slide", 17, "Présentation", "Diapositive faire ou acheter", { titre: "Faire ou acheter", meta: "Arbitrage à rendre avant fin mars", sur: "FAIRE", sous: "ACHETER", items: ["Contrôle total du produit", "Coût étalé sur trois ans", "Dépend du recrutement", "Disponible en six semaines", "Abonnement annuel fixe", "Dépendance à l'éditeur"] }],
 
   /* ── Commerce, suite ── */
   ["typo", "carre", 19, "Commerce", "Accroche soldes", { titre: "SOLDES", sous: "Jusqu'à -60 % sur plus de 400 articles.", meta: "Du 8 au 28 janvier" }],
@@ -2173,17 +2221,28 @@ const ROWS: Row[] = [
    la même composition dans la même robe. Un indice explicite passe outre :
    certaines compositions n'ont de sens que dans une couleur précise. */
 const pris = new Set<string>();
+const libre = (mep: Mep, fmt: Fmt, p: number) => !pris.has(`${mep}|${fmt}|${p}`);
+const prendre = (mep: Mep, fmt: Fmt, p: number) => { pris.add(`${mep}|${fmt}|${p}`); return PALS[p]; };
+
 function palette(mep: Mep, fmt: Fmt, spec: number | Ambiance, i: number): Pal {
   if (typeof spec === "number") {
-    pris.add(`${mep}|${fmt}|${spec % PALS.length}`);
-    return PALS[spec % PALS.length];
+    /* Un indice explicite est une préférence, pas un ordre : s'il est déjà
+       servi pour cette composition, on avance dans la liste plutôt que de
+       produire deux vignettes identiques. */
+    const d = spec % PALS.length;
+    for (let k = 0; k < PALS.length; k++) {
+      const p = (d + k) % PALS.length;
+      if (libre(mep, fmt, p)) return prendre(mep, fmt, p);
+    }
+    return PALS[d];
   }
   const fam = AMB[spec];
   for (let k = 0; k < fam.length; k++) {
     const p = fam[(i + k) % fam.length];
-    const cle = `${mep}|${fmt}|${p}`;
-    if (!pris.has(cle)) { pris.add(cle); return PALS[p]; }
+    if (libre(mep, fmt, p)) return prendre(mep, fmt, p);
   }
+  /* Famille épuisée : on en sort plutôt que de doublonner. */
+  for (let p = 0; p < PALS.length; p++) if (libre(mep, fmt, p)) return prendre(mep, fmt, p);
   return PALS[fam[i % fam.length]];
 }
 
@@ -2209,7 +2268,7 @@ function bati(row: Row, i: number): Template {
 
 export const TEMPLATES_PLUS: Template[] = [
   ...ROWS, ...ROWS_RESEAUX, ...ROWS_COMMERCE, ...ROWS_METIERS, ...ROWS_PRO,
-  ...ROWS_PRINT, ...ROWS_VIE, ...ROWS_SAISON, ...ROWS_SOCIAL2, ...ROWS_SERVICES2, ...ROWS_BESOINS, ...ROWS_CANAUX, ...ROWS_METIERS2, ...ROWS_SOCIAL3,
+  ...ROWS_PRINT, ...ROWS_VIE, ...ROWS_SAISON, ...ROWS_SOCIAL2, ...ROWS_SERVICES2, ...ROWS_BESOINS, ...ROWS_CANAUX, ...ROWS_METIERS2, ...ROWS_SOCIAL3, ...ROWS_DOC, ...ROWS_SECTEURS3, ...ROWS_FORMATS, ...ROWS_STORIES, ...ROWS_FINAL, ...ROWS_COMPLEMENT, ...ROWS_EQUILIBRE,
 ].map(bati);
 
 /** Groupes présents, dans l'ordre d'apparition. */
