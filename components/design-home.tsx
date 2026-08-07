@@ -127,12 +127,12 @@ export function DesignHome() {
                   <button key={t.id} onClick={() => createFromTemplate(t.id)} disabled={creating}
                     className="group rounded-2xl border border-white/10 bg-white/[0.02] p-2.5 text-left transition hover:border-purple-400/40 hover:bg-white/5 disabled:opacity-60">
                     <div className="grid aspect-[4/3] place-items-center overflow-hidden rounded-xl bg-black/25 ring-1 ring-inset ring-white/5">
-                      <div style={fitInBox(t.doc.width, t.doc.height, "88%")}>
+                      <div style={fitInBox(t.w, t.h, "88%")}>
                         <DocPreview doc={t.doc} className="shadow-lg shadow-black/40 ring-1 ring-black/30 transition group-hover:ring-purple-400/50" rounded={8} />
                       </div>
                     </div>
                     <p className="mt-2 truncate text-[12px] font-medium text-white/90">{t.label}</p>
-                    <p className="text-[10.5px] text-muted">{t.group} · {t.doc.width}×{t.doc.height}</p>
+                    <p className="text-[10.5px] text-muted">{t.group} · {t.w}×{t.h}</p>
                   </button>
                 ))}
               </div>

@@ -14,8 +14,31 @@ import {
   type DesignDoc, type Layer, type GradientFill, type ShapeKind,
   DEFAULT_SHADOW, FONTS,
 } from "./design";
+/* Les lignes du catalogue vivent dans des fichiers séparés : un seul fichier
+   de deux mille compositions serait illisible. Ils n'importent d'ici qu'un
+   type, l'import inverse est donc effacé à la compilation — pas de cycle. */
+import { ROWS_RESEAUX } from "./design-rows-reseaux";
+import { ROWS_COMMERCE } from "./design-rows-commerce";
+import { ROWS_METIERS } from "./design-rows-metiers";
+import { ROWS_PRO } from "./design-rows-pro";
+import { ROWS_PRINT } from "./design-rows-print";
+import { ROWS_VIE } from "./design-rows-vie";
+import { ROWS_SAISON } from "./design-rows-saison";
+import { ROWS_SOCIAL2 } from "./design-rows-social2";
+import { ROWS_SERVICES2 } from "./design-rows-services2";
+import { ROWS_BESOINS } from "./design-rows-besoins";
+import { ROWS_CANAUX } from "./design-rows-canaux";
+import { ROWS_METIERS2 } from "./design-rows-metiers2";
+import { ROWS_SOCIAL3 } from "./design-rows-social3";
 
-export type Template = { id: string; label: string; group: string; doc: DesignDoc };
+/** Un modèle. `w` et `h` se lisent sans rien construire : ils suffisent aux
+ *  libellés et à la recherche. `doc`, lui, n'est bâti qu'à la première
+ *  lecture puis mémorisé — une page n'affiche qu'une vingtaine de vignettes,
+ *  il serait absurde de monter deux mille documents à chaque import. */
+export type Template = {
+  id: string; label: string; group: string; w: number; h: number;
+  readonly doc: DesignDoc;
+};
 
 const S = { ...DEFAULT_SHADOW };
 const font = (i: number) => FONTS[i].css;
@@ -82,6 +105,9 @@ const F = {
   a4: [1240, 1754], a5: [874, 1240], carte: [1050, 600], slide: [1920, 1080],
   ebook: [1600, 2400], pod: [1400, 1400], bandeau: [1920, 600],
   billet: [1200, 480], badge: [800, 1120], logo: [800, 800], cv: [1240, 1754],
+  a3: [1754, 2480], paysage: [1754, 1240], carreL: [1440, 1440], etiq: [600, 900],
+  carteV: [600, 1050], bannli: [1584, 396], signa: [1000, 250], diapo43: [1440, 1080],
+  affiche: [1587, 2245], menuc: [1000, 1600],
 } as const;
 type Fmt = keyof typeof F;
 
@@ -96,13 +122,13 @@ const PALS: Pal[] = [
   { bg: "#052e16", bg2: "#14532d", ink: "#ecfdf5", sub: "#86efac", acc: "#22c55e", acc2: "#84cc16", on: "#052e16" },
   { bg: "#fdf2f8", bg2: "#fce7f3", ink: "#831843", sub: "#be185d", acc: "#ec4899", acc2: "#f43f5e", on: "#ffffff" },
   { bg: "#18181b", bg2: "#3f3f46", ink: "#fafafa", sub: "#a1a1aa", acc: "#eab308", acc2: "#f97316", on: "#18181b" },
-  { bg: "#ecfeff", bg2: "#cffafe", ink: "#164e63", sub: "#0e7490", acc: "#06b6d4", acc2: "#14b8a6", on: "#ffffff" },
+  { bg: "#ecfeff", bg2: "#cffafe", ink: "#164e63", sub: "#0e7490", acc: "#06b6d4", acc2: "#14b8a6", on: "#04353d" },
   { bg: "#1c1917", bg2: "#292524", ink: "#fafaf9", sub: "#a8a29e", acc: "#d97706", acc2: "#b45309", on: "#1c1917" },
   { bg: "#faf5ff", bg2: "#f3e8ff", ink: "#4c1d95", sub: "#7c3aed", acc: "#8b5cf6", acc2: "#d946ef", on: "#ffffff" },
   { bg: "#450a0a", bg2: "#7f1d1d", ink: "#fef2f2", sub: "#fca5a5", acc: "#ef4444", acc2: "#f97316", on: "#ffffff" },
   { bg: "#f8fafc", bg2: "#e2e8f0", ink: "#0f172a", sub: "#475569", acc: "#0f172a", acc2: "#475569", on: "#ffffff" },
   { bg: "#042f2e", bg2: "#134e4a", ink: "#f0fdfa", sub: "#5eead4", acc: "#14b8a6", acc2: "#06b6d4", on: "#042f2e" },
-  { bg: "#fff7ed", bg2: "#ffedd5", ink: "#7c2d12", sub: "#c2410c", acc: "#f97316", acc2: "#facc15", on: "#ffffff" },
+  { bg: "#fff7ed", bg2: "#ffedd5", ink: "#7c2d12", sub: "#c2410c", acc: "#f97316", acc2: "#facc15", on: "#431407" },
   { bg: "#020617", bg2: "#0f172a", ink: "#e2e8f0", sub: "#64748b", acc: "#38bdf8", acc2: "#818cf8", on: "#020617" },
   { bg: "#f0fdf4", bg2: "#dcfce7", ink: "#14532d", sub: "#15803d", acc: "#16a34a", acc2: "#65a30d", on: "#ffffff" },
   { bg: "#1e1b4b", bg2: "#4c1d95", ink: "#ede9fe", sub: "#c4b5fd", acc: "#a78bfa", acc2: "#f472b6", on: "#1e1b4b" },
@@ -114,7 +140,49 @@ const PALS: Pal[] = [
   { bg: "#292524", bg2: "#44403c", ink: "#fef3c7", sub: "#d6d3d1", acc: "#fbbf24", acc2: "#f59e0b", on: "#292524" },
   { bg: "#ffffff", bg2: null, ink: "#171717", sub: "#737373", acc: "#e11d48", acc2: "#f43f5e", on: "#ffffff" },
   { bg: "#0a0a0a", bg2: "#171717", ink: "#fafafa", sub: "#a3a3a3", acc: "#e5e5e5", acc2: "#737373", on: "#0a0a0a" },
+  /* 24 */ { bg: "#fef6f0", bg2: "#fde4d3", ink: "#7c2d12", sub: "#9a3412", acc: "#c2410c", acc2: "#ea580c", on: "#ffffff" },
+  /* 25 */ { bg: "#f2f5f0", bg2: "#e3ebe0", ink: "#2f3e2f", sub: "#5b6b58", acc: "#4f7357", acc2: "#8ca884", on: "#ffffff" },
+  /* 26 */ { bg: "#2b0a14", bg2: "#4c0f22", ink: "#fdf2f5", sub: "#f0a3b8", acc: "#e11d48", acc2: "#fb7185", on: "#ffffff" },
+  /* 27 */ { bg: "#0b1c39", bg2: "#12294f", ink: "#f6f4ee", sub: "#b9c6de", acc: "#d4af37", acc2: "#f0d178", on: "#1a1405" },
+  /* 28 */ { bg: "#effcf6", bg2: "#d6f5e6", ink: "#04503a", sub: "#0d7a58", acc: "#059669", acc2: "#34d399", on: "#ffffff" },
+  /* 29 */ { bg: "#f4f2fd", bg2: "#e6e1fb", ink: "#322175", sub: "#5b4bb8", acc: "#6d5ce0", acc2: "#b39cf7", on: "#ffffff" },
+  /* 30 */ { bg: "#14161a", bg2: "#24282f", ink: "#f4f6f8", sub: "#9aa3ae", acc: "#a3e635", acc2: "#65a30d", on: "#14161a" },
+  /* 31 */ { bg: "#fff5f0", bg2: "#ffe6da", ink: "#7a2e1a", sub: "#b04a2a", acc: "#e11d48", acc2: "#fdba74", on: "#ffffff" },
+  /* 32 */ { bg: "#04283c", bg2: "#06415f", ink: "#e8f6fd", sub: "#93c5e8", acc: "#38bdf8", acc2: "#67e8f9", on: "#04283c" },
+  /* 33 */ { bg: "#f7f3ea", bg2: "#ece5d6", ink: "#1c1b18", sub: "#5c574c", acc: "#7a6a3e", acc2: "#c2b280", on: "#ffffff" },
+  /* 34 */ { bg: "#ffffff", bg2: null, ink: "#18181b", sub: "#52525b", acc: "#c026d3", acc2: "#8b5cf6", on: "#ffffff" },
+  /* 35 */ { bg: "#0b1f14", bg2: "#143324", ink: "#eaf6ee", sub: "#8fc7a4", acc: "#4ade80", acc2: "#a3e635", on: "#06180e" },
+  /* 36 */ { bg: "#f6efe7", bg2: "#e9dccd", ink: "#4a3728", sub: "#7c6350", acc: "#b45309", acc2: "#d97706", on: "#ffffff" },
+  /* 37 */ { bg: "#08080f", bg2: "#14142b", ink: "#f2f2ff", sub: "#a5a5d0", acc: "#7c3aed", acc2: "#22d3ee", on: "#ffffff" },
+  /* 38 */ { bg: "#fff7f5", bg2: "#ffe4e0", ink: "#7f1d1d", sub: "#b91c1c", acc: "#e11d48", acc2: "#fb923c", on: "#ffffff" },
+  /* 39 */ { bg: "#eef1f5", bg2: "#dbe2ea", ink: "#1f2937", sub: "#4b5563", acc: "#334155", acc2: "#64748b", on: "#ffffff" },
+  /* 40 */ { bg: "#fffbe8", bg2: "#fef3c7", ink: "#3f2d00", sub: "#8a6a08", acc: "#ca8a04", acc2: "#f59e0b", on: "#3f2d00" },
+  /* 41 */ { bg: "#2a1033", bg2: "#45185a", ink: "#faf2ff", sub: "#d8b4fe", acc: "#c084fc", acc2: "#f472b6", on: "#2a1033" },
+  /* 42 */ { bg: "#f5fbff", bg2: "#e2f2fd", ink: "#0b3a5c", sub: "#2c6d99", acc: "#0284c7", acc2: "#38bdf8", on: "#ffffff" },
+  /* 43 */ { bg: "#f6f6ee", bg2: "#e9e9d5", ink: "#33361f", sub: "#5f6338", acc: "#66761f", acc2: "#a3b018", on: "#ffffff" },
+  /* 44 */ { bg: "#fdf6f6", bg2: "#f7e6e6", ink: "#4a2c33", sub: "#8a5c66", acc: "#9c6270", acc2: "#d9b3bb", on: "#ffffff" },
+  /* 45 */ { bg: "#101010", bg2: "#1d1d1d", ink: "#fafafa", sub: "#a3a3a3", acc: "#ff6b00", acc2: "#ffb703", on: "#101010" },
 ];
+
+/* ── Familles d'ambiance ──
+   Écrire mille sept cents indices de palette à la main donnerait mille sept
+   cents choix arbitraires. Une ligne demande donc une AMBIANCE — « chic »,
+   « nature », « sombre » — et le bâtisseur y prend la première palette encore
+   inutilisée pour ce couple mise en page / format. La cohérence reste
+   dirigée, la variété devient mécanique. */
+type Ambiance = "clair" | "sombre" | "chaud" | "froid" | "nature" | "chic" | "pastel" | "vif" | "tech" | "terre";
+const AMB: Record<Ambiance, number[]> = {
+  clair:  [1, 10, 22, 34, 39, 42, 16, 6, 14, 12, 19, 33],
+  sombre: [0, 3, 5, 7, 9, 11, 13, 15, 17, 19, 21, 23, 26, 27, 30, 32, 35, 37, 41, 45],
+  chaud:  [2, 12, 18, 24, 31, 36, 38, 40, 5, 8, 10, 45],
+  froid:  [6, 11, 13, 17, 32, 42, 1, 0, 20, 39, 7, 29],
+  nature: [3, 14, 19, 25, 28, 35, 43, 11, 6, 12, 33, 36],
+  chic:   [10, 16, 21, 23, 26, 27, 33, 39, 41, 44, 8, 9],
+  pastel: [4, 8, 20, 25, 29, 31, 38, 42, 44, 6, 14, 2],
+  vif:    [5, 9, 18, 22, 30, 34, 40, 45, 12, 4, 13, 1],
+  tech:   [0, 13, 15, 20, 23, 29, 37, 39, 11, 17, 30, 42],
+  terre:  [7, 16, 21, 24, 33, 36, 43, 2, 3, 12, 18, 25],
+};
 
 /* ═══════════ Contenu ═══════════ */
 type Copy = {
@@ -336,7 +404,7 @@ const MEP: Record<string, (c: Ctx) => Bati> = {
       text({ name: "Titre", x: w * 0.45, y: h * 0.16, w: w * 0.52, h: h * 0.5, text: C.titre ?? "", color: P.ink, fontFamily: font(14), fontSize: 84 * f, fontWeight: 900, align: "left", lineHeight: 1.06, uppercase: true, strokeColor: P.bg, strokeWidth: 5 * f, shadow: ombre(0, 0.6, 8 * f) }),
       ...(C.meta ? [
         shape({ name: "Badge", x: w * 0.45, y: h * 0.74, w: w * 0.26, h: 88 * f, fill: P.acc2, radius: 16 * f, rotation: -3 }),
-        text({ name: "Badge txt", x: w * 0.45, y: h * 0.74 + 22 * f, w: w * 0.26, h: 50 * f, text: C.meta, color: P.on, fontSize: 36 * f, fontWeight: 800, rotation: -3 }),
+        text({ name: "Badge txt", x: w * 0.45, y: h * 0.74 + 22 * f, w: w * 0.26, h: 50 * f, text: C.meta, color: sur(P.acc2), fontSize: 36 * f, fontWeight: 800, rotation: -3 }),
       ] : []),
     ],
   }),
@@ -419,7 +487,7 @@ const MEP: Record<string, (c: Ctx) => Bati> = {
       shape({ name: "Carte", x: w * 0.08, y: h * 0.14, w: w * 0.84, h: h * 0.72, fill: P.acc, opacity: 0.1, radius: 40 * f }),
       shape({ name: "Portrait", shape: "ellipse", x: (w - 170 * f) / 2, y: h * 0.2, w: 170 * f, h: 170 * f, fill: P.acc, gradient: { type: "linear", angle: 140, from: P.acc, to: P.acc2 } }),
       ...(C.emoji ? [text({ name: "Emoji", x: (w - 170 * f) / 2, y: h * 0.23, w: 170 * f, h: 120 * f, text: C.emoji, fontSize: 100 * f, fontWeight: 400 })] : []),
-      text({ name: "Étoiles", x: w * 0.2, y: h * 0.42, w: w * 0.6, h: 60 * f, text: "★★★★★", color: P.acc2, fontSize: 42 * f, fontWeight: 700, letterSpacing: 6 * f }),
+      text({ name: "Étoiles", x: w * 0.2, y: h * 0.42, w: w * 0.6, h: 60 * f, text: "★★★★★", color: lis(P.acc2, P.bg, P.ink), fontSize: 42 * f, fontWeight: 700, letterSpacing: 6 * f }),
       text({ name: "Avis", x: w * 0.14, y: h * 0.5, w: w * 0.72, h: h * 0.2, text: C.titre ?? "", color: P.ink, fontSize: 42 * f, fontWeight: 500, italic: true, lineHeight: 1.4 }),
       text({ name: "Nom", x: w * 0.2, y: h * 0.74, w: w * 0.6, h: 56 * f, text: C.auteur ?? "Camille D.", color: P.ink, fontSize: 32 * f, fontWeight: 800 }),
       ...(C.sous ? [text({ name: "Rôle", x: w * 0.2, y: h * 0.79, w: w * 0.6, h: 46 * f, text: C.sous, color: P.sub, fontSize: 26 * f, fontWeight: 500 })] : []),
@@ -435,7 +503,10 @@ const MEP: Record<string, (c: Ctx) => Bati> = {
       layers: [
         text({ name: "Titre", x: w * 0.08, y: h * 0.14, w: w * 0.84, h: h * 0.12, text: C.titre ?? "", color: P.ink, fontSize: 66 * f, fontWeight: 900, lineHeight: 1.1 }),
         ...(C.sous ? [text({ name: "Sous", x: w * 0.14, y: h * 0.26, w: w * 0.72, h: 60 * f, text: C.sous, color: P.sub, fontSize: 30 * f, fontWeight: 500 })] : []),
-        ...(it.length > 1 ? [line({ x: w * 0.135, y: y0 + 40 * f, w: 4 * f, h: dy * (it.length - 1), stroke: P.acc, strokeWidth: 4 * f, opacity: 0.4, rotation: 90 })] : []),
+        /* Rail vertical : un calque « ligne » se trace horizontalement dans sa
+           boîte, le faire pivoter obligerait à recalculer son centre — un
+           rectangle fin dit la même chose sans ce détour. */
+        ...(it.length > 1 ? [shape({ name: "Rail", x: w * 0.09 + 38 * f, y: y0 + 40 * f, w: 4 * f, h: dy * (it.length - 1), fill: P.acc, opacity: 0.4 })] : []),
         ...it.flatMap((s, i) => {
           const [t, d] = s.split("|");
           const y = y0 + i * dy;
@@ -756,7 +827,7 @@ const MEP: Record<string, (c: Ctx) => Bati> = {
     bg: P.bg, bgg: P.bg2 ? { type: "linear", angle: 200, from: P.bg, to: P.bg2 } : null,
     layers: [
       text({ name: "Point", x: w * 0.06, y: h * 0.1, w: w * 0.4, h: h * 0.3, text: "?", color: P.acc, fontFamily: font(13), fontSize: 320 * f, fontWeight: 900, align: "left", opacity: 0.28 }),
-      ...(C.sur ? [text({ name: "Sur", x: w * 0.08, y: h * 0.32, w: w * 0.84, h: 56 * f, text: C.sur, color: P.acc, fontSize: 28 * f, fontWeight: 800, letterSpacing: 8 * f, uppercase: true })] : []),
+      ...(C.sur ? [text({ name: "Sur", x: w * 0.08, y: h * 0.32, w: w * 0.84, h: 56 * f, text: C.sur, color: lis(P.acc, P.bg, P.ink), fontSize: 28 * f, fontWeight: 800, letterSpacing: 8 * f, uppercase: true })] : []),
       text({ name: "Question", x: w * 0.07, y: h * 0.4, w: w * 0.86, h: h * 0.24, text: C.titre ?? "", color: P.ink, fontSize: 76 * f, fontWeight: 900, lineHeight: 1.15 }),
       line({ x: (w - 130 * f) / 2, y: h * 0.68, w: 130 * f, stroke: P.acc, strokeWidth: 6 * f }),
       ...(C.sous ? [text({ name: "Réponse", x: w * 0.12, y: h * 0.73, w: w * 0.76, h: h * 0.14, text: C.sous, color: P.sub, fontSize: 32 * f, fontWeight: 500, lineHeight: 1.45 })] : []),
@@ -797,11 +868,895 @@ const MEP: Record<string, (c: Ctx) => Bati> = {
     };
   },
 
+  /* ═══ Volumes et découpes ═══ */
+
+  /* Une voûte pleine au centre, le texte posé dedans. */
+  arche: ({ w, h, P, C, f }) => {
+    const aw = Math.min(w * 0.66, h * 0.5), x0 = (w - aw) / 2, y0 = h * 0.1, bas = h * 0.8;
+    const t = sur(P.acc);
+    return {
+      bg: P.bg, bgg: P.bg2 ? { type: "linear", angle: 165, from: P.bg, to: P.bg2 } : null,
+      layers: [
+        shape({ name: "Voûte", shape: "ellipse", x: x0, y: y0, w: aw, h: aw, fill: P.acc }),
+        shape({ name: "Fût", x: x0, y: y0 + aw / 2, w: aw, h: Math.max(10, bas - y0 - aw / 2), fill: P.acc }),
+        ...(C.sur ? [text({ name: "Sur", x: x0, y: y0 + aw * 0.28, w: aw, h: 56 * f, text: C.sur, color: t, fontSize: 27 * f, fontWeight: 700, letterSpacing: 8 * f, uppercase: true, opacity: 0.9 })] : []),
+        text({ name: "Titre", x: x0 + aw * 0.08, y: y0 + aw * 0.42, w: aw * 0.84, h: h * 0.2, text: C.titre ?? "", color: t, fontFamily: font(10), fontSize: 62 * f, fontWeight: 800, lineHeight: 1.18 }),
+        ...(C.sous ? [text({ name: "Sous", x: x0 + aw * 0.1, y: bas - h * 0.15, w: aw * 0.8, h: h * 0.11, text: C.sous, color: t, fontSize: 26 * f, fontWeight: 500, lineHeight: 1.4, opacity: 0.92 })] : []),
+        ...(C.meta ? [text({ name: "Méta", x: w * 0.1, y: h * 0.86, w: w * 0.8, h: 54 * f, text: C.meta, color: P.ink, fontSize: 28 * f, fontWeight: 700, letterSpacing: 6 * f })] : []),
+      ],
+    };
+  },
+
+  /* Deux bandes pleines, haut et bas, le message pris entre les deux. */
+  sablier: ({ w, h, P, C, f }) => {
+    const t = sur(P.acc);
+    return {
+      bg: P.bg, bgg: null,
+      layers: [
+        shape({ name: "Bande haute", x: 0, y: 0, w, h: h * 0.19, fill: P.acc }),
+        shape({ name: "Bande basse", x: 0, y: h * 0.81, w, h: h * 0.19, fill: P.acc }),
+        ...(C.sur ? [text({ name: "Sur", x: w * 0.08, y: h * 0.06, w: w * 0.84, h: 62 * f, text: C.sur, color: t, fontSize: 32 * f, fontWeight: 800, letterSpacing: 10 * f, uppercase: true })] : []),
+        text({ name: "Titre", x: w * 0.08, y: h * 0.31, w: w * 0.84, h: h * 0.22, text: C.titre ?? "", color: P.ink, fontFamily: font(13), fontSize: 88 * f, fontWeight: 900, lineHeight: 1.12 }),
+        ...(C.sous ? [text({ name: "Sous", x: w * 0.14, y: h * 0.58, w: w * 0.72, h: h * 0.14, text: C.sous, color: P.sub, fontSize: 34 * f, fontWeight: 500, lineHeight: 1.45 })] : []),
+        ...(C.meta ? [text({ name: "Méta", x: w * 0.08, y: h * 0.87, w: w * 0.84, h: 58 * f, text: C.meta, color: t, fontSize: 30 * f, fontWeight: 700, letterSpacing: 5 * f })] : []),
+      ],
+    };
+  },
+
+  /* Tirage instantané : cadre blanc, marge basse pour la légende. */
+  polaroid: ({ w, h, P, C, f }) => {
+    const cw = Math.min(w * 0.72, h * 0.58), ch = cw * 1.22, x0 = (w - cw) / 2, y0 = (h - ch) / 2 - h * 0.04;
+    return {
+      bg: P.bg, bgg: P.bg2 ? { type: "linear", angle: 150, from: P.bg, to: P.bg2 } : null,
+      layers: [
+        shape({ name: "Tirage", x: x0, y: y0, w: cw, h: ch, fill: "#ffffff", radius: 6 * f, shadow: ombre(50 * f, 0.38, 22 * f) }),
+        shape({ name: "Image", x: x0 + cw * 0.06, y: y0 + cw * 0.06, w: cw * 0.88, h: ch * 0.7, fill: P.acc, gradient: { type: "linear", angle: 150, from: P.acc, to: P.acc2 } }),
+        ...(C.emoji ? [text({ name: "Emoji", x: x0 + cw * 0.06, y: y0 + ch * 0.24, w: cw * 0.88, h: cw * 0.4, text: C.emoji, fontSize: cw * 0.3, fontWeight: 400 })] : []),
+        ...(C.sur ? [text({ name: "Sur", x: x0 + cw * 0.1, y: y0 + cw * 0.12, w: cw * 0.8, h: 54 * f, text: C.sur, color: sur(P.acc), fontSize: 26 * f, fontWeight: 800, letterSpacing: 7 * f, uppercase: true })] : []),
+        text({ name: "Légende", x: x0 + cw * 0.06, y: y0 + ch * 0.79, w: cw * 0.88, h: ch * 0.14, text: C.titre ?? "", color: "#1f2937", fontFamily: font(17), fontSize: 38 * f, fontWeight: 700, lineHeight: 1.2 }),
+        ...(C.meta ? [text({ name: "Méta", x: w * 0.1, y: y0 + ch + h * 0.04, w: w * 0.8, h: 54 * f, text: C.meta, color: P.sub, fontSize: 28 * f, fontWeight: 600, letterSpacing: 4 * f })] : []),
+      ],
+    };
+  },
+
+  /* Bulle de dialogue : ce qu'on dit, et qui le dit. */
+  bulle: ({ w, h, P, C, f }) => {
+    const bw = w * 0.84, bh = h * 0.52, x0 = w * 0.08, y0 = h * 0.14;
+    const t = sur(P.acc);
+    return {
+      bg: P.bg, bgg: P.bg2 ? { type: "linear", angle: 200, from: P.bg, to: P.bg2 } : null,
+      layers: [
+        shape({ name: "Bulle", shape: "message", x: x0, y: y0, w: bw, h: bh, fill: P.acc, gradient: { type: "linear", angle: 145, from: P.acc, to: P.acc2 }, shadow: ombre(40 * f, 0.3, 16 * f) }),
+        ...(C.sur ? [text({ name: "Sur", x: x0 + bw * 0.08, y: y0 + bh * 0.12, w: bw * 0.84, h: 54 * f, text: C.sur, color: t, fontSize: 26 * f, fontWeight: 800, letterSpacing: 7 * f, uppercase: true, opacity: 0.9 })] : []),
+        text({ name: "Réplique", x: x0 + bw * 0.08, y: y0 + bh * 0.26, w: bw * 0.84, h: bh * 0.42, text: C.titre ?? "", color: t, fontSize: 52 * f, fontWeight: 800, lineHeight: 1.25 }),
+        text({ name: "Nom", x: w * 0.1, y: h * 0.76, w: w * 0.8, h: 60 * f, text: C.auteur ?? "", color: P.ink, fontSize: 34 * f, fontWeight: 800 }),
+        ...(C.sous ? [text({ name: "Rôle", x: w * 0.14, y: h * 0.83, w: w * 0.72, h: 54 * f, text: C.sous, color: P.sub, fontSize: 27 * f, fontWeight: 500 })] : []),
+      ],
+    };
+  },
+
+  /* Moitié haute pleine, moitié basse nue : un mot, puis l'explication. */
+  demi: ({ w, h, P, C, f }) => {
+    const t = sur(P.acc);
+    return {
+      bg: P.bg, bgg: null,
+      layers: [
+        shape({ name: "Moitié", x: 0, y: 0, w, h: h * 0.5, fill: P.acc, gradient: { type: "linear", angle: 135, from: P.acc, to: P.acc2 } }),
+        ...(C.sur ? [text({ name: "Sur", x: w * 0.08, y: h * 0.1, w: w * 0.84, h: 58 * f, text: C.sur, color: t, fontSize: 30 * f, fontWeight: 700, letterSpacing: 10 * f, uppercase: true, opacity: 0.88 })] : []),
+        text({ name: "Mot", x: w * 0.06, y: h * 0.19, w: w * 0.88, h: h * 0.24, text: C.gros ?? C.titre ?? "", color: t, fontFamily: font(14), fontSize: 128 * f, fontWeight: 900, lineHeight: 1.02, uppercase: true }),
+        text({ name: "Titre", x: w * 0.08, y: h * 0.57, w: w * 0.84, h: h * 0.14, text: C.titre ?? "", color: P.ink, fontSize: 56 * f, fontWeight: 800, lineHeight: 1.15 }),
+        ...(C.sous ? [text({ name: "Sous", x: w * 0.12, y: h * 0.72, w: w * 0.76, h: h * 0.12, text: C.sous, color: P.sub, fontSize: 31 * f, fontWeight: 500, lineHeight: 1.45 })] : []),
+        ...(C.meta ? [text({ name: "Méta", x: w * 0.12, y: h * 0.89, w: w * 0.76, h: 52 * f, text: C.meta, color: lis(P.acc, P.bg, P.ink), fontSize: 27 * f, fontWeight: 700 })] : []),
+      ],
+    };
+  },
+
+  /* Barres empilées : une idée par barre, sans hiérarchie inutile. */
+  empilement: ({ w, h, P, C, f }) => {
+    const it = (C.items ?? []).slice(0, 5);
+    const y0 = h * 0.27, bh = (h * 0.62) / Math.max(1, it.length);
+    return {
+      bg: P.bg, bgg: null,
+      layers: [
+        text({ name: "Titre", x: w * 0.07, y: h * 0.1, w: w * 0.86, h: h * 0.11, text: C.titre ?? "", color: P.ink, fontSize: 64 * f, fontWeight: 900, align: "left", lineHeight: 1.1 }),
+        ...(C.sous ? [text({ name: "Sous", x: w * 0.07, y: h * 0.2, w: w * 0.86, h: 56 * f, text: C.sous, color: P.sub, fontSize: 29 * f, fontWeight: 500, align: "left" })] : []),
+        ...it.flatMap((s, i) => {
+          const c = i % 2 ? P.acc2 : P.acc;
+          const y = y0 + i * bh;
+          return [
+            shape({ name: `Barre ${i + 1}`, x: w * 0.07, y, w: w * 0.86 * (1 - i * 0.06), h: bh * 0.82, fill: c, radius: 14 * f }),
+            text({ name: `Ligne ${i + 1}`, x: w * 0.1, y: y + bh * 0.24, w: w * 0.8 * (1 - i * 0.06), h: bh * 0.5, text: s, color: sur(c), fontSize: 32 * f, fontWeight: 700, align: "left" }),
+          ];
+        }),
+        ...(C.meta ? [text({ name: "Pied", x: w * 0.07, y: h * 0.92, w: w * 0.86, h: 50 * f, text: C.meta, color: P.sub, fontSize: 26 * f, fontWeight: 600, align: "left" })] : []),
+      ],
+    };
+  },
+
+  /* Un disque immense derrière le titre : la forme fait tout le travail. */
+  disque: ({ w, h, P, C, f }) => {
+    const d = Math.min(w, h) * 1.05;
+    return {
+      bg: P.bg, bgg: null,
+      layers: [
+        shape({ name: "Disque", shape: "ellipse", x: w * 0.5 - d * 0.42, y: h * 0.5 - d * 0.5, w: d, h: d, fill: P.acc, gradient: { type: "radial", angle: 0, from: P.acc2, to: P.acc } }),
+        ...(C.sur ? [text({ name: "Sur", x: w * 0.1, y: h * 0.28, w: w * 0.8, h: 58 * f, text: C.sur, color: sur(P.acc), fontSize: 29 * f, fontWeight: 800, letterSpacing: 9 * f, uppercase: true, opacity: 0.9 })] : []),
+        text({ name: "Titre", x: w * 0.1, y: h * 0.37, w: w * 0.8, h: h * 0.22, text: C.titre ?? "", color: sur(P.acc), fontFamily: font(5), fontSize: 78 * f, fontWeight: 900, lineHeight: 1.12 }),
+        ...(C.sous ? [text({ name: "Sous", x: w * 0.16, y: h * 0.62, w: w * 0.68, h: h * 0.1, text: C.sous, color: sur(P.acc), fontSize: 30 * f, fontWeight: 500, lineHeight: 1.4, opacity: 0.92 })] : []),
+        ...(C.meta ? [text({ name: "Méta", x: w * 0.5 - d * 0.4, y: h * 0.5 + d * 0.3, w: d * 0.8, h: 52 * f, text: C.meta, color: sur(P.acc), fontSize: 27 * f, fontWeight: 700, letterSpacing: 5 * f, opacity: 0.9 })] : []),
+      ],
+    };
+  },
+
+  /* Avant / après : deux volets, même cadre, verdict en bas. */
+  avantapres: ({ w, h, P, C, f }) => {
+    const it = C.items ?? [];
+    const pw = w * 0.42, y0 = h * 0.26, ph = h * 0.46;
+    return {
+      bg: P.bg, bgg: null,
+      layers: [
+        text({ name: "Titre", x: w * 0.06, y: h * 0.1, w: w * 0.88, h: h * 0.1, text: C.titre ?? "", color: P.ink, fontSize: 60 * f, fontWeight: 900, lineHeight: 1.1 }),
+        shape({ name: "Avant", x: w * 0.05, y: y0, w: pw, h: ph, fill: P.sub, opacity: 0.28, radius: 24 * f }),
+        shape({ name: "Après", x: w * 0.53, y: y0, w: pw, h: ph, fill: P.acc, gradient: { type: "linear", angle: 150, from: P.acc, to: P.acc2 }, radius: 24 * f }),
+        text({ name: "Ét. avant", x: w * 0.05, y: y0 + ph * 0.08, w: pw, h: 54 * f, text: C.sur ?? "AVANT", color: P.ink, fontSize: 27 * f, fontWeight: 800, letterSpacing: 7 * f, uppercase: true }),
+        text({ name: "Ét. après", x: w * 0.53, y: y0 + ph * 0.08, w: pw, h: 54 * f, text: C.cta ?? "APRÈS", color: sur(P.acc), fontSize: 27 * f, fontWeight: 800, letterSpacing: 7 * f, uppercase: true }),
+        text({ name: "Texte avant", x: w * 0.07, y: y0 + ph * 0.32, w: pw - w * 0.04, h: ph * 0.5, text: it[0] ?? "", color: P.ink, fontSize: 30 * f, fontWeight: 600, lineHeight: 1.4 }),
+        text({ name: "Texte après", x: w * 0.55, y: y0 + ph * 0.32, w: pw - w * 0.04, h: ph * 0.5, text: it[1] ?? "", color: sur(P.acc), fontSize: 30 * f, fontWeight: 700, lineHeight: 1.4 }),
+        ...(C.sous ? [text({ name: "Verdict", x: w * 0.08, y: h * 0.79, w: w * 0.84, h: h * 0.1, text: C.sous, color: P.sub, fontSize: 30 * f, fontWeight: 500, lineHeight: 1.4 })] : []),
+        ...(C.meta ? [text({ name: "Méta", x: w * 0.08, y: h * 0.91, w: w * 0.84, h: 50 * f, text: C.meta, color: lis(P.acc, P.bg, P.ink), fontSize: 26 * f, fontWeight: 700 })] : []),
+      ],
+    };
+  },
+
+  /* Promotion chiffrée : ancien prix barré, nouveau prix en grand. */
+  promo: ({ w, h, P, C, f }) => {
+    const it = C.items ?? [];
+    const ancien = it[0] ?? "", nouveau = C.gros ?? "";
+    const lw = ancien.length * 30 * f;
+    return {
+      bg: P.bg, bgg: P.bg2 ? { type: "linear", angle: 145, from: P.bg, to: P.bg2 } : null,
+      layers: [
+        ...(C.sur ? [text({ name: "Sur", x: w * 0.08, y: h * 0.13, w: w * 0.84, h: 60 * f, text: C.sur, color: lis(P.acc, P.bg, P.ink), fontSize: 32 * f, fontWeight: 800, letterSpacing: 10 * f, uppercase: true })] : []),
+        text({ name: "Titre", x: w * 0.07, y: h * 0.21, w: w * 0.86, h: h * 0.14, text: C.titre ?? "", color: P.ink, fontSize: 64 * f, fontWeight: 900, lineHeight: 1.12 }),
+        text({ name: "Ancien prix", x: w * 0.07, y: h * 0.42, w: w * 0.86, h: 70 * f, text: ancien, color: P.sub, fontSize: 46 * f, fontWeight: 600 }),
+        /* Barré : un calque « ligne » se trace au milieu de sa boîte, donc une
+           hauteur nulle le pose exactement sur le y demandé. */
+        ...(ancien ? [line({ x: (w - lw) / 2, y: h * 0.42 + 35 * f, w: lw, h: 0, stroke: P.sub, strokeWidth: 5 * f })] : []),
+        text({ name: "Nouveau prix", x: w * 0.06, y: h * 0.5, w: w * 0.88, h: h * 0.18, text: nouveau, color: lis(P.acc, P.bg, P.ink), fontFamily: font(13), fontSize: 156 * f, fontWeight: 900, shadow: ombre(30 * f, 0.22, 12 * f) }),
+        ...(C.sous ? [text({ name: "Sous", x: w * 0.12, y: h * 0.71, w: w * 0.76, h: h * 0.1, text: C.sous, color: P.ink, fontSize: 32 * f, fontWeight: 600, lineHeight: 1.4 })] : []),
+        ...(C.meta ? [
+          shape({ name: "Bandeau code", x: w * 0.16, y: h * 0.84, w: w * 0.68, h: 88 * f, fill: P.acc, radius: 16 * f }),
+          text({ name: "Code", x: w * 0.16, y: h * 0.84 + 24 * f, w: w * 0.68, h: 54 * f, text: C.meta, color: sur(P.acc), fontSize: 30 * f, fontWeight: 800, letterSpacing: 6 * f }),
+        ] : []),
+      ],
+    };
+  },
+
+  /* Horaires d'ouverture : une ligne par jour, filet entre chaque. */
+  horaires: ({ w, h, P, C, f }) => {
+    const it = (C.items ?? []).slice(0, 7);
+    const y0 = h * 0.3, dy = (h * 0.54) / Math.max(1, it.length);
+    return {
+      bg: P.bg, bgg: null,
+      layers: [
+        shape({ name: "Cadre", x: w * 0.06, y: h * 0.05, w: w * 0.88, h: h * 0.9, fill: "transparent", stroke: P.acc, strokeWidth: 3 * f, radius: 18 * f }),
+        ...(C.sur ? [text({ name: "Sur", x: w * 0.1, y: h * 0.12, w: w * 0.8, h: 56 * f, text: C.sur, color: lis(P.acc, P.bg, P.ink), fontSize: 27 * f, fontWeight: 800, letterSpacing: 9 * f, uppercase: true })] : []),
+        text({ name: "Titre", x: w * 0.1, y: h * 0.18, w: w * 0.8, h: h * 0.1, text: C.titre ?? "", color: P.ink, fontFamily: font(10), fontSize: 58 * f, fontWeight: 800 }),
+        ...it.flatMap((s, i) => {
+          const [j, hr] = s.split("|");
+          const y = y0 + i * dy;
+          return [
+            text({ name: `Jour ${i + 1}`, x: w * 0.12, y, w: w * 0.38, h: dy * 0.7, text: j ?? "", color: P.ink, fontSize: 32 * f, fontWeight: 600, align: "left" }),
+            text({ name: `Heures ${i + 1}`, x: w * 0.5, y, w: w * 0.38, h: dy * 0.7, text: hr ?? "", color: P.sub, fontSize: 32 * f, fontWeight: 500, align: "right" }),
+            ...(i < it.length - 1 ? [line({ x: w * 0.12, y: y + dy * 0.72, w: w * 0.76, stroke: P.sub, strokeWidth: 1.5 * f, opacity: 0.4, dash: "dotted" })] : []),
+          ];
+        }),
+        ...(C.meta ? [text({ name: "Pied", x: w * 0.1, y: h * 0.87, w: w * 0.8, h: 52 * f, text: C.meta, color: lis(P.acc, P.bg, P.ink), fontSize: 26 * f, fontWeight: 700 })] : []),
+      ],
+    };
+  },
+
+  /* Bloc de contact : quatre lignes, une puce par ligne. */
+  contact: ({ w, h, P, C, f }) => {
+    const it = (C.items ?? []).slice(0, 4);
+    const y0 = h * 0.42, dy = (h * 0.4) / Math.max(1, it.length);
+    return {
+      bg: P.bg, bgg: P.bg2 ? { type: "linear", angle: 160, from: P.bg, to: P.bg2 } : null,
+      layers: [
+        shape({ name: "Angle", x: 0, y: 0, w: w * 0.34, h: h * 0.02 + 12 * f, fill: P.acc }),
+        ...(C.sur ? [text({ name: "Sur", x: w * 0.08, y: h * 0.13, w: w * 0.84, h: 56 * f, text: C.sur, color: lis(P.acc, P.bg, P.ink), fontSize: 27 * f, fontWeight: 800, align: "left", letterSpacing: 9 * f, uppercase: true })] : []),
+        text({ name: "Titre", x: w * 0.07, y: h * 0.19, w: w * 0.86, h: h * 0.14, text: C.titre ?? "", color: P.ink, fontSize: 66 * f, fontWeight: 900, align: "left", lineHeight: 1.1 }),
+        ...(C.sous ? [text({ name: "Sous", x: w * 0.07, y: h * 0.33, w: w * 0.86, h: 58 * f, text: C.sous, color: P.sub, fontSize: 29 * f, fontWeight: 500, align: "left" })] : []),
+        ...it.flatMap((s, i) => {
+          const y = y0 + i * dy;
+          return [
+            shape({ name: `Puce ${i + 1}`, shape: "ellipse", x: w * 0.08, y: y + dy * 0.08, w: 44 * f, h: 44 * f, fill: P.acc }),
+            text({ name: `Contact ${i + 1}`, x: w * 0.08 + 68 * f, y, w: w * 0.84 - 68 * f, h: dy * 0.8, text: s, color: P.ink, fontSize: 32 * f, fontWeight: 600, align: "left" }),
+          ];
+        }),
+        ...(C.meta ? [text({ name: "Pied", x: w * 0.07, y: h * 0.89, w: w * 0.86, h: 52 * f, text: C.meta, color: P.sub, fontSize: 26 * f, fontWeight: 600, align: "left" })] : []),
+      ],
+    };
+  },
+
+  /* En-tête de papier à lettres : filet, identité, place libre dessous. */
+  entete: ({ w, h, P, C, f }) => ({
+    bg: P.bg, bgg: null,
+    layers: [
+      shape({ name: "Filet", x: 0, y: 0, w, h: 18 * f, fill: P.acc, gradient: { type: "linear", angle: 0, from: P.acc, to: P.acc2 } }),
+      text({ name: "Nom", x: w * 0.08, y: h * 0.06, w: w * 0.5, h: h * 0.05, text: C.titre ?? "", color: P.ink, fontFamily: font(10), fontSize: 46 * f, fontWeight: 800, align: "left", letterSpacing: 3 * f }),
+      ...(C.sur ? [text({ name: "Activité", x: w * 0.08, y: h * 0.11, w: w * 0.5, h: 42 * f, text: C.sur, color: lis(P.acc, P.bg, P.sub), fontSize: 22 * f, fontWeight: 700, align: "left", letterSpacing: 5 * f, uppercase: true })] : []),
+      ...(C.sous ? [text({ name: "Coordonnées", x: w * 0.5, y: h * 0.06, w: w * 0.42, h: h * 0.09, text: C.sous, color: P.sub, fontSize: 21 * f, fontWeight: 500, align: "right", lineHeight: 1.6 })] : []),
+      line({ x: w * 0.08, y: h * 0.17, w: w * 0.84, stroke: P.acc, strokeWidth: 2 * f }),
+      ...(C.meta ? [text({ name: "Objet", x: w * 0.08, y: h * 0.22, w: w * 0.84, h: 52 * f, text: C.meta, color: P.ink, fontSize: 26 * f, fontWeight: 700, align: "left" })] : []),
+      ...(C.items ?? []).slice(0, 6).map((s, i) => text({ name: `Ligne ${i + 1}`, x: w * 0.08, y: h * 0.29 + i * h * 0.055, w: w * 0.84, h: h * 0.05, text: s, color: P.sub, fontSize: 22 * f, fontWeight: 400, align: "left", lineHeight: 1.6 })),
+      line({ x: w * 0.08, y: h * 0.93, w: w * 0.84, stroke: P.sub, strokeWidth: 1 * f, opacity: 0.5 }),
+      ...(C.cta ? [text({ name: "Pied", x: w * 0.08, y: h * 0.95, w: w * 0.84, h: 40 * f, text: C.cta, color: P.sub, fontSize: 18 * f, fontWeight: 500 })] : []),
+    ],
+  }),
+
+  /* Sommaire : intitulé à gauche, page à droite, pointillés entre. */
+  sommaire: ({ w, h, P, C, f }) => {
+    const it = (C.items ?? []).slice(0, 8);
+    const y0 = h * 0.3, dy = (h * 0.56) / Math.max(1, it.length);
+    return {
+      bg: P.bg, bgg: null,
+      layers: [
+        ...(C.sur ? [text({ name: "Sur", x: w * 0.1, y: h * 0.12, w: w * 0.8, h: 56 * f, text: C.sur, color: lis(P.acc, P.bg, P.ink), fontSize: 26 * f, fontWeight: 800, align: "left", letterSpacing: 10 * f, uppercase: true })] : []),
+        text({ name: "Titre", x: w * 0.09, y: h * 0.17, w: w * 0.82, h: h * 0.1, text: C.titre ?? "", color: P.ink, fontFamily: font(10), fontSize: 66 * f, fontWeight: 800, align: "left" }),
+        line({ x: w * 0.1, y: h * 0.27, w: w * 0.8, stroke: P.acc, strokeWidth: 3 * f }),
+        ...it.flatMap((s, i) => {
+          const [t, p] = s.split("|");
+          const y = y0 + i * dy;
+          return [
+            text({ name: `Entrée ${i + 1}`, x: w * 0.1, y, w: w * 0.6, h: dy * 0.7, text: t ?? "", color: P.ink, fontSize: 30 * f, fontWeight: 600, align: "left" }),
+            line({ x: w * 0.1, y: y + dy * 0.42, w: w * 0.8, stroke: P.sub, strokeWidth: 1.5 * f, opacity: 0.35, dash: "dotted" }),
+            text({ name: `Page ${i + 1}`, x: w * 0.72, y, w: w * 0.18, h: dy * 0.7, text: p ?? "", color: lis(P.acc, P.bg, P.ink), fontSize: 30 * f, fontWeight: 800, align: "right" }),
+          ];
+        }),
+        ...(C.meta ? [text({ name: "Pied", x: w * 0.1, y: h * 0.9, w: w * 0.8, h: 50 * f, text: C.meta, color: P.sub, fontSize: 24 * f, fontWeight: 500, align: "left" })] : []),
+      ],
+    };
+  },
+
+  /* Ouverture de chapitre : le numéro discret, le titre immense. */
+  chapitre: ({ w, h, P, C, f }) => ({
+    bg: P.bg, bgg: P.bg2 ? { type: "linear", angle: 200, from: P.bg, to: P.bg2 } : null,
+    layers: [
+      text({ name: "Numéro fantôme", x: w * 0.5, y: h * 0.04, w: w * 0.46, h: h * 0.4, text: C.gros ?? "", color: P.acc, fontFamily: font(13), fontSize: 300 * f, fontWeight: 900, align: "right", opacity: 0.18 }),
+      text({ name: "Chapitre", x: w * 0.09, y: h * 0.3, w: w * 0.82, h: 58 * f, text: C.sur ?? "", color: lis(P.acc, P.bg, P.ink), fontSize: 28 * f, fontWeight: 800, align: "left", letterSpacing: 12 * f, uppercase: true }),
+      text({ name: "Titre", x: w * 0.08, y: h * 0.37, w: w * 0.84, h: h * 0.26, text: C.titre ?? "", color: P.ink, fontFamily: font(10), fontSize: 92 * f, fontWeight: 800, align: "left", lineHeight: 1.12 }),
+      line({ x: w * 0.09, y: h * 0.68, w: w * 0.22, stroke: P.acc, strokeWidth: 6 * f }),
+      ...(C.sous ? [text({ name: "Chapeau", x: w * 0.09, y: h * 0.73, w: w * 0.7, h: h * 0.14, text: C.sous, color: P.sub, fontSize: 30 * f, fontWeight: 500, align: "left", lineHeight: 1.5 })] : []),
+      ...(C.meta ? [text({ name: "Pied", x: w * 0.09, y: h * 0.92, w: w * 0.82, h: 46 * f, text: C.meta, color: P.sub, fontSize: 22 * f, fontWeight: 600, align: "left", letterSpacing: 4 * f })] : []),
+    ],
+  }),
+
+  /* Note globale : le chiffre, les étoiles, un avis, la source. */
+  notation: ({ w, h, P, C, f }) => ({
+    bg: P.bg, bgg: null,
+    layers: [
+      shape({ name: "Pavé", x: w * 0.07, y: h * 0.12, w: w * 0.86, h: h * 0.34, fill: P.acc, opacity: 0.14, radius: 32 * f }),
+      text({ name: "Note", x: w * 0.09, y: h * 0.16, w: w * 0.36, h: h * 0.22, text: C.gros ?? "4,9", color: lis(P.acc, P.bg, P.ink), fontFamily: font(13), fontSize: 150 * f, fontWeight: 900 }),
+      text({ name: "Étoiles", x: w * 0.46, y: h * 0.2, w: w * 0.46, h: 70 * f, text: "★★★★★", color: lis(P.acc2, P.bg, P.ink), fontSize: 46 * f, fontWeight: 700, letterSpacing: 6 * f, align: "left" }),
+      ...(C.sur ? [text({ name: "Base", x: w * 0.46, y: h * 0.29, w: w * 0.46, h: 56 * f, text: C.sur, color: P.sub, fontSize: 26 * f, fontWeight: 600, align: "left" })] : []),
+      text({ name: "Avis", x: w * 0.09, y: h * 0.54, w: w * 0.82, h: h * 0.22, text: C.titre ?? "", color: P.ink, fontSize: 40 * f, fontWeight: 600, italic: true, align: "left", lineHeight: 1.4 }),
+      text({ name: "Auteur", x: w * 0.09, y: h * 0.79, w: w * 0.82, h: 56 * f, text: C.auteur ?? "", color: P.ink, fontSize: 30 * f, fontWeight: 800, align: "left" }),
+      ...(C.meta ? [text({ name: "Source", x: w * 0.09, y: h * 0.86, w: w * 0.82, h: 50 * f, text: C.meta, color: P.sub, fontSize: 25 * f, fontWeight: 500, align: "left" })] : []),
+    ],
+  }),
+
+  /* Comparatif à deux colonnes : la nôtre est celle qui est pleine. */
+  comparatif: ({ w, h, P, C, f }) => {
+    const it = (C.items ?? []).slice(0, 5);
+    const cw = w * 0.4, xa = w * 0.06, xb = w * 0.54, y0 = h * 0.36, dy = (h * 0.48) / Math.max(1, it.length);
+    return {
+      bg: P.bg, bgg: null,
+      layers: [
+        text({ name: "Titre", x: w * 0.06, y: h * 0.09, w: w * 0.88, h: h * 0.1, text: C.titre ?? "", color: P.ink, fontSize: 60 * f, fontWeight: 900, lineHeight: 1.1 }),
+        shape({ name: "Colonne A", x: xa, y: h * 0.24, w: cw, h: h * 0.66, fill: P.sub, opacity: 0.14, radius: 24 * f }),
+        shape({ name: "Colonne B", x: xb, y: h * 0.22, w: cw, h: h * 0.7, fill: P.acc, gradient: { type: "linear", angle: 165, from: P.acc, to: P.acc2 }, radius: 24 * f, shadow: ombre(36 * f, 0.28, 14 * f) }),
+        text({ name: "Titre A", x: xa, y: h * 0.27, w: cw, h: 60 * f, text: C.sur ?? "", color: P.ink, fontSize: 30 * f, fontWeight: 800, uppercase: true, letterSpacing: 3 * f }),
+        text({ name: "Titre B", x: xb, y: h * 0.26, w: cw, h: 60 * f, text: C.cta ?? "", color: sur(P.acc), fontSize: 30 * f, fontWeight: 800, uppercase: true, letterSpacing: 3 * f }),
+        ...it.flatMap((s, i) => {
+          const [a, b] = s.split("|");
+          const y = y0 + i * dy;
+          return [
+            text({ name: `A${i + 1}`, x: xa + cw * 0.06, y, w: cw * 0.88, h: dy * 0.82, text: a ?? "", color: P.ink, fontSize: 25 * f, fontWeight: 500, lineHeight: 1.3 }),
+            text({ name: `B${i + 1}`, x: xb + cw * 0.06, y, w: cw * 0.88, h: dy * 0.82, text: b ?? "", color: sur(P.acc), fontSize: 25 * f, fontWeight: 700, lineHeight: 1.3 }),
+          ];
+        }),
+        ...(C.meta ? [text({ name: "Pied", x: w * 0.06, y: h * 0.94, w: w * 0.88, h: 46 * f, text: C.meta, color: P.sub, fontSize: 24 * f, fontWeight: 500 })] : []),
+      ],
+    };
+  },
+
+  /* Chronologie horizontale : une ligne, des jalons dessus. */
+  chrono: ({ w, h, P, C, f }) => {
+    const it = (C.items ?? []).slice(0, 4);
+    const n = Math.max(1, it.length), pas = (w * 0.84) / n, x0 = w * 0.08 + pas / 2;
+    return {
+      bg: P.bg, bgg: P.bg2 ? { type: "linear", angle: 160, from: P.bg, to: P.bg2 } : null,
+      layers: [
+        text({ name: "Titre", x: w * 0.08, y: h * 0.12, w: w * 0.84, h: h * 0.12, text: C.titre ?? "", color: P.ink, fontSize: 60 * f, fontWeight: 900, lineHeight: 1.1 }),
+        ...(C.sous ? [text({ name: "Sous", x: w * 0.14, y: h * 0.26, w: w * 0.72, h: 56 * f, text: C.sous, color: P.sub, fontSize: 28 * f, fontWeight: 500 })] : []),
+        shape({ name: "Rail", x: w * 0.08, y: h * 0.52, w: w * 0.84, h: 6 * f, fill: P.acc, opacity: 0.35 }),
+        ...it.flatMap((s, i) => {
+          const [d, t] = s.split("|");
+          const cx = x0 + i * pas;
+          return [
+            shape({ name: `Jalon ${i + 1}`, shape: "ellipse", x: cx - 26 * f, y: h * 0.52 - 23 * f, w: 52 * f, h: 52 * f, fill: P.acc, shadow: ombre(18 * f, 0.3, 6 * f) }),
+            text({ name: `Date ${i + 1}`, x: cx - pas * 0.46, y: h * 0.4, w: pas * 0.92, h: 56 * f, text: d ?? "", color: lis(P.acc, P.bg, P.ink), fontSize: 28 * f, fontWeight: 800 }),
+            text({ name: `Jalon txt ${i + 1}`, x: cx - pas * 0.46, y: h * 0.6, w: pas * 0.92, h: h * 0.2, text: t ?? "", color: P.ink, fontSize: 25 * f, fontWeight: 600, lineHeight: 1.35 }),
+          ];
+        }),
+        ...(C.meta ? [text({ name: "Pied", x: w * 0.08, y: h * 0.88, w: w * 0.84, h: 50 * f, text: C.meta, color: P.sub, fontSize: 25 * f, fontWeight: 500 })] : []),
+      ],
+    };
+  },
+
+  /* Frise verticale : la date à gauche, l'événement à droite. */
+  frise: ({ w, h, P, C, f }) => {
+    const it = (C.items ?? []).slice(0, 5);
+    const y0 = h * 0.28, dy = (h * 0.58) / Math.max(1, it.length);
+    return {
+      bg: P.bg, bgg: null,
+      layers: [
+        text({ name: "Titre", x: w * 0.07, y: h * 0.1, w: w * 0.86, h: h * 0.11, text: C.titre ?? "", color: P.ink, fontSize: 62 * f, fontWeight: 900, align: "left", lineHeight: 1.1 }),
+        ...(C.sous ? [text({ name: "Sous", x: w * 0.07, y: h * 0.21, w: w * 0.86, h: 54 * f, text: C.sous, color: P.sub, fontSize: 28 * f, fontWeight: 500, align: "left" })] : []),
+        shape({ name: "Rail", x: w * 0.3, y: y0, w: 4 * f, h: dy * Math.max(0, it.length - 1) + 20 * f, fill: P.acc, opacity: 0.35 }),
+        ...it.flatMap((s, i) => {
+          const [d, t] = s.split("|");
+          const y = y0 + i * dy;
+          return [
+            text({ name: `Date ${i + 1}`, x: w * 0.06, y, w: w * 0.2, h: 56 * f, text: d ?? "", color: lis(P.acc, P.bg, P.ink), fontSize: 28 * f, fontWeight: 800, align: "right" }),
+            shape({ name: `Point ${i + 1}`, shape: "ellipse", x: w * 0.3 - 14 * f, y: y + 6 * f, w: 32 * f, h: 32 * f, fill: P.acc }),
+            text({ name: `Fait ${i + 1}`, x: w * 0.36, y, w: w * 0.57, h: dy * 0.86, text: t ?? "", color: P.ink, fontSize: 30 * f, fontWeight: 600, align: "left", lineHeight: 1.35 }),
+          ];
+        }),
+        ...(C.meta ? [text({ name: "Pied", x: w * 0.07, y: h * 0.92, w: w * 0.86, h: 48 * f, text: C.meta, color: P.sub, fontSize: 25 * f, fontWeight: 500, align: "left" })] : []),
+      ],
+    };
+  },
+
+  /* Volet de carrousel : le rang, l'accroche, la flèche qui invite. */
+  carrousel: ({ w, h, P, C, f }) => ({
+    bg: P.bg, bgg: P.bg2 ? { type: "linear", angle: 155, from: P.bg, to: P.bg2 } : null,
+    layers: [
+      shape({ name: "Pastille", x: w * 0.08, y: h * 0.1, w: w * 0.2, h: 70 * f, fill: P.acc, radius: 40 * f }),
+      text({ name: "Rang", x: w * 0.08, y: h * 0.1 + 18 * f, w: w * 0.2, h: 44 * f, text: C.meta ?? "1/6", color: sur(P.acc), fontSize: 28 * f, fontWeight: 800 }),
+      ...(C.sur ? [text({ name: "Sur", x: w * 0.08, y: h * 0.24, w: w * 0.84, h: 56 * f, text: C.sur, color: lis(P.acc, P.bg, P.ink), fontSize: 27 * f, fontWeight: 800, align: "left", letterSpacing: 8 * f, uppercase: true })] : []),
+      text({ name: "Titre", x: w * 0.07, y: h * 0.31, w: w * 0.86, h: h * 0.26, text: C.titre ?? "", color: P.ink, fontSize: 76 * f, fontWeight: 900, align: "left", lineHeight: 1.14 }),
+      ...(C.sous ? [text({ name: "Corps", x: w * 0.07, y: h * 0.6, w: w * 0.8, h: h * 0.2, text: C.sous, color: P.sub, fontSize: 32 * f, fontWeight: 500, align: "left", lineHeight: 1.5 })] : []),
+      shape({ name: "Flèche", shape: "arrow", x: w * 0.78, y: h * 0.86, w: 90 * f, h: 60 * f, fill: P.acc }),
+      ...(C.cta ? [text({ name: "CTA", x: w * 0.07, y: h * 0.87, w: w * 0.6, h: 54 * f, text: C.cta, color: P.ink, fontSize: 28 * f, fontWeight: 700, align: "left" })] : []),
+    ],
+  }),
+
+  /* Jauge d'avancement : le pourcentage se lit dans la barre. */
+  progression: ({ w, h, P, C, f }) => {
+    const pct = Math.max(0, Math.min(100, parseInt(C.gros ?? "70", 10) || 70));
+    const bw = w * 0.84, bh = 64 * f;
+    return {
+      bg: P.bg, bgg: null,
+      layers: [
+        ...(C.sur ? [text({ name: "Sur", x: w * 0.08, y: h * 0.16, w: w * 0.84, h: 56 * f, text: C.sur, color: lis(P.acc, P.bg, P.ink), fontSize: 28 * f, fontWeight: 800, align: "left", letterSpacing: 9 * f, uppercase: true })] : []),
+        text({ name: "Titre", x: w * 0.07, y: h * 0.23, w: w * 0.86, h: h * 0.16, text: C.titre ?? "", color: P.ink, fontSize: 66 * f, fontWeight: 900, align: "left", lineHeight: 1.12 }),
+        shape({ name: "Rail", x: w * 0.08, y: h * 0.5, w: bw, h: bh, fill: P.sub, opacity: 0.22, radius: bh / 2 }),
+        shape({ name: "Jauge", x: w * 0.08, y: h * 0.5, w: Math.max(bh, bw * pct / 100), h: bh, fill: P.acc, gradient: { type: "linear", angle: 0, from: P.acc, to: P.acc2 }, radius: bh / 2 }),
+        text({ name: "Pourcentage", x: w * 0.08, y: h * 0.59, w: bw, h: h * 0.14, text: `${pct} %`, color: lis(P.acc, P.bg, P.ink), fontFamily: font(13), fontSize: 108 * f, fontWeight: 900, align: "left" }),
+        ...(C.sous ? [text({ name: "Sous", x: w * 0.08, y: h * 0.75, w: w * 0.84, h: h * 0.12, text: C.sous, color: P.sub, fontSize: 32 * f, fontWeight: 500, align: "left", lineHeight: 1.45 })] : []),
+        ...(C.meta ? [text({ name: "Pied", x: w * 0.08, y: h * 0.9, w: w * 0.84, h: 50 * f, text: C.meta, color: P.ink, fontSize: 26 * f, fontWeight: 700, align: "left" })] : []),
+      ],
+    };
+  },
+
+  /* Tableau : une ligne d'en-tête, des lignes alternées dessous. */
+  tableau: ({ w, h, P, C, f }) => {
+    const it = (C.items ?? []).slice(0, 7);
+    const y0 = h * 0.32, dy = (h * 0.54) / Math.max(1, it.length + 1);
+    return {
+      bg: P.bg, bgg: null,
+      layers: [
+        text({ name: "Titre", x: w * 0.07, y: h * 0.12, w: w * 0.86, h: h * 0.11, text: C.titre ?? "", color: P.ink, fontSize: 60 * f, fontWeight: 900, align: "left", lineHeight: 1.1 }),
+        ...(C.sous ? [text({ name: "Sous", x: w * 0.07, y: h * 0.23, w: w * 0.86, h: 54 * f, text: C.sous, color: P.sub, fontSize: 27 * f, fontWeight: 500, align: "left" })] : []),
+        shape({ name: "En-tête", x: w * 0.07, y: y0, w: w * 0.86, h: dy * 0.92, fill: P.acc, radius: 12 * f }),
+        text({ name: "Col 1", x: w * 0.1, y: y0 + dy * 0.24, w: w * 0.46, h: dy * 0.6, text: (C.sur ?? "|").split("|")[0], color: sur(P.acc), fontSize: 26 * f, fontWeight: 800, align: "left", uppercase: true, letterSpacing: 3 * f }),
+        text({ name: "Col 2", x: w * 0.56, y: y0 + dy * 0.24, w: w * 0.34, h: dy * 0.6, text: (C.sur ?? "|").split("|")[1] ?? "", color: sur(P.acc), fontSize: 26 * f, fontWeight: 800, align: "right", uppercase: true, letterSpacing: 3 * f }),
+        ...it.flatMap((s, i) => {
+          const [a, b] = s.split("|");
+          const y = y0 + (i + 1) * dy;
+          return [
+            ...(i % 2 === 0 ? [shape({ name: `Zèbre ${i + 1}`, x: w * 0.07, y, w: w * 0.86, h: dy * 0.92, fill: P.sub, opacity: 0.12, radius: 8 * f })] : []),
+            text({ name: `Cel A${i + 1}`, x: w * 0.1, y: y + dy * 0.22, w: w * 0.46, h: dy * 0.6, text: a ?? "", color: P.ink, fontSize: 27 * f, fontWeight: 600, align: "left" }),
+            text({ name: `Cel B${i + 1}`, x: w * 0.56, y: y + dy * 0.22, w: w * 0.34, h: dy * 0.6, text: b ?? "", color: P.ink, fontSize: 27 * f, fontWeight: 700, align: "right" }),
+          ];
+        }),
+        ...(C.meta ? [text({ name: "Pied", x: w * 0.07, y: h * 0.9, w: w * 0.86, h: 48 * f, text: C.meta, color: P.sub, fontSize: 24 * f, fontWeight: 500, align: "left" })] : []),
+      ],
+    };
+  },
+
+  /* ═══ Partis pris graphiques ═══ */
+
+  /* Blocs décalés, angles vifs : l'affiche qui ne s'excuse pas. */
+  bloc: ({ w, h, P, C, f }) => ({
+    bg: P.bg, bgg: null,
+    layers: [
+      shape({ name: "Bloc 1", x: w * 0.06, y: h * 0.14, w: w * 0.7, h: h * 0.16, fill: P.acc }),
+      shape({ name: "Bloc 2", x: w * 0.18, y: h * 0.31, w: w * 0.7, h: h * 0.16, fill: P.ink }),
+      shape({ name: "Bloc 3", x: w * 0.06, y: h * 0.48, w: w * 0.52, h: h * 0.16, fill: P.acc2 }),
+      text({ name: "Mot 1", x: w * 0.08, y: h * 0.17, w: w * 0.66, h: h * 0.1, text: (C.titre ?? "").split("\n")[0] ?? "", color: sur(P.acc), fontFamily: font(14), fontSize: 76 * f, fontWeight: 900, align: "left", uppercase: true }),
+      text({ name: "Mot 2", x: w * 0.2, y: h * 0.34, w: w * 0.66, h: h * 0.1, text: (C.titre ?? "").split("\n")[1] ?? "", color: P.bg, fontFamily: font(14), fontSize: 76 * f, fontWeight: 900, align: "left", uppercase: true }),
+      text({ name: "Mot 3", x: w * 0.08, y: h * 0.51, w: w * 0.48, h: h * 0.1, text: (C.titre ?? "").split("\n")[2] ?? "", color: sur(P.acc2), fontFamily: font(14), fontSize: 76 * f, fontWeight: 900, align: "left", uppercase: true }),
+      ...(C.sous ? [text({ name: "Sous", x: w * 0.06, y: h * 0.7, w: w * 0.8, h: h * 0.14, text: C.sous, color: P.ink, fontSize: 32 * f, fontWeight: 600, align: "left", lineHeight: 1.4 })] : []),
+      ...(C.meta ? [text({ name: "Méta", x: w * 0.06, y: h * 0.89, w: w * 0.8, h: 52 * f, text: C.meta, color: P.sub, fontSize: 26 * f, fontWeight: 700, align: "left", letterSpacing: 5 * f })] : []),
+    ],
+  }),
+
+  /* Surligneur : des rectangles de couleur derrière les mots-clés. */
+  souligne: ({ w, h, P, C, f }) => {
+    const li = (C.titre ?? "").split("\n").slice(0, 3);
+    const y0 = h * 0.3, dy = h * 0.14;
+    return {
+      bg: P.bg, bgg: null,
+      layers: [
+        ...(C.sur ? [text({ name: "Sur", x: w * 0.08, y: h * 0.17, w: w * 0.84, h: 58 * f, text: C.sur, color: P.sub, fontSize: 29 * f, fontWeight: 700, align: "left", letterSpacing: 9 * f, uppercase: true })] : []),
+        ...li.flatMap((s, i) => [
+          shape({ name: `Trait ${i + 1}`, x: w * 0.07, y: y0 + i * dy + dy * 0.42, w: Math.min(w * 0.86, s.length * 34 * f), h: dy * 0.42, fill: i === 1 ? P.acc2 : P.acc, opacity: 0.55 }),
+          text({ name: `Ligne ${i + 1}`, x: w * 0.07, y: y0 + i * dy, w: w * 0.86, h: dy * 0.9, text: s, color: P.ink, fontSize: 68 * f, fontWeight: 900, align: "left" }),
+        ]),
+        ...(C.sous ? [text({ name: "Sous", x: w * 0.07, y: h * 0.75, w: w * 0.8, h: h * 0.13, text: C.sous, color: P.sub, fontSize: 31 * f, fontWeight: 500, align: "left", lineHeight: 1.45 })] : []),
+        ...(C.meta ? [text({ name: "Méta", x: w * 0.07, y: h * 0.9, w: w * 0.8, h: 50 * f, text: C.meta, color: P.ink, fontSize: 26 * f, fontWeight: 700, align: "left" })] : []),
+      ],
+    };
+  },
+
+  /* Lettres évidées : le titre n'est plus qu'un contour. */
+  contour: ({ w, h, P, C, f }) => ({
+    bg: P.bg, bgg: P.bg2 ? { type: "linear", angle: 145, from: P.bg, to: P.bg2 } : null,
+    layers: [
+      text({ name: "Titre creux", x: w * 0.05, y: h * 0.24, w: w * 0.9, h: h * 0.3, text: C.gros ?? C.titre ?? "", color: P.bg, strokeColor: P.ink, strokeWidth: 3 * f, fontFamily: font(14), fontSize: 150 * f, fontWeight: 900, lineHeight: 1.02, uppercase: true }),
+      ...(C.sur ? [text({ name: "Sur", x: w * 0.1, y: h * 0.16, w: w * 0.8, h: 58 * f, text: C.sur, color: lis(P.acc, P.bg, P.ink), fontSize: 30 * f, fontWeight: 800, letterSpacing: 12 * f, uppercase: true })] : []),
+      text({ name: "Titre", x: w * 0.1, y: h * 0.6, w: w * 0.8, h: h * 0.12, text: C.titre ?? "", color: P.ink, fontSize: 52 * f, fontWeight: 800, lineHeight: 1.15 }),
+      ...(C.sous ? [text({ name: "Sous", x: w * 0.14, y: h * 0.74, w: w * 0.72, h: h * 0.1, text: C.sous, color: P.sub, fontSize: 30 * f, fontWeight: 500, lineHeight: 1.45 })] : []),
+      ...(C.meta ? [text({ name: "Méta", x: w * 0.14, y: h * 0.89, w: w * 0.72, h: 50 * f, text: C.meta, color: lis(P.acc, P.bg, P.ink), fontSize: 26 * f, fontWeight: 700, letterSpacing: 5 * f })] : []),
+    ],
+  }),
+
+  /* Ombre dure : le même mot deux fois, décalé, sans flou. */
+  ombredure: ({ w, h, P, C, f }) => ({
+    bg: P.bg, bgg: null,
+    layers: [
+      text({ name: "Ombre", x: w * 0.08 + 14 * f, y: h * 0.32 + 14 * f, w: w * 0.84, h: h * 0.26, text: C.titre ?? "", color: P.acc, fontFamily: font(14), fontSize: 112 * f, fontWeight: 900, lineHeight: 1.06, uppercase: true }),
+      text({ name: "Titre", x: w * 0.08, y: h * 0.32, w: w * 0.84, h: h * 0.26, text: C.titre ?? "", color: P.ink, fontFamily: font(14), fontSize: 112 * f, fontWeight: 900, lineHeight: 1.06, uppercase: true }),
+      ...(C.sur ? [text({ name: "Sur", x: w * 0.08, y: h * 0.2, w: w * 0.84, h: 58 * f, text: C.sur, color: P.sub, fontSize: 30 * f, fontWeight: 700, letterSpacing: 10 * f, uppercase: true })] : []),
+      ...(C.sous ? [text({ name: "Sous", x: w * 0.12, y: h * 0.66, w: w * 0.76, h: h * 0.14, text: C.sous, color: P.sub, fontSize: 32 * f, fontWeight: 500, lineHeight: 1.45 })] : []),
+      ...(C.meta ? [text({ name: "Méta", x: w * 0.12, y: h * 0.88, w: w * 0.76, h: 52 * f, text: C.meta, color: P.ink, fontSize: 27 * f, fontWeight: 800, letterSpacing: 4 * f })] : []),
+    ],
+  }),
+
+  /* Équerres aux quatre coins : une mise au point photographique. */
+  coins: ({ w, h, P, C, f }) => {
+    const L = Math.min(w, h) * 0.16, e = 8 * f, m = 0.05;
+    const eq = (x: number, y: number, sx: number, sy: number, i: number) => [
+      shape({ name: `Coin ${i}a`, x: sx > 0 ? x : x - L, y, w: L, h: e, fill: P.acc }),
+      shape({ name: `Coin ${i}b`, x: sx > 0 ? x : x - e, y: sy > 0 ? y : y - L, w: e, h: L, fill: P.acc }),
+    ];
+    return {
+      bg: P.bg, bgg: P.bg2 ? { type: "linear", angle: 170, from: P.bg, to: P.bg2 } : null,
+      layers: [
+        ...eq(w * m, h * m, 1, 1, 1),
+        ...eq(w * (1 - m), h * m, -1, 1, 2),
+        ...eq(w * m, h * (1 - m), 1, -1, 3),
+        ...eq(w * (1 - m), h * (1 - m), -1, -1, 4),
+        ...(C.sur ? [text({ name: "Sur", x: w * 0.12, y: h * 0.28, w: w * 0.76, h: 58 * f, text: C.sur, color: lis(P.acc, P.bg, P.ink), fontSize: 28 * f, fontWeight: 800, letterSpacing: 11 * f, uppercase: true })] : []),
+        text({ name: "Titre", x: w * 0.1, y: h * 0.36, w: w * 0.8, h: h * 0.24, text: C.titre ?? "", color: P.ink, fontFamily: font(5), fontSize: 80 * f, fontWeight: 800, lineHeight: 1.15 }),
+        ...(C.sous ? [text({ name: "Sous", x: w * 0.16, y: h * 0.63, w: w * 0.68, h: h * 0.12, text: C.sous, color: P.sub, fontSize: 30 * f, fontWeight: 500, lineHeight: 1.45 })] : []),
+        ...(C.meta ? [text({ name: "Méta", x: w * 0.16, y: h * 0.79, w: w * 0.68, h: 52 * f, text: C.meta, color: P.ink, fontSize: 26 * f, fontWeight: 700, letterSpacing: 5 * f })] : []),
+      ],
+    };
+  },
+
+  /* Champ de pois : un fond qui respire sans rien dire. */
+  pois: ({ w, h, P, C, f }) => {
+    const cols = 7, rows = Math.max(4, Math.round((cols * h) / w)), d = (w * 0.9) / (cols * 2.4);
+    const pts = Array.from({ length: cols * rows }, (_, i) => ({
+      x: w * 0.05 + (i % cols) * ((w * 0.9) / (cols - 1)) - d / 2,
+      y: h * 0.05 + ((i / cols) | 0) * ((h * 0.9) / (rows - 1)) - d / 2,
+      i,
+    }));
+    return {
+      bg: P.bg, bgg: null,
+      layers: [
+        ...pts.map((p) => shape({ name: `Pois ${p.i + 1}`, shape: "ellipse", x: p.x, y: p.y, w: d, h: d, fill: p.i % 3 ? P.acc : P.acc2, opacity: 0.3 })),
+        shape({ name: "Carte", x: w * 0.1, y: h * 0.28, w: w * 0.8, h: h * 0.44, fill: P.bg, radius: 32 * f, shadow: ombre(50 * f, 0.22, 20 * f) }),
+        ...(C.sur ? [text({ name: "Sur", x: w * 0.14, y: h * 0.34, w: w * 0.72, h: 56 * f, text: C.sur, color: lis(P.acc, P.bg, P.ink), fontSize: 27 * f, fontWeight: 800, letterSpacing: 9 * f, uppercase: true })] : []),
+        text({ name: "Titre", x: w * 0.14, y: h * 0.41, w: w * 0.72, h: h * 0.16, text: C.titre ?? "", color: P.ink, fontSize: 62 * f, fontWeight: 900, lineHeight: 1.14 }),
+        ...(C.sous ? [text({ name: "Sous", x: w * 0.16, y: h * 0.59, w: w * 0.68, h: h * 0.1, text: C.sous, color: P.sub, fontSize: 29 * f, fontWeight: 500, lineHeight: 1.4 })] : []),
+        ...(C.meta ? [text({ name: "Méta", x: w * 0.1, y: h * 0.8, w: w * 0.8, h: 54 * f, text: C.meta, color: P.ink, fontSize: 28 * f, fontWeight: 700 })] : []),
+      ],
+    };
+  },
+
+  /* Rayures obliques : un fond de kiosque, franc et lisible. */
+  rayures: ({ w, h, P, C, f }) => {
+    const n = 9, bw = w * 0.14;
+    return {
+      bg: P.bg, bgg: null,
+      layers: [
+        ...Array.from({ length: n }, (_, i) => shape({
+          name: `Rayure ${i + 1}`, x: -w * 0.3 + i * bw * 1.6, y: -h * 0.3, w: bw, h: h * 1.6,
+          fill: i % 2 ? P.acc : P.acc2, opacity: 0.18, rotation: 22,
+        })),
+        shape({ name: "Bandeau", x: 0, y: h * 0.3, w, h: h * 0.4, fill: P.bg, opacity: 0.94 }),
+        ...(C.sur ? [text({ name: "Sur", x: w * 0.08, y: h * 0.34, w: w * 0.84, h: 58 * f, text: C.sur, color: lis(P.acc, P.bg, P.ink), fontSize: 29 * f, fontWeight: 800, letterSpacing: 10 * f, uppercase: true })] : []),
+        text({ name: "Titre", x: w * 0.07, y: h * 0.41, w: w * 0.86, h: h * 0.18, text: C.titre ?? "", color: P.ink, fontFamily: font(13), fontSize: 90 * f, fontWeight: 900, lineHeight: 1.08, uppercase: true }),
+        ...(C.sous ? [text({ name: "Sous", x: w * 0.12, y: h * 0.74, w: w * 0.76, h: h * 0.1, text: C.sous, color: P.ink, fontSize: 32 * f, fontWeight: 600, lineHeight: 1.4 })] : []),
+        ...(C.meta ? [text({ name: "Méta", x: w * 0.12, y: h * 0.87, w: w * 0.76, h: 52 * f, text: C.meta, color: P.sub, fontSize: 27 * f, fontWeight: 700, letterSpacing: 5 * f })] : []),
+      ],
+    };
+  },
+
+  /* Ondes : trois disques débordants font une houle basse. */
+  vagues: ({ w, h, P, C, f }) => {
+    const d = w * 1.5;
+    return {
+      bg: P.bg, bgg: P.bg2 ? { type: "linear", angle: 180, from: P.bg, to: P.bg2 } : null,
+      layers: [
+        shape({ name: "Onde 3", shape: "ellipse", x: -w * 0.25, y: h * 0.62, w: d, h: d * 0.5, fill: P.acc2, opacity: 0.4 }),
+        shape({ name: "Onde 2", shape: "ellipse", x: -w * 0.25, y: h * 0.7, w: d, h: d * 0.5, fill: P.acc, opacity: 0.6 }),
+        shape({ name: "Onde 1", shape: "ellipse", x: -w * 0.25, y: h * 0.78, w: d, h: d * 0.5, fill: P.acc }),
+        ...(C.sur ? [text({ name: "Sur", x: w * 0.1, y: h * 0.16, w: w * 0.8, h: 58 * f, text: C.sur, color: lis(P.acc, P.bg, P.ink), fontSize: 29 * f, fontWeight: 800, letterSpacing: 10 * f, uppercase: true })] : []),
+        text({ name: "Titre", x: w * 0.08, y: h * 0.24, w: w * 0.84, h: h * 0.22, text: C.titre ?? "", color: P.ink, fontSize: 78 * f, fontWeight: 900, lineHeight: 1.14 }),
+        ...(C.sous ? [text({ name: "Sous", x: w * 0.14, y: h * 0.5, w: w * 0.72, h: h * 0.12, text: C.sous, color: P.sub, fontSize: 31 * f, fontWeight: 500, lineHeight: 1.45 })] : []),
+        ...(C.meta ? [text({ name: "Méta", x: w * 0.1, y: h * 0.88, w: w * 0.8, h: 54 * f, text: C.meta, color: sur(P.acc), fontSize: 28 * f, fontWeight: 700, letterSpacing: 4 * f })] : []),
+      ],
+    };
+  },
+
+  /* Massifs : des triangles superposés font un horizon. */
+  montagne: ({ w, h, P, C, f }) => ({
+    bg: P.bg, bgg: P.bg2 ? { type: "linear", angle: 180, from: P.bg, to: P.bg2 } : null,
+    layers: [
+      shape({ name: "Soleil", shape: "ellipse", x: w * 0.62, y: h * 0.16, w: w * 0.2, h: w * 0.2, fill: P.acc2, opacity: 0.7 }),
+      shape({ name: "Crête 3", shape: "triangle", x: -w * 0.1, y: h * 0.42, w: w * 0.8, h: h * 0.48, fill: P.acc2, opacity: 0.5 }),
+      shape({ name: "Crête 2", shape: "triangle", x: w * 0.3, y: h * 0.5, w: w * 0.8, h: h * 0.4, fill: P.acc, opacity: 0.7 }),
+      shape({ name: "Crête 1", shape: "triangle", x: w * 0.05, y: h * 0.58, w: w * 0.7, h: h * 0.32, fill: P.acc }),
+      shape({ name: "Sol", x: 0, y: h * 0.89, w, h: h * 0.11, fill: P.acc }),
+      ...(C.sur ? [text({ name: "Sur", x: w * 0.08, y: h * 0.1, w: w * 0.84, h: 56 * f, text: C.sur, color: lis(P.acc, P.bg, P.ink), fontSize: 28 * f, fontWeight: 800, letterSpacing: 10 * f, uppercase: true })] : []),
+      text({ name: "Titre", x: w * 0.07, y: h * 0.17, w: w * 0.86, h: h * 0.2, text: C.titre ?? "", color: P.ink, fontFamily: font(5), fontSize: 82 * f, fontWeight: 900, lineHeight: 1.12 }),
+      ...(C.sous ? [text({ name: "Sous", x: w * 0.14, y: h * 0.37, w: w * 0.72, h: h * 0.08, text: C.sous, color: P.sub, fontSize: 29 * f, fontWeight: 500 })] : []),
+      ...(C.meta ? [text({ name: "Méta", x: w * 0.1, y: h * 0.91, w: w * 0.8, h: 52 * f, text: C.meta, color: sur(P.acc), fontSize: 27 * f, fontWeight: 700, letterSpacing: 5 * f })] : []),
+    ],
+  }),
+
+  /* Rayons de soleil : des lames qui partent d'un même point. */
+  soleil: ({ w, h, P, C, f }) => {
+    const n = 12, L = Math.max(w, h) * 1.2;
+    return {
+      bg: P.bg, bgg: null,
+      layers: [
+        ...Array.from({ length: n }, (_, i) => shape({
+          name: `Rayon ${i + 1}`, x: w * 0.5 - L * 0.03, y: h * 0.5 - L / 2, w: L * 0.06, h: L,
+          fill: i % 2 ? P.acc : P.acc2, opacity: 0.16, rotation: (180 / n) * i,
+        })),
+        shape({ name: "Cœur", shape: "ellipse", x: w * 0.5 - Math.min(w, h) * 0.34, y: h * 0.5 - Math.min(w, h) * 0.34, w: Math.min(w, h) * 0.68, h: Math.min(w, h) * 0.68, fill: P.acc2, gradient: { type: "radial", angle: 0, from: P.acc2, to: P.acc } }),
+        ...(C.sur ? [text({ name: "Sur", x: w * 0.2, y: h * 0.36, w: w * 0.6, h: 56 * f, text: C.sur, color: sur(P.acc2), fontSize: 27 * f, fontWeight: 800, letterSpacing: 9 * f, uppercase: true, opacity: 0.9 })] : []),
+        text({ name: "Titre", x: w * 0.18, y: h * 0.43, w: w * 0.64, h: h * 0.16, text: C.titre ?? "", color: sur(P.acc2), fontFamily: font(13), fontSize: 72 * f, fontWeight: 900, lineHeight: 1.1 }),
+        ...(C.sous ? [text({ name: "Sous", x: w * 0.22, y: h * 0.59, w: w * 0.56, h: h * 0.08, text: C.sous, color: sur(P.acc2), fontSize: 26 * f, fontWeight: 500, opacity: 0.92 })] : []),
+        ...(C.meta ? [text({ name: "Méta", x: w * 0.1, y: h * 0.88, w: w * 0.8, h: 54 * f, text: C.meta, color: P.ink, fontSize: 28 * f, fontWeight: 700, letterSpacing: 5 * f })] : []),
+      ],
+    };
+  },
+
+  /* Damier : un motif d'échiquier en fond de page. */
+  damier: ({ w, h, P, C, f }) => {
+    const cols = 6, cell = w / cols, rows = Math.ceil(h / cell);
+    const cases: number[] = [];
+    for (let r = 0; r < rows; r++) for (let c = 0; c < cols; c++) if ((r + c) % 2 === 0) cases.push(r * cols + c);
+    return {
+      bg: P.bg, bgg: null,
+      layers: [
+        ...cases.map((k) => shape({
+          name: `Case ${k + 1}`, x: (k % cols) * cell, y: ((k / cols) | 0) * cell, w: cell, h: cell,
+          fill: P.acc, opacity: 0.13,
+        })),
+        shape({ name: "Cartouche", x: w * 0.08, y: h * 0.3, w: w * 0.84, h: h * 0.4, fill: P.acc, gradient: { type: "linear", angle: 150, from: P.acc, to: P.acc2 }, radius: 20 * f, shadow: ombre(44 * f, 0.32, 18 * f) }),
+        ...(C.sur ? [text({ name: "Sur", x: w * 0.12, y: h * 0.35, w: w * 0.76, h: 56 * f, text: C.sur, color: sur(P.acc), fontSize: 27 * f, fontWeight: 800, letterSpacing: 9 * f, uppercase: true, opacity: 0.9 })] : []),
+        text({ name: "Titre", x: w * 0.12, y: h * 0.42, w: w * 0.76, h: h * 0.16, text: C.titre ?? "", color: sur(P.acc), fontFamily: font(14), fontSize: 74 * f, fontWeight: 900, lineHeight: 1.1, uppercase: true }),
+        ...(C.sous ? [text({ name: "Sous", x: w * 0.14, y: h * 0.59, w: w * 0.72, h: h * 0.08, text: C.sous, color: sur(P.acc), fontSize: 27 * f, fontWeight: 500, opacity: 0.92 })] : []),
+        ...(C.meta ? [text({ name: "Méta", x: w * 0.1, y: h * 0.78, w: w * 0.8, h: 54 * f, text: C.meta, color: P.ink, fontSize: 28 * f, fontWeight: 700, letterSpacing: 5 * f })] : []),
+      ],
+    };
+  },
+
+  /* ═══ Objets ═══ */
+
+  /* Étiquette de prix : le carton, l'œillet, la ficelle sous-entendue. */
+  etiquette: ({ w, h, P, C, f }) => {
+    const tw = Math.min(w * 0.66, h * 0.5), th = tw * 1.35, x0 = (w - tw) / 2, y0 = h * 0.16;
+    return {
+      bg: P.bg, bgg: P.bg2 ? { type: "linear", angle: 155, from: P.bg, to: P.bg2 } : null,
+      layers: [
+        shape({ name: "Carton", x: x0, y: y0, w: tw, h: th, fill: P.acc, gradient: { type: "linear", angle: 150, from: P.acc, to: P.acc2 }, radius: 24 * f, shadow: ombre(40 * f, 0.32, 16 * f) }),
+        shape({ name: "Œillet", shape: "ellipse", x: x0 + tw / 2 - 22 * f, y: y0 + 30 * f, w: 44 * f, h: 44 * f, fill: P.bg }),
+        ...(C.sur ? [text({ name: "Sur", x: x0, y: y0 + th * 0.22, w: tw, h: 54 * f, text: C.sur, color: sur(P.acc), fontSize: 26 * f, fontWeight: 800, letterSpacing: 8 * f, uppercase: true, opacity: 0.9 })] : []),
+        text({ name: "Prix", x: x0, y: y0 + th * 0.34, w: tw, h: th * 0.26, text: C.gros ?? "", color: sur(P.acc), fontFamily: font(13), fontSize: 116 * f, fontWeight: 900 }),
+        text({ name: "Article", x: x0 + tw * 0.08, y: y0 + th * 0.66, w: tw * 0.84, h: th * 0.22, text: C.titre ?? "", color: sur(P.acc), fontSize: 34 * f, fontWeight: 700, lineHeight: 1.25 }),
+        ...(C.sous ? [text({ name: "Sous", x: w * 0.1, y: y0 + th + h * 0.04, w: w * 0.8, h: h * 0.1, text: C.sous, color: P.ink, fontSize: 30 * f, fontWeight: 600, lineHeight: 1.4 })] : []),
+        ...(C.meta ? [text({ name: "Méta", x: w * 0.1, y: h * 0.92, w: w * 0.8, h: 50 * f, text: C.meta, color: P.sub, fontSize: 26 * f, fontWeight: 700, letterSpacing: 5 * f })] : []),
+      ],
+    };
+  },
+
+  /* Sceau : un cachet dentelé, doublé d'un anneau. */
+  sceau: ({ w, h, P, C, f }) => {
+    const d = Math.min(w, h) * 0.58, x0 = (w - d) / 2, y0 = h * 0.2;
+    return {
+      bg: P.bg, bgg: P.bg2 ? { type: "radial", angle: 0, from: P.bg2, to: P.bg } : null,
+      layers: [
+        shape({ name: "Cachet", shape: "seal", x: x0, y: y0, w: d, h: d, fill: P.acc, gradient: { type: "linear", angle: 140, from: P.acc, to: P.acc2 }, shadow: ombre(38 * f, 0.3, 14 * f) }),
+        shape({ name: "Anneau", shape: "ring", x: x0 + d * 0.11, y: y0 + d * 0.11, w: d * 0.78, h: d * 0.78, fill: sur(P.acc), opacity: 0.55 }),
+        text({ name: "Mention", x: x0, y: y0 + d * 0.28, w: d, h: 54 * f, text: C.sur ?? "", color: sur(P.acc), fontSize: 24 * f, fontWeight: 800, letterSpacing: 6 * f, uppercase: true }),
+        text({ name: "Sigle", x: x0, y: y0 + d * 0.4, w: d, h: d * 0.26, text: C.gros ?? "", color: sur(P.acc), fontFamily: font(13), fontSize: d * 0.22, fontWeight: 900 }),
+        text({ name: "Année", x: x0, y: y0 + d * 0.66, w: d, h: 50 * f, text: C.meta ?? "", color: sur(P.acc), fontSize: 24 * f, fontWeight: 700, letterSpacing: 5 * f }),
+        text({ name: "Titre", x: w * 0.08, y: y0 + d + h * 0.05, w: w * 0.84, h: h * 0.1, text: C.titre ?? "", color: P.ink, fontSize: 50 * f, fontWeight: 800, lineHeight: 1.15 }),
+        ...(C.sous ? [text({ name: "Sous", x: w * 0.14, y: h * 0.9, w: w * 0.72, h: 54 * f, text: C.sous, color: P.sub, fontSize: 27 * f, fontWeight: 500 })] : []),
+      ],
+    };
+  },
+
+  /* Écusson : un blason plein, un sigle, une devise. */
+  ecusson: ({ w, h, P, C, f }) => {
+    const bw = Math.min(w * 0.5, h * 0.42), bh = bw * 1.18, x0 = (w - bw) / 2, y0 = h * 0.18;
+    return {
+      bg: P.bg, bgg: null,
+      layers: [
+        shape({ name: "Blason", shape: "shield", x: x0, y: y0, w: bw, h: bh, fill: P.acc, gradient: { type: "linear", angle: 160, from: P.acc, to: P.acc2 }, shadow: ombre(36 * f, 0.3, 14 * f) }),
+        text({ name: "Sigle", x: x0, y: y0 + bh * 0.24, w: bw, h: bh * 0.34, text: C.gros ?? "", color: sur(P.acc), fontFamily: font(13), fontSize: bw * 0.34, fontWeight: 900 }),
+        ...(C.meta ? [text({ name: "Année", x: x0, y: y0 + bh * 0.62, w: bw, h: 50 * f, text: C.meta, color: sur(P.acc), fontSize: 24 * f, fontWeight: 700, letterSpacing: 5 * f })] : []),
+        text({ name: "Nom", x: w * 0.06, y: y0 + bh + h * 0.05, w: w * 0.88, h: h * 0.09, text: C.titre ?? "", color: P.ink, fontFamily: font(10), fontSize: 56 * f, fontWeight: 800, letterSpacing: 6 * f, uppercase: true }),
+        line({ x: (w - w * 0.24) / 2, y: y0 + bh + h * 0.16, w: w * 0.24, stroke: P.acc, strokeWidth: 4 * f }),
+        ...(C.sous ? [text({ name: "Devise", x: w * 0.12, y: y0 + bh + h * 0.19, w: w * 0.76, h: 56 * f, text: C.sous, color: P.sub, fontSize: 27 * f, fontWeight: 600, letterSpacing: 4 * f, italic: true })] : []),
+      ],
+    };
+  },
+
+  /* Monogramme : deux lettres, un filet, rien d'autre. */
+  monogramme: ({ w, h, P, C, f }) => {
+    const d = Math.min(w, h) * 0.56;
+    return {
+      bg: P.bg, bgg: P.bg2 ? { type: "linear", angle: 150, from: P.bg, to: P.bg2 } : null,
+      layers: [
+        shape({ name: "Filet", x: (w - d) / 2, y: h * 0.5 - d * 0.55, w: d, h: d * 1.1, fill: "transparent", stroke: P.acc, strokeWidth: 3 * f }),
+        text({ name: "Lettres", x: (w - d) / 2, y: h * 0.5 - d * 0.28, w: d, h: d * 0.6, text: C.gros ?? "AB", color: P.ink, fontFamily: font(10), fontSize: d * 0.5, fontWeight: 700, letterSpacing: 6 * f }),
+        line({ x: (w - d * 0.4) / 2, y: h * 0.5 + d * 0.16, w: d * 0.4, stroke: P.acc, strokeWidth: 2 * f }),
+        text({ name: "Nom", x: w * 0.08, y: h * 0.5 + d * 0.62, w: w * 0.84, h: h * 0.07, text: C.titre ?? "", color: P.ink, fontSize: 40 * f, fontWeight: 600, letterSpacing: 12 * f, uppercase: true }),
+        ...(C.sous ? [text({ name: "Baseline", x: w * 0.14, y: h * 0.5 + d * 0.76, w: w * 0.72, h: 50 * f, text: C.sous, color: P.sub, fontSize: 24 * f, fontWeight: 500, letterSpacing: 6 * f })] : []),
+      ],
+    };
+  },
+
+  /* Fiche recette : ce qu'il faut à gauche, ce qu'on fait à droite. */
+  recette: ({ w, h, P, C, f }) => {
+    const it = C.items ?? [];
+    const coupe = Math.ceil(it.length / 2);
+    const ing = it.slice(0, coupe), etp = it.slice(coupe);
+    return {
+      bg: P.bg, bgg: null,
+      layers: [
+        shape({ name: "Bandeau", x: 0, y: 0, w, h: h * 0.2, fill: P.acc, gradient: { type: "linear", angle: 140, from: P.acc, to: P.acc2 } }),
+        text({ name: "Titre", x: w * 0.06, y: h * 0.05, w: w * 0.88, h: h * 0.1, text: C.titre ?? "", color: sur(P.acc), fontFamily: font(10), fontSize: 62 * f, fontWeight: 800, lineHeight: 1.1 }),
+        ...(C.meta ? [text({ name: "Repères", x: w * 0.06, y: h * 0.15, w: w * 0.88, h: 52 * f, text: C.meta, color: sur(P.acc), fontSize: 25 * f, fontWeight: 600, letterSpacing: 3 * f, opacity: 0.92 })] : []),
+        text({ name: "Titre ingrédients", x: w * 0.07, y: h * 0.26, w: w * 0.38, h: 56 * f, text: C.sur ?? "INGRÉDIENTS", color: lis(P.acc, P.bg, P.ink), fontSize: 26 * f, fontWeight: 800, align: "left", letterSpacing: 5 * f, uppercase: true }),
+        text({ name: "Titre étapes", x: w * 0.53, y: h * 0.26, w: w * 0.4, h: 56 * f, text: C.cta ?? "PRÉPARATION", color: lis(P.acc, P.bg, P.ink), fontSize: 26 * f, fontWeight: 800, align: "left", letterSpacing: 5 * f, uppercase: true }),
+        ...ing.map((s, i) => text({ name: `Ingrédient ${i + 1}`, x: w * 0.07, y: h * 0.33 + i * h * 0.075, w: w * 0.38, h: h * 0.07, text: `•  ${s}`, color: P.ink, fontSize: 26 * f, fontWeight: 500, align: "left", lineHeight: 1.35 })),
+        ...etp.map((s, i) => text({ name: `Étape ${i + 1}`, x: w * 0.53, y: h * 0.33 + i * h * 0.11, w: w * 0.4, h: h * 0.1, text: `${i + 1}.  ${s}`, color: P.ink, fontSize: 26 * f, fontWeight: 500, align: "left", lineHeight: 1.4 })),
+        ...(C.sous ? [text({ name: "Astuce", x: w * 0.07, y: h * 0.9, w: w * 0.86, h: 54 * f, text: C.sous, color: P.sub, fontSize: 25 * f, fontWeight: 500, align: "left", italic: true })] : []),
+      ],
+    };
+  },
+
+  /* Questions fréquentes : la question en gras, la réponse dessous. */
+  faq: ({ w, h, P, C, f }) => {
+    const it = (C.items ?? []).slice(0, 4);
+    const y0 = h * 0.28, dy = (h * 0.58) / Math.max(1, it.length);
+    return {
+      bg: P.bg, bgg: null,
+      layers: [
+        ...(C.sur ? [text({ name: "Sur", x: w * 0.07, y: h * 0.1, w: w * 0.86, h: 56 * f, text: C.sur, color: lis(P.acc, P.bg, P.ink), fontSize: 27 * f, fontWeight: 800, align: "left", letterSpacing: 9 * f, uppercase: true })] : []),
+        text({ name: "Titre", x: w * 0.07, y: h * 0.16, w: w * 0.86, h: h * 0.1, text: C.titre ?? "", color: P.ink, fontSize: 62 * f, fontWeight: 900, align: "left", lineHeight: 1.1 }),
+        ...it.flatMap((s, i) => {
+          const [q, r] = s.split("|");
+          const y = y0 + i * dy;
+          return [
+            shape({ name: `Marque ${i + 1}`, x: w * 0.07, y: y + 6 * f, w: 6 * f, h: dy * 0.7, fill: P.acc }),
+            text({ name: `Question ${i + 1}`, x: w * 0.11, y, w: w * 0.82, h: dy * 0.32, text: q ?? "", color: P.ink, fontSize: 34 * f, fontWeight: 800, align: "left", lineHeight: 1.25 }),
+            text({ name: `Réponse ${i + 1}`, x: w * 0.11, y: y + dy * 0.34, w: w * 0.82, h: dy * 0.5, text: r ?? "", color: P.sub, fontSize: 27 * f, fontWeight: 500, align: "left", lineHeight: 1.4 }),
+          ];
+        }),
+        ...(C.meta ? [text({ name: "Pied", x: w * 0.07, y: h * 0.91, w: w * 0.86, h: 50 * f, text: C.meta, color: P.ink, fontSize: 26 * f, fontWeight: 700, align: "left" })] : []),
+      ],
+    };
+  },
+
+  /* Trois arguments alignés, chacun sur sa pastille. */
+  avantages: ({ w, h, P, C, f }) => {
+    const it = (C.items ?? []).slice(0, 3);
+    const y0 = h * 0.34, dy = (h * 0.48) / Math.max(1, it.length), d = Math.min(w * 0.16, dy * 0.7);
+    const formes: ShapeKind[] = ["check", "bolt", "heart"];
+    return {
+      bg: P.bg, bgg: P.bg2 ? { type: "linear", angle: 160, from: P.bg, to: P.bg2 } : null,
+      layers: [
+        text({ name: "Titre", x: w * 0.07, y: h * 0.13, w: w * 0.86, h: h * 0.12, text: C.titre ?? "", color: P.ink, fontSize: 64 * f, fontWeight: 900, align: "left", lineHeight: 1.1 }),
+        ...(C.sous ? [text({ name: "Sous", x: w * 0.07, y: h * 0.25, w: w * 0.86, h: 56 * f, text: C.sous, color: P.sub, fontSize: 29 * f, fontWeight: 500, align: "left" })] : []),
+        ...it.flatMap((s, i) => {
+          const [t, d2] = s.split("|");
+          const y = y0 + i * dy;
+          return [
+            shape({ name: `Rond ${i + 1}`, shape: "ellipse", x: w * 0.07, y, w: d, h: d, fill: P.acc, opacity: 0.16 }),
+            shape({ name: `Icône ${i + 1}`, shape: formes[i % formes.length], x: w * 0.07 + d * 0.26, y: y + d * 0.26, w: d * 0.48, h: d * 0.48, fill: P.acc }),
+            text({ name: `Titre ${i + 1}`, x: w * 0.07 + d + 30 * f, y: y + d * 0.06, w: w * 0.86 - d - 30 * f, h: dy * 0.3, text: t ?? "", color: P.ink, fontSize: 36 * f, fontWeight: 800, align: "left" }),
+            text({ name: `Détail ${i + 1}`, x: w * 0.07 + d + 30 * f, y: y + d * 0.4, w: w * 0.86 - d - 30 * f, h: dy * 0.5, text: d2 ?? "", color: P.sub, fontSize: 27 * f, fontWeight: 500, align: "left", lineHeight: 1.4 }),
+          ];
+        }),
+        ...(C.meta ? [text({ name: "Pied", x: w * 0.07, y: h * 0.88, w: w * 0.86, h: 52 * f, text: C.meta, color: lis(P.acc, P.bg, P.ink), fontSize: 27 * f, fontWeight: 700, align: "left" })] : []),
+      ],
+    };
+  },
+
+  /* Couverture de magazine : titre de tête, accroches en marge. */
+  magazine: ({ w, h, P, C, f }) => {
+    const it = (C.items ?? []).slice(0, 3);
+    return {
+      bg: P.bg, bgg: P.bg2 ? { type: "linear", angle: 170, from: P.bg2, to: P.bg } : null,
+      layers: [
+        shape({ name: "Aplat", shape: "ellipse", x: w * 0.18, y: h * 0.24, w: w * 0.7, h: w * 0.7, fill: P.acc, opacity: 0.28 }),
+        text({ name: "Titre de tête", x: w * 0.05, y: h * 0.05, w: w * 0.9, h: h * 0.11, text: C.sur ?? "", color: P.ink, fontFamily: font(10), fontSize: 118 * f, fontWeight: 900, letterSpacing: 6 * f, uppercase: true }),
+        line({ x: w * 0.05, y: h * 0.17, w: w * 0.9, stroke: P.acc, strokeWidth: 4 * f }),
+        ...(C.meta ? [text({ name: "Numéro", x: w * 0.05, y: h * 0.185, w: w * 0.9, h: 48 * f, text: C.meta, color: P.sub, fontSize: 24 * f, fontWeight: 600, letterSpacing: 8 * f, uppercase: true })] : []),
+        text({ name: "Une", x: w * 0.06, y: h * 0.6, w: w * 0.76, h: h * 0.2, text: C.titre ?? "", color: P.ink, fontFamily: font(10), fontSize: 84 * f, fontWeight: 800, align: "left", lineHeight: 1.12 }),
+        ...(C.sous ? [text({ name: "Chapeau", x: w * 0.06, y: h * 0.81, w: w * 0.6, h: h * 0.08, text: C.sous, color: P.sub, fontSize: 28 * f, fontWeight: 500, align: "left", lineHeight: 1.4 })] : []),
+        ...it.map((s, i) => text({ name: `Accroche ${i + 1}`, x: w * 0.55, y: h * 0.26 + i * h * 0.08, w: w * 0.39, h: h * 0.07, text: s, color: P.ink, fontSize: 26 * f, fontWeight: 700, align: "right", lineHeight: 1.3 })),
+      ],
+    };
+  },
+
+  /* Journal : manchette, filets, colonnes de texte. */
+  journal: ({ w, h, P, C, f }) => {
+    const it = (C.items ?? []).slice(0, 3);
+    const cw = (w * 0.88 - 2 * w * 0.03) / 3;
+    return {
+      bg: P.bg, bgg: null,
+      layers: [
+        text({ name: "Manchette", x: w * 0.06, y: h * 0.04, w: w * 0.88, h: h * 0.07, text: C.sur ?? "", color: P.ink, fontFamily: font(10), fontSize: 88 * f, fontWeight: 900, letterSpacing: 4 * f, uppercase: true }),
+        line({ x: w * 0.06, y: h * 0.115, w: w * 0.88, stroke: P.ink, strokeWidth: 4 * f }),
+        line({ x: w * 0.06, y: h * 0.125, w: w * 0.88, stroke: P.ink, strokeWidth: 1.5 * f }),
+        ...(C.meta ? [text({ name: "Ourse", x: w * 0.06, y: h * 0.135, w: w * 0.88, h: 44 * f, text: C.meta, color: P.sub, fontSize: 20 * f, fontWeight: 600, letterSpacing: 5 * f, uppercase: true })] : []),
+        text({ name: "Titre", x: w * 0.06, y: h * 0.19, w: w * 0.88, h: h * 0.14, text: C.titre ?? "", color: P.ink, fontFamily: font(10), fontSize: 72 * f, fontWeight: 800, lineHeight: 1.12 }),
+        ...(C.sous ? [text({ name: "Chapeau", x: w * 0.12, y: h * 0.34, w: w * 0.76, h: h * 0.08, text: C.sous, color: P.sub, fontSize: 27 * f, fontWeight: 600, italic: true, lineHeight: 1.4 })] : []),
+        line({ x: w * 0.06, y: h * 0.44, w: w * 0.88, stroke: P.sub, strokeWidth: 1.5 * f, opacity: 0.5 }),
+        ...it.map((s, i) => text({
+          name: `Colonne ${i + 1}`, x: w * 0.06 + i * (cw + w * 0.03), y: h * 0.47, w: cw, h: h * 0.44,
+          text: s, color: P.ink, fontFamily: font(6), fontSize: 21 * f, fontWeight: 400, align: "left", lineHeight: 1.55,
+        })),
+        ...(C.cta ? [text({ name: "Pied", x: w * 0.06, y: h * 0.94, w: w * 0.88, h: 44 * f, text: C.cta, color: lis(P.acc, P.bg, P.ink), fontSize: 22 * f, fontWeight: 700, letterSpacing: 4 * f })] : []),
+      ],
+    };
+  },
+
+  /* Bon de réduction : la valeur d'un côté, les conditions de l'autre. */
+  coupon: ({ w, h, P, C, f }) => {
+    const y0 = h * 0.18, ch = h * 0.62, x0 = w * 0.06, cw = w * 0.88, coupe = x0 + cw * 0.42;
+    return {
+      bg: P.bg, bgg: null,
+      layers: [
+        shape({ name: "Bon", x: x0, y: y0, w: cw, h: ch, fill: P.bg, radius: 20 * f, stroke: P.acc, strokeWidth: 3 * f, shadow: ombre(36 * f, 0.2, 14 * f) }),
+        shape({ name: "Volet", x: x0, y: y0, w: cw * 0.42, h: ch, fill: P.acc, gradient: { type: "linear", angle: 160, from: P.acc, to: P.acc2 }, radius: 20 * f }),
+        line({ x: coupe - ch * 0.5, y: y0 + ch / 2, w: ch, h: 0, stroke: P.acc, strokeWidth: 3 * f, dash: "dashed", rotation: 90 }),
+        text({ name: "Valeur", x: x0, y: y0 + ch * 0.3, w: cw * 0.42, h: ch * 0.28, text: C.gros ?? "", color: sur(P.acc), fontFamily: font(13), fontSize: 96 * f, fontWeight: 900 }),
+        ...(C.sur ? [text({ name: "Mention", x: x0, y: y0 + ch * 0.6, w: cw * 0.42, h: 52 * f, text: C.sur, color: sur(P.acc), fontSize: 24 * f, fontWeight: 700, letterSpacing: 5 * f, uppercase: true, opacity: 0.92 })] : []),
+        text({ name: "Titre", x: coupe + cw * 0.04, y: y0 + ch * 0.16, w: cw * 0.5, h: ch * 0.22, text: C.titre ?? "", color: P.ink, fontSize: 40 * f, fontWeight: 800, align: "left", lineHeight: 1.2 }),
+        ...(C.sous ? [text({ name: "Conditions", x: coupe + cw * 0.04, y: y0 + ch * 0.42, w: cw * 0.5, h: ch * 0.3, text: C.sous, color: P.sub, fontSize: 24 * f, fontWeight: 500, align: "left", lineHeight: 1.45 })] : []),
+        ...(C.meta ? [text({ name: "Code", x: coupe + cw * 0.04, y: y0 + ch * 0.76, w: cw * 0.5, h: 54 * f, text: C.meta, color: lis(P.acc, P.bg, P.ink), fontFamily: font(11), fontSize: 30 * f, fontWeight: 800, align: "left", letterSpacing: 4 * f })] : []),
+        ...(C.cta ? [text({ name: "Pied", x: w * 0.06, y: h * 0.86, w: w * 0.88, h: 50 * f, text: C.cta, color: P.sub, fontSize: 24 * f, fontWeight: 500 })] : []),
+      ],
+    };
+  },
+
+  /* Carte cadeau : un montant, un mot, un code au dos. */
+  cartecadeau: ({ w, h, P, C, f }) => {
+    const cw = w * 0.84, ch = Math.min(h * 0.56, cw * 0.62), x0 = (w - cw) / 2, y0 = (h - ch) / 2;
+    const t = sur(P.acc);
+    return {
+      bg: P.bg, bgg: P.bg2 ? { type: "linear", angle: 150, from: P.bg, to: P.bg2 } : null,
+      layers: [
+        shape({ name: "Carte", x: x0, y: y0, w: cw, h: ch, fill: P.acc, gradient: { type: "linear", angle: 145, from: P.acc, to: P.acc2 }, radius: 32 * f, shadow: ombre(48 * f, 0.35, 20 * f) }),
+        shape({ name: "Ruban", x: x0 + cw * 0.5 - 12 * f, y: y0, w: 24 * f, h: ch, fill: t, opacity: 0.18 }),
+        ...(C.sur ? [text({ name: "Sur", x: x0 + cw * 0.06, y: y0 + ch * 0.12, w: cw * 0.88, h: 54 * f, text: C.sur, color: t, fontSize: 26 * f, fontWeight: 800, align: "left", letterSpacing: 8 * f, uppercase: true, opacity: 0.9 })] : []),
+        text({ name: "Montant", x: x0 + cw * 0.06, y: y0 + ch * 0.32, w: cw * 0.88, h: ch * 0.3, text: C.gros ?? "", color: t, fontFamily: font(13), fontSize: 108 * f, fontWeight: 900, align: "left" }),
+        text({ name: "Titre", x: x0 + cw * 0.06, y: y0 + ch * 0.68, w: cw * 0.88, h: ch * 0.2, text: C.titre ?? "", color: t, fontSize: 32 * f, fontWeight: 700, align: "left", lineHeight: 1.25 }),
+        ...(C.meta ? [text({ name: "Code", x: w * 0.08, y: y0 + ch + h * 0.04, w: w * 0.84, h: 56 * f, text: C.meta, color: P.ink, fontFamily: font(11), fontSize: 30 * f, fontWeight: 800, letterSpacing: 6 * f })] : []),
+        ...(C.sous ? [text({ name: "Validité", x: w * 0.12, y: h * 0.9, w: w * 0.76, h: 50 * f, text: C.sous, color: P.sub, fontSize: 25 * f, fontWeight: 500 })] : []),
+      ],
+    };
+  },
+
+  /* Liste à cocher : des cases vides, et la satisfaction à venir. */
+  checklist: ({ w, h, P, C, f }) => {
+    const it = (C.items ?? []).slice(0, 7);
+    const y0 = h * 0.28, dy = (h * 0.58) / Math.max(1, it.length), d = Math.min(52 * f, dy * 0.55);
+    return {
+      bg: P.bg, bgg: null,
+      layers: [
+        ...(C.sur ? [text({ name: "Sur", x: w * 0.08, y: h * 0.11, w: w * 0.84, h: 56 * f, text: C.sur, color: lis(P.acc, P.bg, P.ink), fontSize: 27 * f, fontWeight: 800, align: "left", letterSpacing: 9 * f, uppercase: true })] : []),
+        text({ name: "Titre", x: w * 0.08, y: h * 0.17, w: w * 0.84, h: h * 0.11, text: C.titre ?? "", color: P.ink, fontSize: 62 * f, fontWeight: 900, align: "left", lineHeight: 1.1 }),
+        ...it.flatMap((s, i) => {
+          const y = y0 + i * dy;
+          return [
+            shape({ name: `Case ${i + 1}`, x: w * 0.08, y, w: d, h: d, fill: "transparent", stroke: P.acc, strokeWidth: 3 * f, radius: 8 * f }),
+            ...(i === 0 ? [shape({ name: "Coche", shape: "check", x: w * 0.08 + d * 0.16, y: y + d * 0.18, w: d * 0.68, h: d * 0.68, fill: P.acc })] : []),
+            text({ name: `Tâche ${i + 1}`, x: w * 0.08 + d + 26 * f, y: y + d * 0.08, w: w * 0.84 - d - 26 * f, h: dy * 0.7, text: s, color: P.ink, fontSize: 30 * f, fontWeight: 600, align: "left", lineHeight: 1.3 }),
+          ];
+        }),
+        ...(C.meta ? [text({ name: "Pied", x: w * 0.08, y: h * 0.91, w: w * 0.84, h: 50 * f, text: C.meta, color: P.sub, fontSize: 25 * f, fontWeight: 500, align: "left" })] : []),
+      ],
+    };
+  },
+
+  /* Tableau d'affichage : deux camps, un score, une date. */
+  score: ({ w, h, P, C, f }) => {
+    const [a, b] = (C.items ?? ["", ""]);
+    const [sa, sb] = (C.gros ?? "0-0").split("-");
+    return {
+      bg: P.bg, bgg: P.bg2 ? { type: "linear", angle: 160, from: P.bg, to: P.bg2 } : null,
+      layers: [
+        ...(C.sur ? [text({ name: "Sur", x: w * 0.08, y: h * 0.12, w: w * 0.84, h: 58 * f, text: C.sur, color: lis(P.acc, P.bg, P.ink), fontSize: 29 * f, fontWeight: 800, letterSpacing: 10 * f, uppercase: true })] : []),
+        text({ name: "Équipe A", x: w * 0.04, y: h * 0.32, w: w * 0.36, h: h * 0.1, text: a ?? "", color: P.ink, fontSize: 44 * f, fontWeight: 800, lineHeight: 1.15 }),
+        text({ name: "Équipe B", x: w * 0.6, y: h * 0.32, w: w * 0.36, h: h * 0.1, text: b ?? "", color: P.ink, fontSize: 44 * f, fontWeight: 800, lineHeight: 1.15 }),
+        shape({ name: "Pavé score", x: w * 0.16, y: h * 0.45, w: w * 0.68, h: h * 0.2, fill: P.acc, gradient: { type: "linear", angle: 140, from: P.acc, to: P.acc2 }, radius: 24 * f, shadow: ombre(34 * f, 0.3, 14 * f) }),
+        text({ name: "Score", x: w * 0.16, y: h * 0.47, w: w * 0.68, h: h * 0.16, text: `${sa ?? "0"} – ${sb ?? "0"}`, color: sur(P.acc), fontFamily: font(13), fontSize: 112 * f, fontWeight: 900 }),
+        ...(C.titre ? [text({ name: "Titre", x: w * 0.08, y: h * 0.7, w: w * 0.84, h: h * 0.1, text: C.titre, color: P.ink, fontSize: 46 * f, fontWeight: 800, lineHeight: 1.15 })] : []),
+        ...(C.meta ? [text({ name: "Méta", x: w * 0.1, y: h * 0.85, w: w * 0.8, h: 56 * f, text: C.meta, color: P.sub, fontSize: 28 * f, fontWeight: 600, letterSpacing: 4 * f })] : []),
+      ],
+    };
+  },
+
+  /* Liste de morceaux : rang, titre, durée. */
+  playlist: ({ w, h, P, C, f }) => {
+    const it = (C.items ?? []).slice(0, 6);
+    const y0 = h * 0.34, dy = (h * 0.52) / Math.max(1, it.length);
+    /* La pochette est carrée : la borner à la hauteur évite qu'elle recouvre
+       la première piste sur les formats larges. */
+    const pd = Math.min(w * 0.2, h * 0.26);
+    return {
+      bg: P.bg, bgg: P.bg2 ? { type: "linear", angle: 175, from: P.bg, to: P.bg2 } : null,
+      layers: [
+        shape({ name: "Pochette", x: w * 0.07, y: h * 0.08, w: pd, h: pd, fill: P.acc, gradient: { type: "linear", angle: 140, from: P.acc, to: P.acc2 }, radius: 16 * f }),
+        ...(C.emoji ? [text({ name: "Emoji", x: w * 0.07, y: h * 0.08 + pd * 0.22, w: pd, h: pd * 0.6, text: C.emoji, fontSize: pd * 0.5, fontWeight: 400 })] : []),
+        text({ name: "Titre", x: w * 0.31, y: h * 0.1, w: w * 0.62, h: h * 0.1, text: C.titre ?? "", color: P.ink, fontSize: 54 * f, fontWeight: 900, align: "left", lineHeight: 1.12 }),
+        ...(C.sous ? [text({ name: "Sous", x: w * 0.31, y: h * 0.21, w: w * 0.62, h: 54 * f, text: C.sous, color: P.sub, fontSize: 27 * f, fontWeight: 500, align: "left" })] : []),
+        ...it.flatMap((s, i) => {
+          const [t, d] = s.split("|");
+          const y = y0 + i * dy;
+          return [
+            text({ name: `Rang ${i + 1}`, x: w * 0.07, y, w: w * 0.06, h: dy * 0.7, text: String(i + 1), color: lis(P.acc, P.bg, P.ink), fontSize: 28 * f, fontWeight: 800, align: "left" }),
+            text({ name: `Morceau ${i + 1}`, x: w * 0.15, y, w: w * 0.6, h: dy * 0.7, text: t ?? "", color: P.ink, fontSize: 30 * f, fontWeight: 600, align: "left" }),
+            text({ name: `Durée ${i + 1}`, x: w * 0.77, y, w: w * 0.16, h: dy * 0.7, text: d ?? "", color: P.sub, fontSize: 27 * f, fontWeight: 500, align: "right" }),
+          ];
+        }),
+        ...(C.meta ? [text({ name: "Pied", x: w * 0.07, y: h * 0.9, w: w * 0.86, h: 50 * f, text: C.meta, color: P.sub, fontSize: 25 * f, fontWeight: 600, align: "left" })] : []),
+      ],
+    };
+  },
+
 };
 
 /* ═══════════ Le catalogue ═══════════
-   [mise en page, format, palette, groupe, libellé, contenu] */
-type Row = [keyof typeof MEP, Fmt, number, string, string, Copy];
+   [mise en page, format, palette OU ambiance, groupe, libellé, contenu] */
+export type Mep = keyof typeof MEP;
+export type Row = [Mep, Fmt, number | Ambiance, string, string, Copy];
 
 const ROWS: Row[] = [
   /* ── Instagram : posts carrés ── */
@@ -1211,19 +2166,51 @@ const ROWS: Row[] = [
 
 ];
 
+/* ── Répartition des palettes ──
+   Une ligne qui nomme une ambiance laisse le choix de la palette au
+   bâtisseur : il prend, dans la famille, la première encore inutilisée pour
+   ce couple mise en page / format. Deux modèles ne peuvent donc jamais être
+   la même composition dans la même robe. Un indice explicite passe outre :
+   certaines compositions n'ont de sens que dans une couleur précise. */
+const pris = new Set<string>();
+function palette(mep: Mep, fmt: Fmt, spec: number | Ambiance, i: number): Pal {
+  if (typeof spec === "number") {
+    pris.add(`${mep}|${fmt}|${spec % PALS.length}`);
+    return PALS[spec % PALS.length];
+  }
+  const fam = AMB[spec];
+  for (let k = 0; k < fam.length; k++) {
+    const p = fam[(i + k) % fam.length];
+    const cle = `${mep}|${fmt}|${p}`;
+    if (!pris.has(cle)) { pris.add(cle); return PALS[p]; }
+  }
+  return PALS[fam[i % fam.length]];
+}
+
 /* Chaque ligne devient un modèle : la mise en page reçoit le format, la
-   palette et le contenu, puis le tout est empaqueté en document. */
-export const TEMPLATES_PLUS: Template[] = ROWS.map(([mep, fmt, ip, group, label, C], i) => {
+   palette et le contenu, puis le tout est empaqueté en document — mais
+   seulement au moment où ce document est réellement demandé. */
+function bati(row: Row, i: number): Template {
+  const [mep, fmt, spec, group, label, C] = row;
   const [w, h] = F[fmt];
-  const P = PALS[ip % PALS.length];
-  const b = MEP[mep]({ w, h, P, C, f: ech(w, h) });
+  const P = palette(mep, fmt, spec, i);
+  let cache: DesignDoc | null = null;
   return {
-    id: `tx-${i + 1}-${mep}`,
-    label,
-    group,
-    doc: { version: 1, width: w, height: h, background: b.bg, backgroundGradient: b.bgg, layers: b.layers },
+    id: `tx-${i + 1}-${mep}`, label, group, w, h,
+    get doc(): DesignDoc {
+      if (!cache) {
+        const b = MEP[mep]({ w, h, P, C, f: ech(w, h) });
+        cache = { version: 1, width: w, height: h, background: b.bg, backgroundGradient: b.bgg, layers: b.layers };
+      }
+      return cache;
+    },
   };
-});
+}
+
+export const TEMPLATES_PLUS: Template[] = [
+  ...ROWS, ...ROWS_RESEAUX, ...ROWS_COMMERCE, ...ROWS_METIERS, ...ROWS_PRO,
+  ...ROWS_PRINT, ...ROWS_VIE, ...ROWS_SAISON, ...ROWS_SOCIAL2, ...ROWS_SERVICES2, ...ROWS_BESOINS, ...ROWS_CANAUX, ...ROWS_METIERS2, ...ROWS_SOCIAL3,
+].map(bati);
 
 /** Groupes présents, dans l'ordre d'apparition. */
 export function templateGroups(list: Template[]): string[] {

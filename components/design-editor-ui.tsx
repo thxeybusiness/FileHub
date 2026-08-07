@@ -1318,7 +1318,7 @@ function TemplatesDock({ ctl }: { ctl: EditorCtl }) {
   const filtres = useMemo(() => TEMPLATES.filter((t) => {
     if (groupe !== "Tous" && t.group !== groupe) return false;
     if (!q) return true;
-    return normalizeSearch(`${t.label} ${t.group} ${t.doc.width}x${t.doc.height}`).includes(q);
+    return normalizeSearch(`${t.label} ${t.group} ${t.w}x${t.h}`).includes(q);
   }), [q, groupe]);
   useEffect(() => { setShown(TPL_PAGE); }, [q, groupe]);
 
@@ -1353,7 +1353,7 @@ function TemplatesDock({ ctl }: { ctl: EditorCtl }) {
             <button key={t.id} onClick={() => ctl.applyTemplate(templateDoc(t))} className="group flex w-full flex-col text-left">
               <DocPreview doc={t.doc} className="ring-1 ring-white/10 transition group-hover:ring-purple-400/50" />
               <p className="mt-1 text-[11px] text-muted">
-                {t.label} <span className="opacity-60">· {t.doc.width}×{t.doc.height}</span>
+                {t.label} <span className="opacity-60">· {t.w}×{t.h}</span>
               </p>
             </button>
           ))}

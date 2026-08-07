@@ -131,7 +131,9 @@ function line(p: Record<string, unknown>): Layer {
   } as Layer;
 }
 
-const TEMPLATES_BASE: Template[] = [
+/* Les modèles d'origine portent leur document en clair ; `w`/`h` en sont
+   déduits juste après, pour qu'ils aient la même forme que les autres. */
+const TEMPLATES_BASE: Omit<Template, "w" | "h">[] = [
   {
     id: "quote-min",
     label: "Citation élégante",
@@ -268,7 +270,10 @@ const TEMPLATES_BASE: Template[] = [
 ];
 
 /** Les onze modèles d'origine, puis la bibliothèque bâtie par composition. */
-export const TEMPLATES: Template[] = [...TEMPLATES_BASE, ...TEMPLATES_PLUS];
+export const TEMPLATES: Template[] = [
+  ...TEMPLATES_BASE.map((t) => ({ ...t, w: t.doc.width, h: t.doc.height })),
+  ...TEMPLATES_PLUS,
+];
 
 /** Instancie un modèle : clone profond + nouveaux ids de calques. */
 export function templateDoc(t: Template): DesignDoc {
